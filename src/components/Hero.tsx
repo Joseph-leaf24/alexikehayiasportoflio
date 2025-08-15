@@ -47,6 +47,20 @@ const Hero = () => {
               View Projects
               <ArrowDown className="ml-2 h-4 w-4" />
             </Button>
+            <a
+              href="/Alexi_Kehayias_CV.pdf" // Place your CV in the public folder with this name
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button
+                variant="secondary"
+                size="lg"
+                className="bg-secondary/20 backdrop-blur border-secondary hover:bg-secondary/30 text-secondary hover:shadow-cyan-glow"
+              >
+                Download CV
+              </Button>
+            </a>
           </div>
           
           <div className="flex justify-center gap-6">
