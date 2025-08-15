@@ -1,10 +1,35 @@
 // Import project images
 import dataAnalyticsImg from "@/assets/data-analytics.jpg";
 import computerVisionImg from "@/assets/computer-vision.jpg";
+import cv1_accuracyCurves from "@/assets/Accuracy-Curves-Occupied-Unoccupied-Classrooms.png";
+import cv1_lossCurves from "@/assets/Loss--Curves-Occupied-Unoccupied-Classrooms.png";
+import cv1_modelAccuracy from "@/assets/Model-Accuracy-Occupied-Unoccupied-Classrooms.png";
+import cv1_modelXAI from "@/assets/XAI-Empty-Classroom.png";
+
+import computerVisionImg_root from "@/assets/CV-Roots-Output-2.png";
+import computerVisionImg_root_1 from "@/assets/CV-Roots-Output-1.png";
+import computerVisionImg_root_2 from "@/assets/CV-Roots-Output-3.png";
+import computerVisionImg_root_3 from "@/assets/Robotics-Innoculation.gif";
+
 import machineLearningImg from "@/assets/machine-learning.jpg";
+import machineLearningImg_1 from  "@/assets/ML-ANWB-Application.png";
+import machineLearningImg_2 from "@/assets/ML-ANWB-Model-Conf-Matrix.png";
+import machineLearningImg_3 from "@/assets/ML-ANWB-Model-Learning-Curves.png";
+
+    
 import nlpImg from "@/assets/nlp.jpg";
+import nlpImg_1 from "@/assets/NLP_Main_Page.png";
+import nlpImg_2 from "@/assets/NPL_Results_Page.png";
+
 import researchImg from "@/assets/research.jpg";
+import researchImg_1 from "@/assets/Chatbots-Scientific-Research.png";
+
 import mlopsImg from "@/assets/mlops.jpg";
+import mlopsImg_1 from "@/assets/Azure Architecutre Diagram CV1.png";
+import mlopsImg_2 from "@/assets/CLI Training Working.png";
+import mlopsImg_3 from "@/assets/MLOps-Learning-Curves.png";
+
+
 import { ProjectData } from "@/types/project";
 
 export const projectData: ProjectData = {
@@ -38,16 +63,18 @@ export const projectData: ProjectData = {
   
   computerVision: {
     title: "Computer Vision",
-    description: "Advanced image processing and AI solutions for real-world applications including occupancy detection and agricultural phenotyping.",
+    description: "Advanced image processing and AI solutions for applications such occupancy detection and agricultural phenotyping.",
     projects: [
       {
         title: "Classroom Occupancy Detection with Explainable AI",
         description: "CNN-based image classification system to detect classroom occupancy with Grad-CAM explainability. Designed for university space optimization with privacy-first approach and real-time analytics.",
         image: computerVisionImg,
         images: [ // These show in the gallery inside the project
-        "/src/assets/project-screenshot-1.jpg",
-        "/src/assets/project-screenshot-2.jpg",
-        "/src/assets/project-diagram.png"],
+          cv1_accuracyCurves,
+          cv1_lossCurves,
+          cv1_modelAccuracy,
+          cv1_modelXAI
+        ],
         tags: ["CNN", "Explainable AI", "Real-time Processing"],
         concepts: ["Convolutional Neural Networks", "Grad-CAM Explainability", "Image Classification", "Responsible AI"],
         tools: ["Python", "TensorFlow/Keras", "OpenCV", "Matplotlib"],
@@ -56,12 +83,11 @@ export const projectData: ProjectData = {
       {
         title: "Primary Root Detection Pipeline (NPEC)",
         description: "Full AI pipeline for automated detection, segmentation, and measurement of plant root structures. Integrates with robotics for automated lab tasks and supports agricultural phenotyping research.",
-        image: computerVisionImg,
+        image: computerVisionImg_root,
         images: [ // Additional gallery images 
-          "/src/assets/root-detection-1.jpg",
-          "/src/assets/root-segmentation.jpg",
-          "/src/assets/root-pipeline.jpg",
-          "/src/assets/root-measurements.jpg"
+          computerVisionImg_root_1,
+          computerVisionImg_root_2,
+          computerVisionImg_root_3
         ],
         tags: ["Image Segmentation", "Agricultural AI", "Robotics Integration"],
         concepts: ["Image Segmentation", "Skeletonization", "Feature Extraction", "Transfer Learning"],
@@ -80,10 +106,10 @@ export const projectData: ProjectData = {
         description: "Full-stack driving risk prediction system using CRISP-DM methodology. Deep learning classifier for accident risk levels with SQL-based data pipeline and interactive Streamlit deployment.",
         image: machineLearningImg,
         images: [ // Additional gallery images 
-          "/src/assets/accident-analysis-1.jpg",
-          "/src/assets/accident-dashboard.jpg",
-          "/src/assets/accident-model-results.jpg",
-          "/src/assets/accident-crisp-dm.jpg"
+          machineLearningImg_1,
+          machineLearningImg_2,
+          machineLearningImg_3
+
         ],
         tags: ["Deep Learning", "CRISP-DM", "Risk Prediction"],
         concepts: ["CRISP-DM Lifecycle", "Deep Learning Classification", "Feature Engineering", "Real-time Prediction"],
@@ -102,10 +128,9 @@ export const projectData: ProjectData = {
         description: "End-to-end NLP pipeline for emotion detection in Greek YouTube videos. Combines Whisper speech recognition, multilingual translation, and transformer-based emotion classification with intensity scoring.",
         image: nlpImg,
         images: [ // Additional gallery images 
-          "/src/assets/greek-emotion-1.jpg",
-          "/src/assets/greek-pipeline.jpg",
-          "/src/assets/greek-results.jpg",
-          "/src/assets/greek-translation.jpg"
+          nlpImg_1,
+          nlpImg_2,
+
         ],
         tags: ["Multilingual NLP", "Speech Recognition", "Emotion AI"],
         concepts: ["Speech-to-Text", "Machine Translation", "Emotion Classification", "Pipeline Engineering"],
@@ -124,10 +149,8 @@ export const projectData: ProjectData = {
         description: "Comprehensive mixed-methods study exploring chatbot effectiveness in Small and Medium Enterprises. Combined statistical analysis with thematic research to provide actionable business recommendations.",
         image: researchImg,
         images: [ // Additional gallery images - replace with your actual filenames
-          "/src/assets/chatbot-research-1.jpg",
-          "/src/assets/chatbot-analysis.jpg",
-          "/src/assets/chatbot-methodology.jpg",
-          "/src/assets/chatbot-results.jpg"
+          researchImg_1
+
         ],
         tags: ["Mixed Methods", "Business Research", "Statistical Analysis"],
         concepts: ["Mixed-Methods Research", "Statistical Testing", "Thematic Analysis", "Stakeholder Mapping"],
@@ -146,10 +169,9 @@ export const projectData: ProjectData = {
         description: "End-to-end MLOps deployment of deep learning pipelines using Docker, Azure ML, and Airflow. Features FastAPI backend, Gradio UI, and full CI/CD integration for plant research applications.",
         image: mlopsImg,
         images: [ // Additional gallery images - replace with your actual filenames
-          "/src/assets/roalt-deployment-1.jpg",
-          "/src/assets/roalt-architecture.jpg",
-          "/src/assets/roalt-ui.jpg",
-          "/src/assets/roalt-pipeline.jpg"
+            mlopsImg_1,
+            mlopsImg_2,
+            mlopsImg_3
         ],
         tags: ["Docker", "Azure ML", "CI/CD"],
         concepts: ["MLOps Lifecycle", "Container Orchestration", "Cloud Deployment", "Workflow Automation"],
