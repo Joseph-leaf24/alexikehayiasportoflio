@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { ArrowDown, Github, Linkedin, Mail } from "lucide-react";
-
+import { ArrowDown, Linkedin, Mail } from "lucide-react";
+import profile_photo from "@/assets/profile_photo.jpg";
 const Hero = () => {
   const scrollToProjects = () => {
     document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth' });
@@ -20,15 +20,21 @@ const Hero = () => {
       
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center max-w-4xl mx-auto">
+
+            {/* Profile photo */}
+            <img
+            src={profile_photo}
+            alt="Alexi Kehayias"
+            className="mx-auto mb-6 w-60 h-60 rounded-full shadow-lg border-4 border-primary/40 object-cover tech-glow"
+          />
           <h1 className="text-5xl md:text-7xl font-bold mb-6 font-heading bg-gradient-accent bg-clip-text text-transparent tech-glow">
             Alexi Kehayias
           </h1>
           <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-primary font-mono">
-            Data Science & AI Specialist
+            Data Science & AI Student
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-            Transforming data into actionable insights through advanced analytics, machine learning, 
-            and cutting-edge AI solutions for business growth and innovation.
+            Hi there! I'm Alexi, a student from Zimbabwe studying Data Science and AI with a focus on a number of areas such as Computer Vision, Natural Language processing as well as MLOps. I enjoy building innovative solutions that make a difference to companies and society. Explore my projects below to see what I've been working on!
           </p>
           
           <div className="flex flex-wrap gap-4 justify-center mb-12">
@@ -41,26 +47,19 @@ const Hero = () => {
               View Projects
               <ArrowDown className="ml-2 h-4 w-4" />
             </Button>
-            <Button 
-              variant="outline" 
-              size="lg"
-              className="border-secondary text-secondary hover:bg-secondary/10 hover:shadow-cyan-glow"
-            >
-              <Github className="mr-2 h-4 w-4" />
-              GitHub
-            </Button>
           </div>
           
           <div className="flex justify-center gap-6">
-            <Button variant="ghost" size="sm" className="text-primary hover:text-primary-light hover:shadow-glow">
-              <Mail className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="text-secondary hover:text-secondary-light hover:shadow-cyan-glow">
-              <Linkedin className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="text-accent hover:text-accent hover:shadow-orange-glow">
-              <Github className="h-5 w-5" />
-            </Button>
+            <a href="mailto:kehayiasjalexi@gmail.com" target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="sm" className="text-primary hover:text-primary-light hover:shadow-glow">
+                <Mail className="h-5 w-5" />
+              </Button>
+            </a>
+            <a href="https://www.linkedin.com/in/alexi-kehayias/" target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="sm" className="text-secondary hover:text-secondary-light hover:shadow-cyan-glow">
+                <Linkedin className="h-5 w-5" />
+              </Button>
+            </a>
           </div>
         </div>
       </div>
