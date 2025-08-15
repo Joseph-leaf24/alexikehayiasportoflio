@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0; URL=/#/" />
+    <script>
+      // Redirect to root with hash (so HashRouter can handle it)
+      const redirectTo = window.location.origin + '/alexi-ai-artistry/#' + window.location.pathname + window.location.search + window.location.hash;
+      window.location.replace(redirectTo);
+    </script>
+  </head>
+  <body>
+    Redirecting...
+  </body>
+</html>

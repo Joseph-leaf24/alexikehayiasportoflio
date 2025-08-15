@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PCB-Inspired Tech Portfolio Theme */
+
+@layer base {
+  :root {
+    /* Professional Business Tech Theme - Enhanced Readability */
+    --background: 218 20% 8%;
+    --foreground: 0 0% 96%;
+    --surface: 218 15% 12%;
+    
+    /* Primary - Professional Blue (Enhanced contrast) */
+    --primary: 217 91% 60%;
+    --primary-dark: 217 91% 50%;
+    --primary-light: 217 91% 70%;
+    --primary-foreground: 0 0% 98%;
+    
+    /* Secondary - Refined Teal (Better readability) */
+    --secondary: 187 85% 53%;
+    --secondary-dark: 187 85% 43%;
+    --secondary-light: 187 85% 63%;
+    --secondary-foreground: 0 0% 98%;
+    
+    /* Neutral Professional Grays (Improved contrast) */
+    --muted: 218 12% 22%;
+    --muted-foreground: 0 0% 75%;
+    --muted-dark: 218 15% 15%;
+    
+    /* Accent - Premium Gold (More subtle) */
+    --accent: 42 87% 55%;
+    --accent-foreground: 218 20% 8%;
+    
+    /* Status Colors */
+    --success: 120 100% 40%;
+    --warning: 45 100% 55%;
+    --destructive: 0 100% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* UI Elements (Enhanced contrast) */
+    --border: 217 20% 30%;
+    --input: 218 15% 12%;
+    --ring: 217 91% 60%;
+    --card: 218 15% 12%;
+    --card-foreground: 0 0% 96%;
+    
+    /* Popover */
+    --popover: 210 25% 10%;
+    --popover-foreground: 120 100% 95%;
+    
+    /* Professional Business Gradients (Enhanced) */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(187 85% 53%));
+    --gradient-hero: linear-gradient(135deg, hsl(218 20% 8%) 0%, hsl(217 30% 15%) 25%, hsl(187 30% 18%) 50%, hsl(42 50% 20%) 75%, hsl(218 20% 8%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(218 15% 12%), hsl(218 12% 22%));
+    --gradient-surface: linear-gradient(180deg, hsl(218 20% 8%), hsl(218 15% 12%));
+    --gradient-accent: linear-gradient(90deg, hsl(217 91% 60%), hsl(187 85% 53%), hsl(42 87% 55%));
+    
+    /* Professional Glow Effects */
+    --shadow-soft: 0 4px 6px -1px hsl(220 85% 55% / 0.15), 0 2px 4px -1px hsl(220 85% 55% / 0.08);
+    --shadow-medium: 0 10px 15px -3px hsl(220 85% 55% / 0.15), 0 4px 6px -2px hsl(220 85% 55% / 0.08);
+    --shadow-large: 0 25px 50px -12px hsl(220 85% 55% / 0.2);
+    --shadow-glow: 0 0 30px hsl(220 85% 55% / 0.3);
+    --shadow-cyan-glow: 0 0 25px hsl(185 85% 48% / 0.25);
+    --shadow-orange-glow: 0 0 20px hsl(45 95% 58% / 0.25);
+    
+    /* Professional Grid Effects */
+    --circuit-pattern: radial-gradient(circle at 25% 25%, hsl(220 85% 55% / 0.08) 1px, transparent 1px),
+                       radial-gradient(circle at 75% 75%, hsl(185 85% 48% / 0.08) 1px, transparent 1px);
+    --circuit-lines: linear-gradient(90deg, hsl(220 85% 55% / 0.08) 1px, transparent 1px),
+                     linear-gradient(0deg, hsl(185 85% 48% / 0.08) 1px, transparent 1px);
+    
+    /* Typography */
+    --font-heading: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    
+    /* Animations */
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    --radius: 0.5rem;
+
+    --sidebar-background: 210 25% 10%;
+    --sidebar-foreground: 120 100% 95%;
+    --sidebar-primary: 120 100% 50%;
+    --sidebar-primary-foreground: 210 30% 8%;
+    --sidebar-accent: 210 20% 15%;
+    --sidebar-accent-foreground: 120 100% 95%;
+    --sidebar-border: 120 50% 25%;
+    --sidebar-ring: 120 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    background-image: var(--circuit-pattern);
+    background-size: 50px 50px;
+  }
+  
+  /* Circuit board animation */
+  @keyframes circuit-glow {
+    0%, 100% { 
+      opacity: 0.4;
+      filter: brightness(1);
+    }
+    50% { 
+      opacity: 0.8;
+      filter: brightness(1.2);
+    }
+  }
+  
+  /* Glowing effects for tech elements */
+  .tech-glow {
+    animation: circuit-glow 3s ease-in-out infinite;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary));
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary-dark));
+  }
+}
