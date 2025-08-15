@@ -19,7 +19,8 @@ export const projectData: ProjectData = {
         tags: ["Power BI", "Public Health", "SDG Tracking"],
         concepts: ["Exploratory Data Analysis", "Data Visualization", "Time Series Analysis", "Regional Benchmarking"],
         tools: ["Microsoft Power BI", "Excel", "WHO Data APIs"],
-        githubUrl: "", // Add your GitHub URL here
+        
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/blob/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Microsoft%20Power%20BI/SDG%20Indicators-Zimbabwe%20Tuberculosis/SDGIndicatorsDashboard_AlexiKehayias.pbix", 
         powerBiUrl: "https://app.powerbi.com/view?r=eyJrIjoiZTQyMzU2ZTEtNzJjZi00MzRmLWE0M2UtYjBlYmIzM2MxYzExIiwidCI6IjBhMzM1ODliLTAwMzYtNGZlOC1hODI5LTNlZDA5MjZhZjg4NiIsImMiOjl9"
       },
       {
@@ -29,7 +30,7 @@ export const projectData: ProjectData = {
         tags: ["Power BI", "Security Analytics", "Retail"],
         concepts: ["Security Risk Analytics", "Operational Intelligence", "Employee Behavior Analysis", "Compliance Monitoring"],
         tools: ["Microsoft Power BI", "SQL Server", "Excel"],
-        githubUrl: "", // Add your GitHub URL here
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/blob/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Microsoft%20Power%20BI/IKEA%20Card%20Skimming%20Detection/IKEA%20Terminal%20Dashboard-Alexi%20Kehayias.pbix",
         powerBiUrl: "https://app.powerbi.com/view?r=eyJrIjoiMTMxMDM2MGItYzI3ZC00MzI3LTk2YjktMzg0ODE2YzhkM2E5IiwidCI6IjBhMzM1ODliLTAwMzYtNGZlOC1hODI5LTNlZDA5MjZhZjg4NiIsImMiOjl9"
       }
     ]
@@ -50,7 +51,7 @@ export const projectData: ProjectData = {
         tags: ["CNN", "Explainable AI", "Real-time Processing"],
         concepts: ["Convolutional Neural Networks", "Grad-CAM Explainability", "Image Classification", "Responsible AI"],
         tools: ["Python", "TensorFlow/Keras", "OpenCV", "Matplotlib"],
-        githubUrl: "" // Add your GitHub URL here
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/tree/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Computer%20Vision-%20Deep%20Learning/Occupied%20And%20Unoccupied%20Classroom%20Detection" 
       },
       {
         title: "Primary Root Detection Pipeline (NPEC)",
@@ -65,7 +66,7 @@ export const projectData: ProjectData = {
         tags: ["Image Segmentation", "Agricultural AI", "Robotics Integration"],
         concepts: ["Image Segmentation", "Skeletonization", "Feature Extraction", "Transfer Learning"],
         tools: ["Python", "TensorFlow/Keras", "OpenCV", "Stable-Baselines3"],
-        githubUrl: "" // Add your GitHub URL here
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/blob/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Computer%20Vision-%20Deep%20Learning/Root%20Segmentation%20Analysis%20%26%20Robotics-NPEC/Computer%20Vision%20%26%20Robotics/Codebase%20RL%20Pipeline%20Documentation%20232230.md" 
       }
     ]
   },
@@ -87,7 +88,7 @@ export const projectData: ProjectData = {
         tags: ["Deep Learning", "CRISP-DM", "Risk Prediction"],
         concepts: ["CRISP-DM Lifecycle", "Deep Learning Classification", "Feature Engineering", "Real-time Prediction"],
         tools: ["Python", "TensorFlow/Keras", "SQL", "Streamlit"],
-        githubUrl: "" // Add your GitHub URL here
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/tree/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Exploratory%20Data%20Analysis%20And%20Machine%20Learning/ANWB%20Accident%20Risk%20Detection" 
       }
     ]
   },
@@ -109,7 +110,7 @@ export const projectData: ProjectData = {
         tags: ["Multilingual NLP", "Speech Recognition", "Emotion AI"],
         concepts: ["Speech-to-Text", "Machine Translation", "Emotion Classification", "Pipeline Engineering"],
         tools: ["Python", "HuggingFace Transformers", "Whisper", "OpenAI API"],
-        githubUrl: "" // Add your GitHub URL here
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/blob/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Natural%20Language%20Processing/Emotion%20Detection%20%26%20Translation/README_Task11.md" 
       }
     ]
   },
@@ -131,7 +132,7 @@ export const projectData: ProjectData = {
         tags: ["Mixed Methods", "Business Research", "Statistical Analysis"],
         concepts: ["Mixed-Methods Research", "Statistical Testing", "Thematic Analysis", "Stakeholder Mapping"],
         tools: ["Python", "SPSS", "Qualtrics", "Excel"],
-        githubUrl: "" // Add your GitHub URL here
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/blob/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Scientific%20Research/Chatbots%20Impact%20On%20SME's/Chatbots_3__Final_Policy_Paper.pdf" 
       }
     ]
   },
@@ -153,7 +154,7 @@ export const projectData: ProjectData = {
         tags: ["Docker", "Azure ML", "CI/CD"],
         concepts: ["MLOps Lifecycle", "Container Orchestration", "Cloud Deployment", "Workflow Automation"],
         tools: ["Docker", "Azure ML Studio", "Apache Airflow", "FastAPI", "GitHub Actions"],
-        githubUrl: "" // Add your GitHub URL here
+        githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/blob/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/MLOps%20Deployment/README.md" 
       }
     ]
   }

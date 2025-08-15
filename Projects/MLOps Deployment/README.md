@@ -3,11 +3,6 @@
   <h1 align="center">Root Analysis Toolkit (ROALT) 🌱</h1>
   <h3 align="center">Deep-learning toolkit bringing innovation to the field of plant phenotyping and segmentation.</h3>
 
-![ROALT Cover](docs/_static/assets/cover.jpg)
-
-[![Coverage](https://github.com/BredaUniversityADSAI/2024-25d-fai2-adsai-group-cv-1/blob/gh-pages/_static/coverage-badge.svg)](../../actions/workflows/full_ci_pipeline.yml)
-[![PEP8](https://github.com/BredaUniversityADSAI/2024-25d-fai2-adsai-group-cv-1/blob/gh-pages/_static/pep8-badge.svg)](../../actions/workflows/full_ci_pipeline.yml)
-[![Roalt API Image Build](https://github.com/BredaUniversityADSAI/2024-25d-fai2-adsai-group-cv-1/actions/workflows/docker-publish.yml/badge.svg?branch=test_docker_deployment_workflow)](https://github.com/BredaUniversityADSAI/2024-25d-fai2-adsai-group-cv-1/actions/workflows/docker-publish.yml)
 
 </div>
 
