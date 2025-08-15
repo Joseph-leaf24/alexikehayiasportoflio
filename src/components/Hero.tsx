@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowDown, Linkedin, Mail } from "lucide-react";
 import profile_photo from "@/assets/profile_photo.jpg";
-const cvFile = "/Alexi_Kehayias_CV.pdf"; 
+const cvFile = "/alexikehayiasportoflio/Alexi_Kehayias_CV.pdf"; 
 const Hero = () => {
   const scrollToProjects = () => {
     document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth' });
@@ -49,9 +49,8 @@ const Hero = () => {
               <ArrowDown className="ml-2 h-4 w-4" />
             </Button>
             <a
-              href={cvFile} 
+              href={cvFile}
               download
-              target="_blank"
               rel="noopener noreferrer"
             >
               <Button
