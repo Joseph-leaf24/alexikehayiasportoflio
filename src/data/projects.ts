@@ -127,7 +127,7 @@ export const projectData: ProjectData = {
         title: "Greek Emotion Detection with Translation",
         description: "This is an NLP pipeline for emotion detection in Greek & English YouTube videos. It combines Whisper speech recognition, multilingual translation(Greek to English), and transformer-based emotion classification with intensity scoring.",
         image: nlpImg,
-        images: [ // Additional gallery images 
+        images: [ 
           nlpImg_1,
           nlpImg_2,
 
@@ -142,13 +142,14 @@ export const projectData: ProjectData = {
   
   research: {
     title: "Scientific Research",
-    description: "This project explored how chatbots impact customer satisfaction and trust in small and medium-sized enterprises (SMEs). Using both quantitative surveys and qualitative interviews, it examined key factors such as personalisation, response speed, accuracy, and functionality. The research assessed how these elements influence customer experiences, compared chatbot performance to human support, and identified different methods to optimise chatbot design. Findings led to practical recommendations for SMEs on balancing efficiency with personalised service, ensuring accuracy, and improving escalation to human agents.",
+    description: "Comprehensive mixed-methods study exploring chatbot effectiveness in Small and Medium Enterprises. Combined statistical analysis with thematic research to provide actionable business recommendations.",
+    
     projects: [
       {
         title: "Impact of Chatbots on SMEs",
-        description: "Comprehensive mixed-methods study exploring chatbot effectiveness in Small and Medium Enterprises. Combined statistical analysis with thematic research to provide actionable business recommendations.",
+        description: "This project explored how chatbots impact customer satisfaction and trust in small and medium-sized enterprises (SMEs). Using both quantitative surveys and qualitative interviews, it examined key factors such as personalisation, response speed, accuracy, and functionality. The research assessed how these elements influence customer experiences, compared chatbot performance to human support, and identified different methods to optimise chatbot design. Findings led to practical recommendations for SMEs on balancing efficiency with personalised service, ensuring accuracy, and improving escalation to human agents.",
         image: researchImg,
-        images: [ // Additional gallery images - replace with your actual filenames
+        images: [ 
           researchImg_1
 
         ],
@@ -168,7 +169,7 @@ export const projectData: ProjectData = {
         title: "ROALT: Root Analysis Toolkit Deployment",
         description: "This is a MLOps deployment of deep learning pipelines using Docker, Azure ML, and Airflow. Features FastAPI for the backend, Gradio UI, and full CI/CD integration for plant research applications, in this case being root segmentation analysis in computer vision.",
         image: mlopsImg,
-        images: [ // Additional gallery images - replace with your actual filenames
+        images: [ // Additional gallery images 
             mlopsImg_1,
             mlopsImg_2,
             mlopsImg_3
