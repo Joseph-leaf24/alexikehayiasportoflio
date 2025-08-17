@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Github, ExternalLink } from "lucide-react";
 import { projectData } from "@/data/projects";
 import { Project } from "@/types/project";
-
+import React, { useState } from "react";
 const ProjectDetails = () => {
   const { category, projectIndex } = useParams();
   const navigate = useNavigate();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalImage, setModalImage] = useState<string | null>(null);
   
   // Find the project based on category and index
   const categoryData = category ? projectData[category as keyof typeof projectData] : null;
@@ -29,6 +31,30 @@ const ProjectDetails = () => {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
+            {/* Fullscreen Image Modal */}
+      {modalOpen && modalImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setModalOpen(false)}
+        >
+          <button
+            className="absolute top-6 right-8 text-white text-3xl z-60 bg-black/50 rounded-full p-2 hover:bg-black/80 transition"
+            onClick={e => {
+              e.stopPropagation();
+              setModalOpen(false);
+            }}
+            aria-label="Close"
+          >
+            
+          </button>
+          <img
+            src={modalImage}
+            alt="Fullscreen"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
       <div className="container mx-auto px-4 py-8">
         <Button 
           variant="outline" 
@@ -72,34 +98,31 @@ const ProjectDetails = () => {
             </div>
           ) : (
             <div className="mb-12">
-              {/* Main cover image */}
-              <div className="relative rounded-lg overflow-hidden mb-8 shadow-glow">
-                <img 
-                  src={project.image} 
-                  alt={project.title}
-                  className="w-full h-64 md:h-96 object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-              </div>
-              
-              {/* Additional images gallery */}
-              {project.images && project.images.length > 0 && (
-                <div>
-                  <h3 className="text-2xl font-semibold mb-6 text-center text-foreground">Project Gallery</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {project.images.map((imageUrl, index) => (
-                      <div key={index} className="relative rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-                        <img 
-                          src={imageUrl} 
-                          alt={`${project.title} - Image ${index + 1}`}
-                          className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    ))}
-                  </div>
+            {/* Additional images gallery */}
+            {project.images && project.images.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-semibold mb-6 text-center text-foreground">Project Gallery</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {project.images.map((imageUrl, index) => (
+                    <div
+                      key={index}
+                      className="relative rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow flex justify-center items-center cursor-pointer"
+                      onClick={() => {
+                        setModalImage(imageUrl);
+                        setModalOpen(true);
+                      }}
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`${project.title} - Image ${index + 1}`}
+                        className="block max-w-full h-auto transition-transform duration-300 hover:scale-105"
+                      />
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
           )}
 
           {/* Project Details Grid */}
