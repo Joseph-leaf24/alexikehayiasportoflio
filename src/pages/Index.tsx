@@ -87,10 +87,9 @@ const Index = () => {
       {/* Footer */}
       <footer className="bg-background border-t border-primary/30 text-foreground py-12">
         <div className="container mx-auto px-4 text-center">
-          <h3 className="text-2xl font-bold mb-4 text-primary font-heading">Ready to Collaborate?</h3>
+          <h3 className="text-2xl font-bold mb-4 text-primary font-heading">Interested?</h3>
           <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-            I'm always interested in discussing data science opportunities, 
-            research collaborations, and innovative AI projects.
+            Click the links below to get in touch or connect with me on LinkedIn!
           </p>
           <div className="flex justify-center gap-4">
             <a href="mailto:your.email@example.com" className="text-primary hover:text-primary-light transition-colors hover:shadow-glow">

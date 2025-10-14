@@ -24,7 +24,7 @@ import nlpImg_2 from "@/assets/NPL_Results_Page.png";
 import researchImg from "@/assets/research.jpg";
 import researchImg_1 from "@/assets/Chatbots-Scientific-Research.png";
 
-import mlopsImg from "@/assets/mlops.jpg";
+import mlops_thumbnail from "@/assets/mlops_thumbnail.png";
 import mlopsImg_1 from "@/assets/Azure Architecutre Diagram CV1.png";
 import mlopsImg_2 from "@/assets/CLI Training Working.png";
 import mlopsImg_3 from "@/assets/MLOps-Learning-Curves.png";
@@ -168,7 +168,7 @@ export const projectData: ProjectData = {
       {
         title: "ROALT: Root Analysis Toolkit Deployment",
         description: "This is a MLOps deployment of deep learning pipelines using Docker, Azure ML, and Airflow. Features FastAPI for the backend, Gradio UI, and full CI/CD integration for plant research applications, in this case being root segmentation analysis in computer vision.",
-        image: mlopsImg,
+        image: mlops_thumbnail,
         images: [ // Additional gallery images 
             mlopsImg_1,
             mlopsImg_2,
