@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 "use client";
 import * as SI from "react-icons/si";
 import { Icon as Iconify } from "@iconify/react";
@@ -61,7 +60,7 @@ const SkillsStrip = () => {
   const runningRef = useRef(true);
 
   const step = 1.4; // px per tick
-  const intervalMs = 17; // ~60fps
+  const intervalMs = 23; // ~60fps
 
   const measureLoopWidth = () => {
     const el = railRef.current;
@@ -166,7 +165,7 @@ const SkillsStrip = () => {
               The technologies I use in production.
             </p>
           </div>
-          <Badge variant="secondary" className="hidden sm:inline-flex">Auto-scrolling</Badge>
+         
         </div>
 
         <div

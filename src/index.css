@@ -7,7 +7,7 @@
   :root {
     /* Core colors - refined professional palette */
     --background: 220 20% 97%; /* Light grey background */
-    --foreground: 220 25% 20%; /* Dark grey text */
+    --foreground: 0 0% 0%; /* Black text */
     --surface: 220 25% 95%; /* Slightly darker surface */
 
     /* Primary - sophisticated blue */
@@ -29,7 +29,7 @@
 
     /* Accent - subtle gold */
     --accent: 45 40% 50%;
-    --accent-foreground: 220 25% 20%;
+    --accent-foreground: 0 0% 0%; /* was 220 25% 20% */
 
     /* Status colors - muted professional tones */
     --success: 145 45% 45%;
@@ -42,11 +42,11 @@
     --input: 220 25% 95%;
     --ring: 215 75% 45%;
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 20%;
+    --card-foreground: 0 0% 0%; /* was 220 25% 20% */
 
     /* Popover */
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 20%;
+    --popover-foreground: 0 0% 0%; /* was 220 25% 20% */
 
     /* Professional gradients */
     --gradient-primary: linear-gradient(135deg, hsl(215 75% 45%), hsl(210 30% 45%));
@@ -175,28 +175,19 @@
 
   /* Add keyframes for the animation */
   @keyframes scrollThumbAnimate {
-    0% {
-      background-position: 100% 0;
-    }
-    100% {
-      background-position: -100% 0;
-    }
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
   }
 
   ::-webkit-scrollbar-thumb:hover,
   ::-webkit-scrollbar-thumb:active {
     background: hsl(var(--primary-dark));
   }
+
   @keyframes slide-horizontal {
-    0% {
-      transform: translateX(-10px);
-    }
-    50% {
-      transform: translateX(10px);
-    }
-    100% {
-      transform: translateX(-10px);
-    }
+    0% { transform: translateX(-10px); }
+    50% { transform: translateX(10px); }
+    100% { transform: translateX(-10px); }
   }
 
   .animate-slide-horizontal {
@@ -204,9 +195,7 @@
   }
 
   /* Focus styles for accessibility */
-  :focus {
-    outline: none;
-  }
+  :focus { outline: none; }
 
   :focus-visible {
     box-shadow: 0 0 0 3px color-mix(in srgb, hsl(var(--primary)) 16%, transparent);
