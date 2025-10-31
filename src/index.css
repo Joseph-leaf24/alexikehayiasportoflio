@@ -5,63 +5,63 @@
 
 @layer base {
   :root {
-    /* Core colors (H / S% / L%) - tuned for better contrast and professionalism */
-    --background: 218 18% 6%;
-    --foreground: 0 0% 96%;
-    --surface: 218 14% 11%;
+    /* Core colors - refined professional palette */
+    --background: 220 20% 97%; /* Light grey background */
+    --foreground: 220 25% 20%; /* Dark grey text */
+    --surface: 220 25% 95%; /* Slightly darker surface */
 
-    /* Primary */
-    --primary: 217 90% 58%;
-    --primary-dark: 217 90% 48%;
-    --primary-light: 217 90% 68%;
-    --primary-foreground: 0 0% 98%;
+    /* Primary - sophisticated blue */
+    --primary: 215 75% 45%;
+    --primary-dark: 215 75% 35%;
+    --primary-light: 215 75% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary */
-    --secondary: 187 76% 49%;
-    --secondary-dark: 187 76% 40%;
-    --secondary-light: 187 76% 60%;
-    --secondary-foreground: 0 0% 98%;
+    /* Secondary - complementary grey-blue */
+    --secondary: 210 30% 45%;
+    --secondary-dark: 210 30% 35%;
+    --secondary-light: 210 30% 55%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* Neutral / muted */
-    --muted: 218 12% 20%;
-    --muted-foreground: 0 0% 78%;
-    --muted-dark: 218 14% 14%;
+    /* Neutral / muted - refined greys */
+    --muted: 220 15% 85%;
+    --muted-foreground: 220 25% 35%;
+    --muted-dark: 220 15% 75%;
 
-    /* Accent */
-    --accent: 42 80% 50%;
-    --accent-foreground: 218 20% 8%;
+    /* Accent - subtle gold */
+    --accent: 45 40% 50%;
+    --accent-foreground: 220 25% 20%;
 
-    /* Status */
-    --success: 120 95% 38%;
-    --warning: 45 95% 52%;
-    --destructive: 0 85% 50%;
+    /* Status colors - muted professional tones */
+    --success: 145 45% 45%;
+    --warning: 45 85% 50%;
+    --destructive: 0 65% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    /* UI */
-    --border: 217 20% 28%;
-    --input: 218 14% 11%;
-    --ring: 217 90% 58%;
-    --card: 218 14% 11%;
-    --card-foreground: 0 0% 96%;
+    /* UI elements */
+    --border: 220 20% 85%;
+    --input: 220 25% 95%;
+    --ring: 215 75% 45%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 20%;
 
     /* Popover */
-    --popover: 210 22% 9%;
-    --popover-foreground: 120 100% 95%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 20%;
 
-    /* Gradients - subtle, professional blends */
-    --gradient-primary: linear-gradient(135deg, hsl(217 90% 58%), hsl(187 76% 49%));
-    --gradient-hero: linear-gradient(135deg, hsl(218 18% 6%) 0%, hsl(217 28% 13%) 30%, hsl(187 28% 16%) 60%, hsl(42 45% 20%) 85%, hsl(218 18% 6%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(218 14% 11%), hsl(218 12% 20%));
-    --gradient-surface: linear-gradient(180deg, hsl(218 18% 6%), hsl(218 14% 11%));
-    --gradient-accent: linear-gradient(90deg, hsl(217 90% 58%), hsl(187 76% 49%), hsl(42 80% 50%));
+    /* Professional gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(215 75% 45%), hsl(210 30% 45%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 20% 97%) 0%, hsl(215 20% 95%) 30%, hsl(210 20% 93%) 60%, hsl(45 20% 95%) 85%, hsl(220 20% 97%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 15% 98%));
+    --gradient-surface: linear-gradient(180deg, hsl(220 20% 97%), hsl(220 25% 95%));
+    --gradient-accent: linear-gradient(90deg, hsl(215 75% 45%), hsl(210 30% 45%), hsl(45 40% 50%));
 
-    /* Shadows - toned down for professionalism */
-    --shadow-soft: 0 4px 8px -2px hsl(220 60% 55% / 0.12), 0 2px 4px -2px hsl(220 60% 55% / 0.06);
-    --shadow-medium: 0 10px 20px -6px hsl(220 60% 55% / 0.12), 0 4px 8px -4px hsl(220 60% 55% / 0.06);
-    --shadow-large: 0 24px 48px -20px hsl(220 60% 55% / 0.18);
-    --shadow-glow: 0 0 24px hsl(220 60% 55% / 0.22);
-    --shadow-cyan-glow: 0 0 20px hsl(185 70% 48% / 0.18);
-    --shadow-orange-glow: 0 0 16px hsl(45 85% 58% / 0.16);
+    /* Refined shadows */
+    --shadow-soft: 0 4px 8px -2px hsl(220 20% 65% / 0.08);
+    --shadow-medium: 0 8px 16px -4px hsl(220 20% 65% / 0.12);
+    --shadow-large: 0 16px 32px -12px hsl(220 20% 65% / 0.15);
+    --shadow-glow: 0 0 20px hsl(215 75% 45% / 0.15);
+    --shadow-cyan-glow: 0 0 16px hsl(210 30% 45% / 0.12);
+    --shadow-orange-glow: 0 0 12px hsl(45 40% 50% / 0.12);
 
     /* Subtle background pattern references (low-contrast) */
     --circuit-pattern: radial-gradient(circle at 25% 25%, hsl(220 60% 55% / 0.04) 1px, transparent 1px),
@@ -125,9 +125,9 @@
 
   /* Glowing effect for highlighted tech elements (unchanged behavior) */
   .tech-glow {
-    animation: circuit-glow 3s ease-in-out infinite;
-    will-change: opacity, filter;
-    /* subtle glow shadow to complement animation without overpowering */
+    opacity:1.0;
+    will-change: filter;
+
     box-shadow: var(--shadow-glow);
   }
 
@@ -135,11 +135,11 @@
   @media (prefers-reduced-motion: reduce) {
     .tech-glow {
       animation: none;
-      opacity: 0.85;
+      opacity: 0.8;
     }
   }
 
-  /* Scrollbar - subtle, accessible */
+  /* Modified scrollbar styles */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -148,6 +148,8 @@
   ::-webkit-scrollbar-track {
     background: hsl(var(--background));
     border-radius: 8px;
+    position: relative;
+    overflow: hidden;
   }
 
   ::-webkit-scrollbar-thumb {
@@ -155,11 +157,50 @@
     border-radius: 8px;
     border: 2px solid hsl(var(--background));
     box-shadow: 0 1px 0 rgba(0,0,0,0.3) inset;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  /* Add animation for horizontal scrollbar */
+  ::-webkit-scrollbar-thumb:horizontal {
+    animation: scrollThumbAnimate 2s linear infinite;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary-light)) 50%,
+      hsl(var(--primary)) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Add keyframes for the animation */
+  @keyframes scrollThumbAnimate {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
   }
 
   ::-webkit-scrollbar-thumb:hover,
   ::-webkit-scrollbar-thumb:active {
     background: hsl(var(--primary-dark));
+  }
+  @keyframes slide-horizontal {
+    0% {
+      transform: translateX(-10px);
+    }
+    50% {
+      transform: translateX(10px);
+    }
+    100% {
+      transform: translateX(-10px);
+    }
+  }
+
+  .animate-slide-horizontal {
+    animation: slide-horizontal 2s ease-in-out infinite;
   }
 
   /* Focus styles for accessibility */
