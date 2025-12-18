@@ -27,6 +27,14 @@ const AzureDevOpsIcon: React.ComponentType<{ className?: string }> =
     <Iconify icon="simple-icons:azuredevops" className={props.className} />
   ));
 
+const LangChainIcon: React.ComponentType<{ className?: string }> = (props) => (
+  <Iconify icon="simple-icons:langchain" className={props.className} />
+);
+
+const RAGIcon: React.ComponentType<{ className?: string }> = (props) => (
+  <Iconify icon="mdi:database-search" className={props.className} />
+);
+
 type Skill = {
   name: string;
   Icon: React.ComponentType<{ className?: string }>;
@@ -49,6 +57,9 @@ const SKILLS: Skill[] = [
   { name: "Snowflake", Icon: SiSnowflake, hint: "ELT & analytics" },
   { name: "Trello", Icon: SiTrello, hint: "Kanban · roadmaps" },
   { name: "Azure DevOps", Icon: AzureDevOpsIcon, hint: "Boards · Pipelines" },
+  { name: "RAG", Icon: RAGIcon, hint: "Retrieval Augmented Generation" },
+  { name: "LangGraph", Icon: LangChainIcon, hint: "Agent workflows & graphs" },
+  { name: "LangSmith", Icon: LangChainIcon, hint: "LLM observability & tracing" },
 ];
 
 type UISize = "xs" | "sm" | "md" | "lg" | "xl";

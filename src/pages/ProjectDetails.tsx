@@ -167,20 +167,6 @@ const ProjectDetails = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          {project.githubUrl && (
-            <div className="flex justify-center">
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="min-w-40"
-                onClick={() => window.open(project.githubUrl, '_blank')}
-              >
-                <Github className="mr-2 h-5 w-5" />
-                View Source Code
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     </div>
