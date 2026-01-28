@@ -20,6 +20,16 @@ import nlpImg from "@/assets/nlp.jpg";
 import nlpImg_1 from "@/assets/NLP_Main_Page.png";
 import nlpImg_2 from "@/assets/NPL_Results_Page.png";
 
+// CORE Project images - TODO: Add these image files to src/assets folder:
+// - CORE-Dashboard.png (Move Intermodal dashboard screenshot)
+// - CORE-LangGraph-Flowchart.png (LangGraph pipeline flowchart)
+// - CORE-Performance-Iterations.png (Performance improvement graph)
+// - CORE-LangSmith-Costs.png (LangSmith cost tracking graphs)
+import coreImg_dashboard from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-Dashboard.png
+import coreImg_langgraph from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-LangGraph-Flowchart.png
+import coreImg_performance from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-Performance-Iterations.png
+import coreImg_langsmith from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-LangSmith-Costs.png
+
 import researchImg from "@/assets/research.jpg";
 import researchImg_1 from "@/assets/Chatbots-Scientific-Research.png";
 
@@ -134,6 +144,21 @@ export const projectData: ProjectData = {
         concepts: ["Speech-to-Text", "Machine Translation", "Emotion Classification", "Pipeline Engineering"],
         tools: ["Python", "HuggingFace Transformers", "Whisper", "OpenAI API"],
         githubUrl: "https://github.com/Joseph-leaf24/alexikehayiasportoflio/blob/90f7623b18decddaeca79c565abfa21c26d674bd/Projects/Natural%20Language%20Processing/Emotion%20Detection%20%26%20Translation/README_Task11.md" 
+      },
+      {
+        title: "CORE: Coordinated Order Recognition & Enrichment",
+        description: "Built an agentic AI solution that automates email-based order processing for logistics operations at Move Intermodal. Half of all transport orders arrive through email, creating a time-intensive bottleneck. Our LangGraph-based agentic pipeline automatically fetches and classifies incoming emails, extracts transport order data, and enriches orders with customer historical data. The system includes a front-end interface allowing customer care teams to review and edit orders, maintaining human oversight while reducing manual workload. Performance metrics show significant improvement: accuracy increased from 74% in Iteration 1 to 98% by Iteration 4. The dashboard tracks key operational metrics including average processing time (1 minute), total emails processed (276), conversations classified (74), and attachments handled (148). The agentic pipeline flow includes thread retrieval, conversation classification, entity extraction, fuzzy matching, customer enrichment, and automated status updates to Snowflake. LangSmith integration provides comprehensive observability, tracking costs per trace and total system costs, ensuring efficient LLM usage throughout the pipeline.",
+        image: coreImg_dashboard,
+        images: [
+          coreImg_dashboard,
+          coreImg_langgraph,
+          coreImg_performance,
+          coreImg_langsmith
+        ],
+        tags: ["Agentic AI", "LangGraph", "RAG", "Email Processing"],
+        concepts: ["Agentic Pipelines", "Retrieval Augmented Generation", "Entity Extraction", "Fuzzy Matching", "Customer Data Enrichment", "LLM Observability"],
+        tools: ["Python", "LangGraph", "LangSmith", "LangChain", "Snowflake", "FastAPI", "React"],
+        githubUrl: ""
       }
     ]
   },
