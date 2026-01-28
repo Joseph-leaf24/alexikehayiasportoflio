@@ -20,15 +20,11 @@ import nlpImg from "@/assets/nlp.jpg";
 import nlpImg_1 from "@/assets/NLP_Main_Page.png";
 import nlpImg_2 from "@/assets/NPL_Results_Page.png";
 
-// CORE Project images - TODO: Add these image files to src/assets folder:
-// - CORE-Dashboard.png (Move Intermodal dashboard screenshot)
-// - CORE-LangGraph-Flowchart.png (LangGraph pipeline flowchart)
-// - CORE-Performance-Iterations.png (Performance improvement graph)
-// - CORE-LangSmith-Costs.png (LangSmith cost tracking graphs)
-import coreImg_dashboard from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-Dashboard.png
-import coreImg_langgraph from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-LangGraph-Flowchart.png
-import coreImg_performance from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-Performance-Iterations.png
-import coreImg_langsmith from "@/assets/nlp.jpg"; // Temporary placeholder - replace with CORE-LangSmith-Costs.png
+// CORE Project images
+import coreImg_dashboard from "@/assets/CORE-Dashboard.png";
+import coreImg_langgraph from "@/assets/CORE-LangGraph-Flowchart.png";
+import coreImg_performance from "@/assets/CORE-Performance-Iterations.png";
+import coreImg_langsmith from "@/assets/CORE-LangSmith-Costs.png";
 
 import researchImg from "@/assets/research.jpg";
 import researchImg_1 from "@/assets/Chatbots-Scientific-Research.png";
