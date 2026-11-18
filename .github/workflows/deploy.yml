@@ -1,8 +1,20 @@
 name: Deploy to GitHub Pages
 
+# Two modes, chosen automatically:
+#
+#  • Default (no PUBLIC_PAGES_REPO variable): this repo is public and deploys
+#    itself to GitHub Pages, exactly like before.
+#
+#  • Private-source mode: set the repository *variable* PUBLIC_PAGES_REPO
+#    (e.g. Joseph-leaf24/alexikehayiasportoflio) and the *secret* PAGES_DEPLOY_KEY.
+#    The source stays private; only the compiled site in dist/ is pushed to the
+#    public repo's gh-pages branch (as a single commit, no history).
+#    See DEPLOYMENT.md.
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,12 +26,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout (website source only — skips the large Projects/ folder)
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            src
+            public
+            .github
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -33,21 +49,38 @@ jobs:
       - name: Build
         run: npm run build
 
+      # ---- Default mode: deploy from this repo ---------------------------
       - name: Setup Pages
+        if: ${{ vars.PUBLIC_PAGES_REPO == '' }}
         uses: actions/configure-pages@v4
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
+        if: ${{ vars.PUBLIC_PAGES_REPO == '' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
+      # ---- Private-source mode: push only the compiled site --------------
+      - name: Publish compiled site to the public repo
+        if: ${{ vars.PUBLIC_PAGES_REPO != '' }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
+          external_repository: ${{ vars.PUBLIC_PAGES_REPO }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          full_commit_message: 'Deploy compiled site'
+
   deploy:
-    needs: build-and-deploy
+    needs: build
+    if: ${{ vars.PUBLIC_PAGES_REPO == '' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

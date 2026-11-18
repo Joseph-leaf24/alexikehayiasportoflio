@@ -22,10 +22,27 @@ function Shell() {
       sceneState.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
       if (e.pointerType === "mouse") sceneState.pointer.lastMove = performance.now();
     };
+    const onDown = (e: PointerEvent) => {
+      onPointer(e);
+      if (e.pointerType === "mouse") sceneState.burst++;
+    };
     window.addEventListener("pointermove", onPointer, { passive: true });
+    window.addEventListener("pointerdown", onDown, { passive: true });
+
+    // Ownership notice for anyone poking around in DevTools
+    console.log(
+      "%c❄ Alexi Kehayias%c\n© " +
+        new Date().getFullYear() +
+        " Alexi Kehayias. All rights reserved.\nThe design, code and 3D work on this site are proprietary — please don't copy or redistribute them.\nWant to talk about it? " +
+        "kehayiasjalexi@gmail.com",
+      "font: 600 16px/1.6 system-ui; color: #7fd4ff",
+      "font: 12px/1.6 ui-monospace, monospace; color: #8e98aa"
+    );
+
     return () => {
       stopScroll();
       window.removeEventListener("pointermove", onPointer);
+      window.removeEventListener("pointerdown", onDown);
     };
   }, []);
 

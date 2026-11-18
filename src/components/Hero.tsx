@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { profile } from "@/data/profile";
 import { sceneState } from "@/lib/store";
-import { gsap, scrollToTarget } from "@/lib/smoothScroll";
+import { gsap, prefersReducedMotion, scrollToTarget } from "@/lib/smoothScroll";
 import { sound } from "@/lib/sound";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
@@ -11,7 +11,7 @@ const Hero = () => {
   const ref = useRef<HTMLElement>(null);
   const [coarse] = useState(() => window.matchMedia("(pointer: coarse)").matches);
 
-  // Click / touch & hold anywhere on the hero (not on controls) to shatter the igloo
+  // Click / touch & hold anywhere on the hero (not on controls) to blow the village apart
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -46,6 +46,53 @@ const Hero = () => {
     };
   }, []);
 
+  // Giant name: each letter leans away from the cursor like it's being pushed through ice
+  useEffect(() => {
+    const title = ref.current?.querySelector<HTMLElement>(".hero__title");
+    if (!title || coarse || prefersReducedMotion()) return;
+    let raf = 0;
+    let px = -9999;
+    let py = -9999;
+    const R = 240;
+    const update = () => {
+      raf = 0;
+      if (window.scrollY > window.innerHeight) return;
+      const chars = title.querySelectorAll<HTMLElement>(".sc-ch");
+      chars.forEach((ch) => {
+        const parent = ch.offsetParent as HTMLElement | null;
+        if (!parent) return;
+        const pr = parent.getBoundingClientRect();
+        // offset* ignores transforms, so the letter's resting centre stays stable
+        const cx = pr.left + ch.offsetLeft + ch.offsetWidth / 2;
+        const cy = pr.top + ch.offsetTop + ch.offsetHeight / 2;
+        const dx = cx - px;
+        const dy = cy - py;
+        const d = Math.hypot(dx, dy);
+        if (d < R && d > 0.001) {
+          const f = (1 - d / R) ** 2 * 34;
+          ch.style.transform = `translate3d(${(dx / d) * f}px, ${(dy / d) * f}px, 0) rotate(${(dx / d) * f * 0.35}deg)`;
+        } else if (ch.style.transform) ch.style.transform = "";
+      });
+    };
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
+      px = e.clientX;
+      py = e.clientY;
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    const onLeave = () => {
+      px = py = -9999;
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.documentElement.addEventListener("mouseleave", onLeave);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
+      document.documentElement.removeEventListener("mouseleave", onLeave);
+    };
+  }, [coarse]);
+
   // Hero copy drifts up and fades as you leave it
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -60,7 +107,7 @@ const Hero = () => {
   }, []);
 
   return (
-    <section id="top" ref={ref} className="hero" data-scene="dome" data-section="00|Intro">
+    <section id="top" ref={ref} className="hero" data-scene="village" data-section="00|Intro">
       <div className="hero__inner container-x">
         <div className="hero__top">
           <Reveal variant="fade" className="mono-label">

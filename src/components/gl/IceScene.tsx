@@ -7,30 +7,36 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { sceneState, ui, type LayoutKey } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { BLOCK, buildLayouts, type Layout } from "./layouts";
+import { buildLayouts, KIND_DOME, terrainHeight, type Layout } from "./layouts";
 import {
   FinalShader,
-  groundFragment,
-  groundVertex,
-  iceFragment,
-  iceVertex,
+  dustFragment,
+  dustVertex,
   lineFragment,
   lineVertex,
+  pieceFragment,
+  pieceVertex,
+  propFragment,
+  propVertex,
+  seaFragment,
   skyFragment,
   skyVertex,
   snowFragment,
   snowVertex,
+  terrainFragment,
+  terrainVertex,
 } from "./shaders";
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const damp = (dt: number, lambda: number) => 1 - Math.exp(-dt * lambda);
+const MOON_DIR = new THREE.Vector3(0.42, 0.18, -1).normalize();
 
 /** Which two layouts we are between, and how far (0..1), for the current scroll. */
 function resolveBlend(scrollY: number, vh: number): { a: LayoutKey; b: LayoutKey; t: number } {
   if (sceneState.override) return { a: sceneState.override, b: sceneState.override, t: 0 };
   const stops = sceneState.stops;
-  if (!stops.length) return { a: "dome", b: "dome", t: 0 };
+  if (!stops.length) return { a: "village", b: "village", t: 0 };
   let a = stops[0].layout;
   let b = a;
   let t = 0;
@@ -79,90 +85,177 @@ export default function IceScene() {
     renderer.setClearColor(0x05070a, 1);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 260);
+    const disposables: { dispose: () => void }[] = [];
+    const keep = <T extends { dispose: () => void }>(x: T) => {
+      disposables.push(x);
+      return x;
+    };
+    const fog = new THREE.Vector3(0.012, 0.018, 0.028);
 
-    /* ---------------- Layouts + ice blocks ---------------- */
+    /* ---------------- Village pieces ---------------- */
     const set = buildLayouts();
     const N = set.count;
     sceneState.blocks = N;
     const L = set.layouts;
 
-    const geo = new RoundedBoxGeometry(BLOCK.x, BLOCK.y, BLOCK.z, 2, 0.045);
-    geo.setAttribute("aRand", new THREE.InstancedBufferAttribute(set.rand, 1));
-    const fog = new THREE.Vector3(0.012, 0.018, 0.028);
-    const iceMat = new THREE.ShaderMaterial({
-      vertexShader: iceVertex,
-      fragmentShader: iceFragment,
-      uniforms: {
-        uCam: { value: new THREE.Vector3() },
-        uTime: { value: 0 },
-        uMouse: { value: new THREE.Vector3(999, 999, 999) },
-        uMouseOn: { value: 0 },
-        uPulseT: { value: -100 },
-        uHalf: { value: BLOCK.clone().multiplyScalar(0.5) },
-        uExposure: { value: 1 },
-        uFog: { value: fog },
-      },
-    });
-    const mesh = new THREE.InstancedMesh(geo, iceMat, N);
-    mesh.frustumCulled = false;
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    scene.add(mesh);
+    const boxGeo = keep(new RoundedBoxGeometry(1, 1, 1, 2, 0.06));
+    const domeGeo = keep(new THREE.SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2));
+    const boxRand = new Float32Array(Math.max(1, set.boxCount));
+    const domeRand = new Float32Array(Math.max(1, set.domeCount));
+    for (let i = 0; i < N; i++) (set.kinds[i] === KIND_DOME ? domeRand : boxRand)[set.local[i]] = set.rand[i];
+    const boxMix = new Float32Array(Math.max(1, set.boxCount));
+    const domeMix = new Float32Array(Math.max(1, set.domeCount));
+    const boxMixAttr = new THREE.InstancedBufferAttribute(boxMix, 1).setUsage(THREE.DynamicDrawUsage);
+    const domeMixAttr = new THREE.InstancedBufferAttribute(domeMix, 1).setUsage(THREE.DynamicDrawUsage);
+    boxGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(boxRand, 1));
+    boxGeo.setAttribute("aMix", boxMixAttr);
+    domeGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(domeRand, 1));
+    domeGeo.setAttribute("aMix", domeMixAttr);
 
-    // Current (damped) per-instance transforms, start in the dome formation
-    const cur = L.dome.pos.map((p) => p.clone().add(new THREE.Vector3(0, 9 + Math.random() * 6, 0)));
-    const curQ = L.dome.quat.map((q) => q.clone());
-    const curS = new Float32Array(N).fill(1);
-
-    /* ---------------- Ground ---------------- */
-    const groundMat = new THREE.ShaderMaterial({
-      vertexShader: groundVertex,
-      fragmentShader: groundFragment,
-      uniforms: { uTime: { value: 0 }, uOpacity: { value: 1 } },
-      transparent: true,
-      depthWrite: false,
+    const pieceUniforms = (dome: boolean) => ({
+      uCam: { value: new THREE.Vector3() },
+      uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector3(999, 999, 999) },
+      uMouseOn: { value: 0 },
+      uPulseT: { value: -100 },
+      uPulseC: { value: new THREE.Vector3() },
+      uExposure: { value: 1 },
+      uFog: { value: fog },
+      uDome: { value: dome ? 1 : 0 },
     });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    scene.add(ground);
+    const houseMat = keep(new THREE.ShaderMaterial({ vertexShader: pieceVertex, fragmentShader: pieceFragment, uniforms: pieceUniforms(false) }));
+    const domeMat = keep(
+      new THREE.ShaderMaterial({ vertexShader: pieceVertex, fragmentShader: pieceFragment, uniforms: pieceUniforms(true), side: THREE.DoubleSide })
+    );
+    const houses = new THREE.InstancedMesh(boxGeo, houseMat, Math.max(1, set.boxCount));
+    const domes = new THREE.InstancedMesh(domeGeo, domeMat, Math.max(1, set.domeCount));
+    for (const m of [houses, domes]) {
+      m.frustumCulled = false;
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      scene.add(m);
+    }
+    const pieceMats = [houseMat, domeMat];
+
+    // Current (damped) transforms — the village starts in the sky and drops into place
+    const cur = L.village.pos.map((p, i) => p.clone().add(new THREE.Vector3(0, 14 + set.rand[i] * 6, 0)));
+    const curQ = L.village.quat.map((q) => q.clone());
+    const curS = L.village.scale.map((s) => s.clone());
+    const curMix = new Float32Array(N);
+
+    /* ---------------- Landscape: terrain, sea, windmills ---------------- */
+    const landU = {
+      uTime: { value: 0 },
+      uLand: { value: 1 },
+      uExposure: { value: 0 },
+      uCam: { value: new THREE.Vector3() },
+      uFog: { value: fog },
+      uMoonDir: { value: MOON_DIR },
+    };
+    const terrGeo = keep(new THREE.PlaneGeometry(76, 48, small ? 190 : 300, small ? 120 : 190));
+    terrGeo.rotateX(-Math.PI / 2);
+    terrGeo.translate(0, 0, -9);
+    const tp0 = terrGeo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < tp0.count; i++) tp0.setY(i, terrainHeight(tp0.getX(i), tp0.getZ(i)));
+    terrGeo.computeVertexNormals();
+    const terrMat = keep(new THREE.ShaderMaterial({ vertexShader: terrainVertex, fragmentShader: terrainFragment, uniforms: landU }));
+    scene.add(new THREE.Mesh(terrGeo, terrMat));
+
+    const seaGeo = keep(new THREE.PlaneGeometry(420, 420));
+    seaGeo.rotateX(-Math.PI / 2);
+    const seaMat = keep(new THREE.ShaderMaterial({ vertexShader: terrainVertex, fragmentShader: seaFragment, uniforms: landU }));
+    scene.add(new THREE.Mesh(seaGeo, seaMat));
+
+    const propMat = (r: number, g: number, b: number) =>
+      keep(
+        new THREE.ShaderMaterial({
+          vertexShader: propVertex,
+          fragmentShader: propFragment,
+          uniforms: { ...landU, uColor: { value: new THREE.Vector3(r, g, b) } },
+          side: THREE.DoubleSide,
+        })
+      );
+    const whiteM = propMat(0.86, 0.89, 0.95);
+    const capM = propMat(0.16, 0.12, 0.11);
+    const sailM = propMat(0.9, 0.87, 0.8);
+    const woodM = propMat(0.2, 0.15, 0.12);
+    const doorM = propMat(0.06, 0.18, 0.48);
+    const bodyGeo = keep(new THREE.CylinderGeometry(0.42, 0.5, 1.7, 24));
+    bodyGeo.translate(0, 0.85, 0);
+    const capGeo = keep(new THREE.ConeGeometry(0.52, 0.6, 24));
+    capGeo.translate(0, 2.0, 0);
+    const doorGeo = keep(new THREE.BoxGeometry(0.24, 0.42, 0.08));
+    doorGeo.translate(0, 0.21, 0.47);
+    const spokeGeo = keep(new THREE.BoxGeometry(0.035, 1.3, 0.035));
+    spokeGeo.translate(0, 0.65, 0);
+    // Narrow triangular canvas sails, like the Cycladic windmills
+    const sailGeo = keep(new THREE.BufferGeometry());
+    sailGeo.setAttribute("position", new THREE.Float32BufferAttribute([0, 0.28, 0, 0, 1.28, 0, 0.2, 1.16, 0], 3));
+    sailGeo.computeVertexNormals();
+    const hubGeo = keep(new THREE.SphereGeometry(0.08, 12, 8));
+    const rotors: THREE.Group[] = [];
+    for (const wm of set.windmills) {
+      const g = new THREE.Group();
+      g.position.copy(wm.pos);
+      g.rotation.y = wm.yaw;
+      g.scale.setScalar(wm.scale);
+      g.add(new THREE.Mesh(bodyGeo, whiteM), new THREE.Mesh(capGeo, capM), new THREE.Mesh(doorGeo, doorM));
+      const rotor = new THREE.Group();
+      rotor.position.set(0, 1.62, 0.54);
+      rotor.add(new THREE.Mesh(hubGeo, woodM));
+      for (let k = 0; k < 8; k++) {
+        const arm = new THREE.Group();
+        arm.rotation.z = (k * Math.PI) / 4;
+        arm.add(new THREE.Mesh(spokeGeo, woodM), new THREE.Mesh(sailGeo, sailM));
+        rotor.add(arm);
+      }
+      rotor.rotation.z = Math.random() * Math.PI;
+      g.add(rotor);
+      rotors.push(rotor);
+      scene.add(g);
+    }
 
     /* ---------------- Sky ---------------- */
-    const skyMat = new THREE.ShaderMaterial({
-      vertexShader: skyVertex,
-      fragmentShader: skyFragment,
-      uniforms: { uTime: { value: 0 }, uExposure: { value: 1 } },
-      side: THREE.BackSide,
-      depthWrite: false,
-      depthTest: false,
-    });
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(90, 48, 24), skyMat);
+    const skyMat = keep(
+      new THREE.ShaderMaterial({
+        vertexShader: skyVertex,
+        fragmentShader: skyFragment,
+        uniforms: { uTime: { value: 0 }, uExposure: { value: 1 }, uMoonDir: { value: MOON_DIR } },
+        side: THREE.BackSide,
+        depthWrite: false,
+        depthTest: false,
+      })
+    );
+    const sky = new THREE.Mesh(keep(new THREE.SphereGeometry(200, 48, 24)), skyMat);
     sky.renderOrder = -1;
     scene.add(sky);
 
-    /* ---------------- Snow ---------------- */
-    const SNOW = small ? 600 : 1600;
+    /* ---------------- Drifting particles ---------------- */
+    const SNOW = small ? 700 : 1800;
     const snowPos = new Float32Array(SNOW * 3);
     const snowRand = new Float32Array(SNOW);
     const snowSize = new Float32Array(SNOW);
     for (let i = 0; i < SNOW; i++) {
-      snowPos[i * 3] = (Math.random() - 0.5) * 32;
-      snowPos[i * 3 + 1] = Math.random() * 17;
-      snowPos[i * 3 + 2] = (Math.random() - 0.5) * 30;
+      snowPos[i * 3] = (Math.random() - 0.5) * 44;
+      snowPos[i * 3 + 1] = Math.random() * 20;
+      snowPos[i * 3 + 2] = -18 + Math.random() * 34;
       snowRand[i] = Math.random();
       snowSize[i] = 0.6 + Math.pow(Math.random(), 3) * 2.4;
     }
-    const snowGeo = new THREE.BufferGeometry();
+    const snowGeo = keep(new THREE.BufferGeometry());
     snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPos, 3));
     snowGeo.setAttribute("aRand", new THREE.BufferAttribute(snowRand, 1));
     snowGeo.setAttribute("aSize", new THREE.BufferAttribute(snowSize, 1));
-    const snowMat = new THREE.ShaderMaterial({
-      vertexShader: snowVertex,
-      fragmentShader: snowFragment,
-      uniforms: { uTime: { value: 0 }, uOffset: { value: 0 }, uPx: { value: dpr }, uOpacity: { value: 0.75 } },
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
+    const snowMat = keep(
+      new THREE.ShaderMaterial({
+        vertexShader: snowVertex,
+        fragmentShader: snowFragment,
+        uniforms: { uTime: { value: 0 }, uOffset: { value: 0 }, uPx: { value: dpr }, uOpacity: { value: 0.75 } },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
+    );
     const snow = new THREE.Points(snowGeo, snowMat);
     snow.frustumCulled = false;
     scene.add(snow);
@@ -172,37 +265,88 @@ export default function IceScene() {
     const linePos = new Float32Array(E * 6);
     const lineT = new Float32Array(E * 2);
     const lineRand = new Float32Array(E * 2);
-    set.edges.forEach((_, e) => {
-      lineT[e * 2] = 0;
+    for (let e = 0; e < E; e++) {
       lineT[e * 2 + 1] = 1;
-      const r = Math.random();
-      lineRand[e * 2] = r;
-      lineRand[e * 2 + 1] = r;
-    });
-    const lineGeo = new THREE.BufferGeometry();
-    const linePosAttr = new THREE.BufferAttribute(linePos, 3);
-    linePosAttr.setUsage(THREE.DynamicDrawUsage);
+      lineRand[e * 2] = lineRand[e * 2 + 1] = Math.random();
+    }
+    const lineGeo = keep(new THREE.BufferGeometry());
+    const linePosAttr = new THREE.BufferAttribute(linePos, 3).setUsage(THREE.DynamicDrawUsage);
     lineGeo.setAttribute("position", linePosAttr);
     lineGeo.setAttribute("aT", new THREE.BufferAttribute(lineT, 1));
     lineGeo.setAttribute("aRand", new THREE.BufferAttribute(lineRand, 1));
-    const lineMat = new THREE.ShaderMaterial({
-      vertexShader: lineVertex,
-      fragmentShader: lineFragment,
-      uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
+    const lineMat = keep(
+      new THREE.ShaderMaterial({
+        vertexShader: lineVertex,
+        fragmentShader: lineFragment,
+        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
+    );
     const lines = new THREE.LineSegments(lineGeo, lineMat);
     lines.frustumCulled = false;
     lines.visible = false;
     scene.add(lines);
 
+    /* ---------------- Cursor ice-dust trail ---------------- */
+    const DUST = coarse ? 0 : 480;
+    const dustCap = Math.max(1, DUST);
+    const dustPos = new Float32Array(dustCap * 3).fill(999);
+    const dustVel = new Float32Array(dustCap * 3);
+    const dustAge = new Float32Array(dustCap).fill(99);
+    const dustLife = new Float32Array(dustCap).fill(1);
+    const dustAlpha = new Float32Array(dustCap);
+    const dustSize = new Float32Array(dustCap);
+    for (let i = 0; i < dustCap; i++) dustSize[i] = 0.5 + Math.pow(Math.random(), 2) * 1.8;
+    const dustGeo = keep(new THREE.BufferGeometry());
+    const dustPosAttr = new THREE.BufferAttribute(dustPos, 3).setUsage(THREE.DynamicDrawUsage);
+    const dustAlphaAttr = new THREE.BufferAttribute(dustAlpha, 1).setUsage(THREE.DynamicDrawUsage);
+    dustGeo.setAttribute("position", dustPosAttr);
+    dustGeo.setAttribute("aAlpha", dustAlphaAttr);
+    dustGeo.setAttribute("aSize", new THREE.BufferAttribute(dustSize, 1));
+    const dustMat = keep(
+      new THREE.ShaderMaterial({
+        vertexShader: dustVertex,
+        fragmentShader: dustFragment,
+        uniforms: { uPx: { value: dpr } },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
+    );
+    const dust = new THREE.Points(dustGeo, dustMat);
+    dust.frustumCulled = false;
+    dust.visible = DUST > 0;
+    scene.add(dust);
+    let dustHead = 0;
+    let emitCarry = 0;
+    let lastBurst = sceneState.burst;
+    const lastEmit = new THREE.Vector3(999, 999, 999);
+    const rawW = new THREE.Vector3();
+    const emitDir = new THREE.Vector3();
+    const spawnDust = (at: THREE.Vector3, along: THREE.Vector3, speed: number) => {
+      const i = dustHead++ % DUST;
+      const f = Math.random();
+      const o = i * 3;
+      dustPos[o] = at.x - along.x * f + (Math.random() - 0.5) * 0.08;
+      dustPos[o + 1] = at.y - along.y * f + (Math.random() - 0.5) * 0.08;
+      dustPos[o + 2] = at.z - along.z * f + (Math.random() - 0.5) * 0.08;
+      const th = Math.random() * Math.PI * 2;
+      const ph = Math.acos(Math.random() * 2 - 1);
+      const sp = speed * (0.3 + Math.random() * 0.7);
+      dustVel[o] = Math.sin(ph) * Math.cos(th) * sp + along.x * 0.8;
+      dustVel[o + 1] = Math.cos(ph) * sp + 0.15 + along.y * 0.8;
+      dustVel[o + 2] = Math.sin(ph) * Math.sin(th) * sp + along.z * 0.8;
+      dustAge[i] = 0;
+      dustLife[i] = 0.7 + Math.random() * 1.1;
+    };
+
     /* ---------------- Post-processing ---------------- */
-    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: small ? 0 : 4 });
+    const rt = keep(new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: small ? 0 : 4 }));
     const composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), small ? 0.45 : 0.6, 0.55, 0.6);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), small ? 0.45 : 0.6, 0.55, 0.72);
     composer.addPass(bloom);
     const finalPass = new ShaderPass(FinalShader);
     composer.addPass(finalPass);
@@ -219,25 +363,25 @@ export default function IceScene() {
       camera.updateProjectionMatrix();
       finalPass.uniforms.uRes.value = [w * dpr, h * dpr];
       snowMat.uniforms.uPx.value = dpr;
+      dustMat.uniforms.uPx.value = dpr;
     };
     resize();
     window.addEventListener("resize", resize);
 
-    /* ---------------- Interaction ---------------- */
+    /* ---------------- Interaction + animation state ---------------- */
     const pointerNdc = new THREE.Vector2();
     const raycaster = new THREE.Raycaster();
     const plane = new THREE.Plane();
     const mouseW = new THREE.Vector3(999, 999, 999);
     const mouseSmooth = new THREE.Vector2();
 
-    /* ---------------- Animation state ---------------- */
-    const camPos = L.dome.camPos.clone().add(new THREE.Vector3(0, 6, 8));
-    const camTarget = L.dome.camTarget.clone();
+    const camPos = L.village.camPos.clone().add(new THREE.Vector3(0, 7, 9));
+    const camTarget = L.village.camTarget.clone();
     const tmpCamPos = new THREE.Vector3();
     const tmpCamTarget = new THREE.Vector3();
     const camDir = new THREE.Vector3();
     let exposure = 0;
-    let groundOp = 1;
+    let landAmt = 1;
     let lineOp = 0;
     let push = 1;
     let pressAmt = 0;
@@ -247,24 +391,30 @@ export default function IceScene() {
 
     const pA = new THREE.Vector3();
     const pB = new THREE.Vector3();
+    const sA = new THREE.Vector3();
+    const sB = new THREE.Vector3();
     const qA = new THREE.Quaternion();
     const qB = new THREE.Quaternion();
     const tq = new THREE.Quaternion();
     const tp = new THREE.Vector3();
+    const ts = new THREE.Vector3();
     const qSpin = new THREE.Quaternion();
     const qTumble = new THREE.Quaternion();
     const yAxis = new THREE.Vector3(0, 1, 0);
-    const scaleV = new THREE.Vector3();
     const mtx = new THREE.Matrix4();
     const tmp = new THREE.Vector3();
 
-    const sample = (lay: Layout, i: number, time: number, outP: THREE.Vector3, outQ: THREE.Quaternion) => {
-      const angle = lay.spin * time * motion;
-      qSpin.setFromAxisAngle(yAxis, angle);
+    const sample = (lay: Layout, i: number, time: number, outP: THREE.Vector3, outQ: THREE.Quaternion, outS: THREE.Vector3) => {
+      outS.copy(lay.scale[i]);
+      if (!lay.spin && !lay.bob) {
+        outP.copy(lay.pos[i]);
+        outQ.copy(lay.quat[i]);
+        return;
+      }
+      qSpin.setFromAxisAngle(yAxis, lay.spin * time * motion);
       outP.copy(lay.pos[i]).sub(lay.center).applyQuaternion(qSpin).add(lay.center);
       if (lay.bob) outP.y += Math.sin(time * 0.6 * motion + set.rand[i] * 6.283) * lay.bob;
       outQ.copy(qSpin).multiply(lay.quat[i]);
-      return lay.scale[i];
     };
 
     const start = performance.now() / 1000;
@@ -312,8 +462,8 @@ export default function IceScene() {
       const p = sceneState.pointer;
       mouseSmooth.x += (p.x - mouseSmooth.x) * damp(dt, 4);
       mouseSmooth.y += (p.y - mouseSmooth.y) * damp(dt, 4);
-      tmpCamPos.x += mouseSmooth.x * 0.55 * motion + Math.sin(time * 0.1) * 0.25 * motion;
-      tmpCamPos.y += mouseSmooth.y * 0.3 * motion;
+      tmpCamPos.x += mouseSmooth.x * 0.7 * motion + Math.sin(time * 0.1) * 0.3 * motion;
+      tmpCamPos.y += mouseSmooth.y * 0.35 * motion;
       camPos.lerp(tmpCamPos, damp(dt, 2.6));
       camTarget.lerp(tmpCamTarget, damp(dt, 3));
       camera.position.copy(camPos);
@@ -321,13 +471,13 @@ export default function IceScene() {
       sky.position.copy(camera.position);
 
       /* Scalars */
-      const mixS = (k: "exposure" | "ground" | "lines" | "push") => A[k] + (B[k] - A[k]) * camT;
-      // Blocks wait in the sky until the loader lifts, then the igloo assembles
+      const mixS = (k: "exposure" | "land" | "lines" | "push") => A[k] + (B[k] - A[k]) * camT;
+      // Pieces wait in the sky until the loader lifts, then the village drops into place
       if (revealAt < 0 && ui.get().ready) revealAt = time;
       const intro = revealAt < 0 ? 0.35 : 0.35 + 0.65 * clamp01((time - revealAt) / 1.4);
-      const hold = revealAt < 0 ? 1 : 0;
+      const hold = revealAt < 0;
       exposure += (mixS("exposure") * intro - exposure) * damp(dt, 3);
-      groundOp += (mixS("ground") - groundOp) * damp(dt, 3);
+      landAmt += (mixS("land") - landAmt) * damp(dt, 2.4);
       lineOp += (mixS("lines") - lineOp) * damp(dt, 2.5);
       push += (mixS("push") - push) * damp(dt, 3);
       pressAmt += ((sceneState.press ? 1 : 0) - pressAmt) * damp(dt, sceneState.press ? 2.2 : 3.2);
@@ -341,48 +491,102 @@ export default function IceScene() {
       plane.setFromNormalAndCoplanarPoint(camDir, camTarget);
       if (!raycaster.ray.intersectPlane(plane, mouseW)) mouseW.set(999, 999, 999);
 
-      /* Instances */
+      /* Ice dust: trail behind the cursor + a burst on click */
+      if (DUST) {
+        pointerNdc.set(p.x, p.y);
+        raycaster.setFromCamera(pointerNdc, camera);
+        const hit = raycaster.ray.intersectPlane(plane, rawW) !== null;
+        if (hit && fine && !reduced) {
+          if (lastEmit.x > 900) lastEmit.copy(rawW);
+          emitDir.subVectors(rawW, lastEmit);
+          emitCarry += Math.min(emitDir.length() * 24, 16);
+          while (emitCarry >= 1) {
+            emitCarry -= 1;
+            spawnDust(rawW, emitDir, 0.45);
+          }
+          lastEmit.copy(rawW);
+        } else lastEmit.set(999, 999, 999);
+        if (sceneState.burst !== lastBurst) {
+          lastBurst = sceneState.burst;
+          if (hit && !reduced) {
+            emitDir.set(0, 0, 0);
+            for (let k = 0; k < 42; k++) spawnDust(rawW, emitDir, 2.6);
+          }
+        }
+        for (let i = 0; i < DUST; i++) {
+          if (dustAge[i] >= dustLife[i]) {
+            dustAlpha[i] = 0;
+            continue;
+          }
+          dustAge[i] += dt;
+          const o = i * 3;
+          const drag = Math.exp(-dt * 2.2);
+          dustVel[o] *= drag;
+          dustVel[o + 1] = dustVel[o + 1] * drag - 0.35 * dt;
+          dustVel[o + 2] *= drag;
+          dustPos[o] += dustVel[o] * dt;
+          dustPos[o + 1] += dustVel[o + 1] * dt;
+          dustPos[o + 2] += dustVel[o + 2] * dt;
+          dustAlpha[i] = Math.pow(Math.max(0, 1 - dustAge[i] / dustLife[i]), 1.5);
+        }
+        dustPosAttr.needsUpdate = true;
+        dustAlphaAttr.needsUpdate = true;
+      }
+
+      /* Pieces */
+      const settling = revealAt >= 0 && time - revealAt < 3 ? 0.55 : 1;
       for (let i = 0; i < N; i++) {
         const ti = moving ? easeInOut(clamp01((t - set.delay[i]) / (1 - 0.35))) : 0;
-        const sA = sample(A, i, time, pA, qA);
-        const sB = sample(B, i, time, pB, qB);
+        sample(A, i, time, pA, qA, sA);
+        sample(B, i, time, pB, qB, sB);
         tp.lerpVectors(pA, pB, ti);
         tq.slerpQuaternions(qA, qB, ti);
-        let s = sA + (sB - sA) * ti;
+        ts.lerpVectors(sA, sB, ti);
+        const iceT = A.ice + (B.ice - A.ice) * ti;
 
-        // Flying arc + tumble mid-transition
+        // Flying arc + tumble mid-transition, and hold-to-shatter
         const arc = moving ? Math.sin(Math.PI * ti) : 0;
-        const fling = arc * (0.6 + set.rand[i] * 1.4) + pressAmt * (1.2 + set.rand[i] * 4.2);
+        const fling = arc * (0.6 + set.rand[i] * 1.6) + pressAmt * (1.2 + set.rand[i] * 4.2);
         if (fling > 0.001) {
           tp.addScaledVector(set.burstDir[i], fling);
           qTumble.setFromAxisAngle(set.tumbleAxis[i], fling * 0.9);
           tq.multiply(qTumble);
-          s *= 1 - pressAmt * 0.15;
         }
 
         if (hold) tp.y += 14 + set.rand[i] * 6;
 
-        // Pointer repulsion
+        // Pointer: formations scatter away, the village gently levitates
         if (mouseOn > 0.01) {
           tmp.subVectors(tp, mouseW);
           const d = tmp.length();
           if (d < 2.2 && d > 1e-4) {
             const f = (1 - d / 2.2) ** 2 * push * mouseOn * 0.9 * motion;
-            tp.addScaledVector(tmp, f / d);
+            if (iceT < 0.5) tp.y += f;
+            else tp.addScaledVector(tmp, f / d);
           }
         }
 
-        const k = damp(dt, set.lambda[i] * (revealAt >= 0 && time - revealAt < 3 ? 0.55 : 1));
+        const k = damp(dt, set.lambda[i] * settling);
         cur[i].lerp(tp, k);
         curQ[i].slerp(tq, k);
-        curS[i] += (s - curS[i]) * k;
-        scaleV.setScalar(curS[i]);
-        mtx.compose(cur[i], curQ[i], scaleV);
-        mesh.setMatrixAt(i, mtx);
+        curS[i].lerp(ts, k);
+        curMix[i] += (Math.max(iceT, pressAmt * 0.85) - curMix[i]) * k;
+        mtx.compose(cur[i], curQ[i], curS[i]);
+        const li = set.local[i];
+        if (set.kinds[i] === KIND_DOME) {
+          domes.setMatrixAt(li, mtx);
+          domeMix[li] = curMix[i];
+        } else {
+          houses.setMatrixAt(li, mtx);
+          boxMix[li] = curMix[i];
+        }
       }
-      mesh.instanceMatrix.needsUpdate = true;
+      houses.instanceMatrix.needsUpdate = true;
+      domes.instanceMatrix.needsUpdate = true;
+      boxMixAttr.needsUpdate = true;
+      domeMixAttr.needsUpdate = true;
 
-      /* Network edges follow the blocks */
+      /* Network edges follow the pieces */
       lines.visible = lineOp > 0.01;
       if (lines.visible) {
         for (let e = 0; e < E; e++) {
@@ -398,27 +602,40 @@ export default function IceScene() {
         linePosAttr.needsUpdate = true;
       }
 
-      /* Scroll velocity drives snow + glitch */
+      /* Scroll velocity drives particles, windmills + glitch */
       smoothVel += (sceneState.velocity - smoothVel) * damp(dt, 5);
       sceneState.velocity *= Math.exp(-dt * 4);
       const speed = Math.abs(smoothVel);
       snowOffset += smoothVel * dt * 0.0022;
+      for (const r of rotors) r.rotation.z -= dt * (0.55 + Math.min(speed / 500, 6)) * motion;
+
+      /* Telemetry for the HUD */
+      sceneState.formation = camT < 0.5 ? a : b;
+      sceneState.cam.x = camPos.x;
+      sceneState.cam.y = camPos.y;
+      sceneState.cam.z = camPos.z;
 
       /* Uniforms */
       const pulseT = sceneState.pulse - start;
-      iceMat.uniforms.uTime.value = time;
-      iceMat.uniforms.uCam.value.copy(camera.position);
-      iceMat.uniforms.uMouse.value.copy(mouseW);
-      iceMat.uniforms.uMouseOn.value = mouseOn;
-      iceMat.uniforms.uPulseT.value = pulseT;
-      iceMat.uniforms.uExposure.value = exposure;
-      groundMat.uniforms.uTime.value = time;
-      groundMat.uniforms.uOpacity.value = groundOp * exposure;
+      for (const m of pieceMats) {
+        const u = m.uniforms;
+        u.uTime.value = time;
+        u.uCam.value.copy(camera.position);
+        u.uMouse.value.copy(mouseW);
+        u.uMouseOn.value = mouseOn;
+        u.uPulseT.value = pulseT;
+        u.uPulseC.value.copy(camTarget);
+        u.uExposure.value = exposure;
+      }
+      landU.uTime.value = time * motion;
+      landU.uLand.value = landAmt;
+      landU.uExposure.value = exposure;
+      landU.uCam.value.copy(camera.position);
       skyMat.uniforms.uTime.value = time * motion;
       skyMat.uniforms.uExposure.value = 0.6 + exposure * 0.4;
       snowMat.uniforms.uTime.value = time * motion;
       snowMat.uniforms.uOffset.value = snowOffset;
-      snowMat.uniforms.uOpacity.value = 0.75 * intro;
+      snowMat.uniforms.uOpacity.value = 0.6 * intro;
       lineMat.uniforms.uTime.value = time;
       lineMat.uniforms.uOpacity.value = lineOp * exposure;
       finalPass.uniforms.uTime.value = time;
@@ -446,7 +663,6 @@ export default function IceScene() {
       last = performance.now();
     };
     document.addEventListener("visibilitychange", onVisibility);
-
     const onLost = (e: Event) => {
       e.preventDefault();
       running = false;
@@ -464,19 +680,9 @@ export default function IceScene() {
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onLost);
       canvas.removeEventListener("webglcontextrestored", onRestored);
-      geo.dispose();
-      iceMat.dispose();
-      groundMat.dispose();
-      ground.geometry.dispose();
-      skyMat.dispose();
-      sky.geometry.dispose();
-      snowGeo.dispose();
-      snowMat.dispose();
-      lineGeo.dispose();
-      lineMat.dispose();
+      disposables.forEach((d) => d.dispose());
       bloom.dispose();
       composer.dispose();
-      rt.dispose();
       renderer.dispose();
     };
   }, []);

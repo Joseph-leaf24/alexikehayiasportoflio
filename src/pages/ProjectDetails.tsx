@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Github } from "lucide-react";
 import { projectData } from "@/data/projects";
 import { allProjects, projectPath, specializations, type CategoryId } from "@/data/profile";
 import { sceneState, ui } from "@/lib/store";
-import { scrollToTarget } from "@/lib/smoothScroll";
+import { gsap, prefersReducedMotion, scrollToTarget } from "@/lib/smoothScroll";
 import { TLink } from "@/components/chrome/Transition";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
@@ -16,6 +16,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const ProjectDetails = () => {
   const { category, projectIndex } = useParams();
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const coverRef = useRef<HTMLDivElement>(null);
 
   const categoryData = category && category in projectData ? projectData[category] : null;
   const idx = Number(projectIndex);
@@ -44,6 +45,22 @@ const ProjectDetails = () => {
   }, [project, spec, flatIndex]);
 
   const closeLightbox = useCallback(() => setLightbox(null), []);
+
+  // Cover image drifts inside its frame while scrolling
+  useEffect(() => {
+    const el = coverRef.current;
+    if (!el || prefersReducedMotion()) return;
+    const img = el.querySelector("img");
+    const tween = gsap.fromTo(
+      img,
+      { yPercent: -7 },
+      { yPercent: 7, ease: "none", scrollTrigger: { trigger: el, start: "top bottom", end: "bottom top", scrub: true } }
+    );
+    return () => {
+      tween.scrollTrigger?.kill();
+      tween.kill();
+    };
+  }, [category, projectIndex]);
 
   const backState = { scrollTo: "projects", category: category as CategoryId };
 
@@ -108,6 +125,14 @@ const ProjectDetails = () => {
           ) : null}
         </Reveal>
       </header>
+
+      <Reveal variant="clip" className="detail__cover">
+        <div ref={coverRef} className="detail__cover-frame">
+          <img src={project.image} alt={`${project.title} — cover`} decoding="async" />
+        </div>
+        <Corners />
+        <span className="detail__cover-tag">Fig. 01 — {categoryData.title}</span>
+      </Reveal>
 
       <div className="detail__specs">
         <Reveal className="spec-panel hc">

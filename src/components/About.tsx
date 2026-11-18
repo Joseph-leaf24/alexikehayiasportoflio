@@ -1,12 +1,21 @@
 import { useEffect, useRef } from "react";
 import { ArrowUpRight, Linkedin, Mail } from "lucide-react";
 import profilePhoto from "@/assets/profile_photo.jpg";
-import { profile } from "@/data/profile";
+import { allProjects, profile, specializations } from "@/data/profile";
+import { SKILLS } from "@/data/skills";
 import { gsap, prefersReducedMotion } from "@/lib/smoothScroll";
 import SectionHead from "@/components/fx/SectionHead";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
+import Counter from "@/components/fx/Counter";
+
+const STATS = [
+  { value: allProjects.length, label: "Projects" },
+  { value: specializations.length, label: "Specializations" },
+  { value: SKILLS.length, label: "Tools in the toolbox" },
+  { value: profile.focus.length, label: "Focus areas" },
+];
 
 export default function About() {
   const manifestoRef = useRef<HTMLParagraphElement>(null);
@@ -41,6 +50,15 @@ export default function About() {
             </span>
           ))}
         </p>
+
+        <div className="stats">
+          {STATS.map((s, i) => (
+            <Reveal key={s.label} className="stat" delay={i * 90}>
+              <Counter value={s.value} className="stat__num" />
+              <span className="stat__label">{s.label}</span>
+            </Reveal>
+          ))}
+        </div>
 
         <div className="about-grid">
           <Reveal variant="clip" className="portrait hc">

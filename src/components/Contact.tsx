@@ -1,4 +1,6 @@
-import { ArrowUp, ArrowUpRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUp, ArrowUpRight, Check, Copy } from "lucide-react";
+import { sound } from "@/lib/sound";
 import { profile } from "@/data/profile";
 import { scrollToTarget } from "@/lib/smoothScroll";
 import SectionHead from "@/components/fx/SectionHead";
@@ -12,16 +14,44 @@ const LINKS = [
   { key: "Download CV", value: "PDF", href: profile.cv, download: true, cursor: "PDF" },
 ];
 
+function CopyEmail() {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => setCopied(false), 2200);
+    return () => window.clearTimeout(t);
+  }, [copied]);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(profile.email);
+      setCopied(true);
+      sound.blip("click");
+    } catch {
+      window.location.href = `mailto:${profile.email}`;
+    }
+  };
+  return (
+    <button type="button" className="btn-ice btn-ice--sm" onClick={copy} data-cursor={copied ? "DONE" : "COPY"}>
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      <ScrambleText key={copied ? "y" : "n"} text={copied ? "Email copied" : "Copy email"} trigger="mount" duration={420} />
+      <span className="sr-only" aria-live="polite">
+        {copied ? "Email address copied to clipboard" : ""}
+      </span>
+    </button>
+  );
+}
+
 export default function Contact() {
   return (
-    <section id="contact" className="section section--contact" data-scene="domeTop" data-section="04|Contact">
+    <section id="contact" className="section section--contact" data-scene="villageTop" data-section="04|Contact">
       <div className="container-x">
         <SectionHead index="04" label="Contact" />
         <h2 className="display-xl">
           <ScrambleText text={profile.contact.title} duration={1200} />
         </h2>
-        <Reveal as="p" className="contact__text" delay={150}>
-          {profile.contact.text}
+        <Reveal className="contact__intro" delay={150}>
+          <p className="contact__text">{profile.contact.text}</p>
+          <CopyEmail />
         </Reveal>
 
         <ul className="contact-list">

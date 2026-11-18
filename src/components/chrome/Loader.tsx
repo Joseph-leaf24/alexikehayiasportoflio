@@ -6,7 +6,7 @@ import profilePhoto from "@/assets/profile_photo.jpg";
 
 const LOG = [
   { at: 0, text: "BOOTING RENDERER" },
-  { at: 0.16, text: "CARVING ICE BLOCKS" },
+  { at: 0.16, text: "RAISING THE VILLAGE" },
   { at: 0.34, text: "COMPILING SHADERS" },
   { at: 0.52, text: "INDEXING PROJECTS" },
   { at: 0.72, text: "CALIBRATING CAMERA" },
@@ -107,7 +107,7 @@ export default function Loader() {
             {LOG.slice(0, lines).map((l, i) => (
               <li key={l.text} className={i === lines - 1 ? "is-current" : undefined}>
                 <span>&gt;</span> {l.text}
-                {l.text === "CARVING ICE BLOCKS" && blocks ? ` · ${blocks}` : ""}
+                {l.text === "RAISING THE VILLAGE" && blocks ? ` · ${blocks} PIECES` : ""}
               </li>
             ))}
           </ul>

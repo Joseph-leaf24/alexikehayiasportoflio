@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+const MAGNETIC = ".btn-ice, .hud-nav a, .sound-toggle, .back-link, .site-footer__top, .hud-burger, .hud-brand, [data-magnetic]";
+
 /** Dot + lagging ring cursor with contextual labels (`data-cursor="OPEN"`). Mouse only. */
 export default function Cursor() {
   const [enabled] = useState(
@@ -18,6 +20,13 @@ export default function Cursor() {
     const ring = { x: -100, y: -100 };
     let raf = 0;
     let visible = false;
+    // Magnetic controls: they lean toward the pointer and the ring sticks to them
+    let magnet: HTMLElement | null = null;
+    const stick = { x: 0, y: 0 };
+    const release = (el: HTMLElement) => {
+      el.style.transition = "transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)";
+      el.style.transform = "";
+    };
 
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
@@ -28,6 +37,22 @@ export default function Cursor() {
         ring.x = pos.x;
         ring.y = pos.y;
         root.classList.add("is-visible");
+      }
+      const next = (e.target as HTMLElement | null)?.closest<HTMLElement>(MAGNETIC) ?? null;
+      if (next !== magnet) {
+        if (magnet) release(magnet);
+        magnet = next;
+      }
+      if (magnet) {
+        const r = magnet.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dx = Math.max(-14, Math.min(14, (pos.x - cx) * 0.28));
+        const dy = Math.max(-10, Math.min(10, (pos.y - cy) * 0.38));
+        magnet.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
+        magnet.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+        stick.x = cx + dx;
+        stick.y = cy + dy;
       }
     };
     const onOver = (e: MouseEvent) => {
@@ -42,12 +67,16 @@ export default function Cursor() {
     const onLeave = () => {
       visible = false;
       root.classList.remove("is-visible");
+      if (magnet) release(magnet);
+      magnet = null;
     };
 
     const loop = () => {
       raf = requestAnimationFrame(loop);
-      ring.x += (pos.x - ring.x) * 0.18;
-      ring.y += (pos.y - ring.y) * 0.18;
+      const tx = magnet ? stick.x + (pos.x - stick.x) * 0.3 : pos.x;
+      const ty = magnet ? stick.y + (pos.y - stick.y) * 0.3 : pos.y;
+      ring.x += (tx - ring.x) * 0.18;
+      ring.y += (ty - ring.y) * 0.18;
       if (dotRef.current) dotRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
       if (ringRef.current) ringRef.current.style.transform = `translate3d(${ring.x}px, ${ring.y}px, 0)`;
     };
@@ -60,6 +89,7 @@ export default function Cursor() {
     document.documentElement.addEventListener("mouseleave", onLeave);
     return () => {
       cancelAnimationFrame(raf);
+      if (magnet) release(magnet);
       document.documentElement.classList.remove("has-cursor");
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("mouseover", onOver);

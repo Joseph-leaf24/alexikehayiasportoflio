@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { ui, useStore } from "@/lib/store";
+import { sceneState, ui, useStore, type LayoutKey } from "@/lib/store";
 import { scrollToTarget, setScrollLocked } from "@/lib/smoothScroll";
 import { sound } from "@/lib/sound";
 import { profile } from "@/data/profile";
@@ -56,6 +56,59 @@ function Clock() {
     return () => window.clearInterval(id);
   }, []);
   return <span ref={ref} className="tabular-nums" />;
+}
+
+const FORMATIONS: Record<LayoutKey, string> = {
+  village: "Cycladic village",
+  shatter: "Fracture",
+  helix: "Data helix",
+  network: "Neural net",
+  villageTop: "Village · aerial",
+  cube: "Voxel cube",
+  lost: "Drift",
+};
+
+const signed = (v: number) => `${v < 0 ? "−" : "+"}${Math.abs(v).toFixed(2).padStart(5, "0")}`;
+
+/** Live readout of what the 3D scene is doing. */
+function Telemetry() {
+  const [formation, setFormation] = useState<LayoutKey>(sceneState.formation);
+  const camRef = useRef<HTMLSpanElement>(null);
+  const blocksRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    let last = 0;
+    let current = sceneState.formation;
+    const loop = (t: number) => {
+      raf = requestAnimationFrame(loop);
+      if (t - last < 120) return;
+      last = t;
+      if (sceneState.formation !== current) {
+        current = sceneState.formation;
+        setFormation(current);
+      }
+      const c = sceneState.cam;
+      if (camRef.current) camRef.current.textContent = `${signed(c.x)} ${signed(c.y)} ${signed(c.z)}`;
+      if (blocksRef.current && sceneState.blocks) blocksRef.current.textContent = String(sceneState.blocks);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  if (!sceneState.webgl) return null;
+  return (
+    <div className="hud-telemetry">
+      <span>Formation</span>
+      <ScrambleText key={formation} text={FORMATIONS[formation]} trigger="mount" duration={500} className="hud-telemetry__val" />
+      <span className="hud-dot" />
+      <span>
+        <span ref={blocksRef}>—</span> pieces
+      </span>
+      <span className="hud-dot" />
+      <span>
+        Cam <span ref={camRef} className="tabular-nums" />
+      </span>
+    </div>
+  );
 }
 
 function ScrollMeter() {
@@ -183,6 +236,7 @@ export default function Hud() {
           <span className="hud-dot" />
           <Clock />
         </div>
+        <Telemetry />
         <ScrollMeter />
       </div>
 

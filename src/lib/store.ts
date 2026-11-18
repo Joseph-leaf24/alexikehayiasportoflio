@@ -74,7 +74,7 @@ export function onAppReady(cb: () => void): () => void {
 /* WebGL scene state — mutable on purpose, read every frame            */
 /* ------------------------------------------------------------------ */
 
-export type LayoutKey = "dome" | "shatter" | "helix" | "network" | "domeTop" | "cube" | "lost";
+export type LayoutKey = "village" | "shatter" | "helix" | "network" | "villageTop" | "cube" | "lost";
 
 export const sceneState = {
   /** Scroll positions where each home section becomes dominant. */
@@ -95,6 +95,11 @@ export const sceneState = {
   webgl: true,
   /** Number of ice blocks (filled in by the scene, shown by the loader). */
   blocks: 0,
+  /** Incremented on every click — the scene answers with a burst of ice dust. */
+  burst: 0,
+  /** Dominant formation + camera position, read by the HUD telemetry. */
+  formation: "village" as LayoutKey,
+  cam: { x: 0, y: 0, z: 0 },
 };
 
 export const triggerPulse = () => {

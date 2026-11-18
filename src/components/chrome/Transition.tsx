@@ -19,6 +19,7 @@ const TransitionCtx = createContext<Go>(() => {});
 export const usePageTransition = () => useContext(TransitionCtx);
 
 const EASE = "cubic-bezier(.76,0,.24,1)";
+const SHARDS = 7;
 
 /** Wipes an icy panel over the page, swaps the route underneath, then wipes it away. */
 export function TransitionProvider({ children }: { children: ReactNode }) {
@@ -49,19 +50,27 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
       }
       busy.current = true;
       el.style.visibility = "visible";
+      const shards = Array.from(el.querySelectorAll<HTMLElement>(".page-wipe__shard"));
+      const deco = Array.from(el.querySelectorAll<HTMLElement>(".page-wipe__grid, .page-wipe__label"));
+      const sweep = (from: string, to: string, duration: number) =>
+        Promise.all(
+          shards.map(
+            (sh, i) =>
+              sh.animate([{ transform: from }, { transform: to }], { duration, delay: i * 45, easing: EASE, fill: "forwards" }).finished
+          )
+        );
+      const fade = (from: number, to: number) =>
+        deco.forEach((d) => d.animate([{ opacity: from }, { opacity: to }], { duration: 260, fill: "forwards" }));
       try {
-        await el.animate([{ clipPath: "inset(100% 0 0 0)" }, { clipPath: "inset(0 0 0 0)" }], {
-          duration: 560,
-          easing: EASE,
-          fill: "forwards",
-        }).finished;
+        // Ice sheets slide up over the page…
+        await sweep("translateY(110%) skewY(-7deg)", "translateY(0) skewY(0deg)", 620);
+        fade(0, 1);
         navigate(to, { state });
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        await el.animate([{ clipPath: "inset(0 0 0 0)" }, { clipPath: "inset(0 0 100% 0)" }], {
-          duration: 680,
-          easing: EASE,
-          fill: "forwards",
-        }).finished;
+        await new Promise((r) => setTimeout(r, 140));
+        fade(1, 0);
+        // …and carry on upwards to reveal the new route
+        await sweep("translateY(0) skewY(0deg)", "translateY(-110%) skewY(7deg)", 720);
       } finally {
         el.style.visibility = "hidden";
         busy.current = false;
@@ -74,6 +83,13 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
     <TransitionCtx.Provider value={go}>
       {children}
       <div ref={overlayRef} className="page-wipe" aria-hidden="true">
+        {Array.from({ length: SHARDS }, (_, i) => (
+          <div
+            key={i}
+            className="page-wipe__shard"
+            style={{ left: `${(i * 100) / SHARDS}%`, width: `${100 / SHARDS + 0.5}%` }}
+          />
+        ))}
         <div className="page-wipe__grid" />
         <div className="page-wipe__label">
           <span>// TRANSMITTING</span>
