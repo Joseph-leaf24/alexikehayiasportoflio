@@ -46,6 +46,7 @@ const ENV = /* glsl */ `
 export const pieceVertex = /* glsl */ `
   attribute float aRand;
   attribute float aMix;
+  attribute vec4 aTint;
   varying vec3 vN;
   varying vec3 vW;
   varying vec3 vL;
@@ -53,7 +54,9 @@ export const pieceVertex = /* glsl */ `
   varying vec3 vS;
   varying float vR;
   varying float vMix;
+  varying vec4 vTint;
   void main() {
+    vTint = aTint;
     vL = position;
     vLN = normal;
     vS = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
@@ -84,6 +87,7 @@ export const pieceFragment = /* glsl */ `
   varying vec3 vS;
   varying float vR;
   varying float vMix;
+  varying vec4 vTint;
   ${NOISE}
   ${ENV}
   void main() {
@@ -109,12 +113,12 @@ export const pieceFragment = /* glsl */ `
         village += pow(max(dot(N, normalize(L + V)), 0.0), 70.0) * 0.7;
         village += vec3(0.35, 0.75, 1.0) * fres * 0.3;
       } else {
-        vec3 albedo = vec3(0.85, 0.89, 0.96) - vnoise(vW * 11.0) * 0.07;
+        vec3 albedo = vTint.rgb - vnoise(vW * 11.0) * 0.07;
         village = albedo * (0.08 + 0.7 * ndl + 0.16 * (0.5 + 0.5 * N.y) + 0.16 * step(0.5, vLN.y));
         village *= mix(0.5, 1.0, smoothstep(0.25, 1.0, (vL.y + 0.5) * vS.y));
         village += vec3(0.55, 0.8, 1.0) * edgeW * 0.2;
         vec3 an = abs(vLN);
-        if (an.y < 0.5) {
+        if (an.y < 0.5 && vTint.w > 0.5) {
           // Windows with blue shutters on the walls; some are lit
           vec3 lp = vL * vS;
           bool xf = an.x > 0.5;
@@ -178,15 +182,53 @@ const LINES = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Caldera terrain: moonlit volcanic rock <-> holographic contour map  */
+/* Voxel hills: stacked ice-rock cubes <-> pulsing holographic equaliser */
 /* ------------------------------------------------------------------ */
 export const terrainVertex = /* glsl */ `
+  attribute float aRand;
+  uniform float uTime;
+  uniform float uLand;
+  uniform float uGrow;
+  uniform float uAmp;
+  uniform vec3 uCenter;
+  uniform vec3 uMouse;
+  uniform float uMouseOn;
+  uniform float uShockT;
+  uniform float uPulseT;
   varying vec3 vW;
+  varying vec3 vL;
+  varying vec3 vLN;
+  varying vec3 vS;
   varying vec3 vN;
+  varying float vR;
+  varying float vLift;
+  ${NOISE}
   void main() {
-    vec4 w = modelMatrix * vec4(position, 1.0);
+    vL = position;
+    vLN = normal;
+    vS = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+    vec3 c = instanceMatrix[3].xyz;
+    float r = length(c.xz - uCenter.xz);
+    float holo = 1.0 - uLand;
+    // Equaliser: columns pump with a travelling wave once the land goes holographic
+    float eq = (sin(r * 0.55 - uTime * 2.2) * 0.5 + 0.5) * 0.9 + vnoise(vec3(c.xz * 0.22, uTime * 0.6)) * 1.1;
+    float lift = holo * eq * uAmp * 0.6;
+    lift += holo * smoothstep(3.0, 0.0, length(c.xz - uMouse.xz)) * 1.4 * uMouseOn;
+    // Shockwave (hold-to-shatter) and ripple (hovering a project)
+    float st = uTime - uShockT;
+    lift += exp(-pow(r - st * 9.0, 2.0) * 0.35) * smoothstep(3.0, 0.0, st) * 1.4;
+    float pt = uTime - uPulseT;
+    lift += exp(-pow(r - pt * 12.0, 2.0) * 0.5) * smoothstep(1.8, 0.0, pt) * 0.5;
+    // Intro: the hills rise out of the sea in a ripple from the village
+    float grow = smoothstep(r * 0.025, r * 0.025 + 0.45, uGrow);
+    lift -= (1.0 - grow) * (vS.y + 2.5);
+    vLift = lift;
+    mat4 m = modelMatrix * instanceMatrix;
+    vec4 w = m * vec4(position, 1.0);
+    w.y += lift;
     vW = w.xyz;
-    vN = normalize(mat3(modelMatrix) * normal);
+    vN = normalize(mat3(m) * (normal / max(vS * vS, vec3(1e-4))));
+    vR = aRand;
     gl_Position = projectionMatrix * viewMatrix * w;
   }
 `;
@@ -198,26 +240,47 @@ export const terrainFragment = /* glsl */ `
   uniform vec3 uCam;
   uniform vec3 uFog;
   varying vec3 vW;
+  varying vec3 vL;
+  varying vec3 vLN;
+  varying vec3 vS;
   varying vec3 vN;
+  varying float vR;
+  varying float vLift;
   ${NOISE}
-  ${LINES}
+  ${ENV}
   void main() {
+    float cell = 0.5;
     vec3 N = normalize(vN);
+    vec3 V = normalize(uCam - vW);
     vec3 L = normalize(vec3(-0.8, 0.5, 0.33));
     float ndl = max(dot(N, L), 0.0);
-    float slope = 1.0 - N.y;
-    float strata = vnoise(vec3(vW.x * 0.25, vW.y * 5.0, vW.z * 0.25));
-    vec3 rock = mix(vec3(0.03, 0.034, 0.045), vec3(0.09, 0.088, 0.1), strata);
-    rock = mix(rock, vec3(0.14, 0.07, 0.055), smoothstep(0.6, 0.85, vnoise(vec3(vW.xz * 0.18, vW.y * 1.4))) * 0.55);
-    vec3 top = vec3(0.13, 0.14, 0.16) + vnoise(vW * 3.0) * 0.03;
-    vec3 real = mix(top, rock, smoothstep(0.22, 0.5, slope)) * (0.16 + 0.75 * ndl);
-    real += vec3(0.4, 0.75, 1.0) * gridLine(vW.y * 2.0, 1.2) * 0.05;
+    float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
 
-    float contour = gridLine(vW.y * 4.0, 1.4);
-    float grid = max(gridLine(vW.x * 1.2, 1.0), gridLine(vW.z * 1.2, 1.0));
+    // Column edges + the seams between the stacked cubes
+    vec3 dE = (0.5 - abs(vL)) * vS;
+    float dmax = max(dE.x, max(dE.y, dE.z));
+    float dmin = min(dE.x, min(dE.y, dE.z));
+    float dmid = dE.x + dE.y + dE.z - dmax - dmin;
+    float yl = (vL.y + 0.5) * vS.y;
+    float side = 1.0 - step(0.5, abs(vLN.y));
+    float seam = side * (1.0 - smoothstep(0.0, 0.022, abs(fract(yl / cell + 0.5) - 0.5) * cell));
+    float edge = max(1.0 - smoothstep(0.0, 0.028, dmid), seam);
+    float depth = vS.y - yl;
+    float topF = step(0.5, vLN.y);
+    float h = hash12(vec2(vR * 97.0, floor(yl / cell)));
+
+    // Moonlit: dark glacial ice cubes with frosted tops
+    vec3 deep = mix(vec3(0.03, 0.05, 0.08), vec3(0.06, 0.09, 0.13), h);
+    vec3 real = deep * (0.55 + 1.2 * ndl) + envColor(reflect(-V, N)) * (0.05 + fres * 0.32);
+    real += vec3(0.16, 0.2, 0.26) * topF * (0.35 + 0.65 * ndl) * (0.6 + 0.4 * vnoise(vW * 5.0));
+    real += vec3(0.55, 0.8, 1.0) * edge * (0.12 + 0.22 * fres);
+    real *= mix(0.4, 1.0, exp(-depth * 0.55));
+
+    // Holographic equaliser
     float sweep = exp(-pow((fract(vW.z * 0.045 + uTime * 0.07) - 0.5) * 26.0, 2.0));
-    vec3 holo = vec3(0.008, 0.016, 0.03) + vec3(0.3, 0.72, 1.0) * (contour * 0.5 + grid * 0.14) * (0.6 + sweep * 1.6);
-    holo += vec3(0.2, 0.5, 0.8) * sweep * 0.05 + vec3(0.3, 0.7, 1.0) * pow(slope, 3.0) * 0.06;
+    vec3 holo = vec3(0.005, 0.01, 0.02) + vec3(0.3, 0.72, 1.0) * edge * (0.34 + sweep * 1.2);
+    holo += vec3(0.25, 0.6, 1.0) * topF * clamp(vLift * 0.3, 0.0, 0.9);
+    holo *= mix(0.25, 1.0, exp(-depth * 0.35));
 
     vec3 col = mix(holo, real, uLand);
     col = mix(col, uFog, smoothstep(24.0, 75.0, distance(vW, uCam)));
@@ -228,6 +291,15 @@ export const terrainFragment = /* glsl */ `
 /* ------------------------------------------------------------------ */
 /* Aegean sea with a moon path                                         */
 /* ------------------------------------------------------------------ */
+export const seaVertex = /* glsl */ `
+  varying vec3 vW;
+  void main() {
+    vec4 w = modelMatrix * vec4(position, 1.0);
+    vW = w.xyz;
+    gl_Position = projectionMatrix * viewMatrix * w;
+  }
+`;
+
 export const seaFragment = /* glsl */ `
   uniform float uTime;
   uniform float uLand;
@@ -249,7 +321,7 @@ export const seaFragment = /* glsl */ `
     float fres = 0.03 + 0.97 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
     vec3 skyR = mix(vec3(0.015, 0.025, 0.045), vec3(0.12, 0.18, 0.26), smoothstep(-0.1, 0.5, R.y));
     float md = max(dot(R, uMoonDir), 0.0);
-    vec3 moon = vec3(0.85, 0.92, 1.0) * (pow(md, 700.0) * 2.2 + pow(md, 60.0) * 0.22) * (0.55 + 0.9 * vnoise(vec3(p * 3.0, t * 2.0)));
+    vec3 moon = vec3(0.85, 0.92, 1.0) * (pow(md, 400.0) * 2.4 * step(0.62, vnoise(vec3(p * 7.0, t * 3.0))) + pow(md, 50.0) * 0.14);
     float dist = distance(vW, uCam);
     vec3 real = vec3(0.006, 0.014, 0.026) + skyR * fres * 0.8 + moon;
     float grid = max(gridLine(p.x * 0.5, 1.0), gridLine(p.y * 0.5, 1.0)) * smoothstep(60.0, 10.0, dist);
@@ -261,35 +333,62 @@ export const seaFragment = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Windmills and other landscape props                                 */
+/* Voxel moon: a shell of glowing ice cubes that bursts into a ring    */
 /* ------------------------------------------------------------------ */
-export const propVertex = /* glsl */ `
-  varying vec3 vW;
+export const moonVertex = /* glsl */ `
+  attribute float aRand;
+  attribute float aCrater;
+  uniform vec3 uCenter;
+  uniform float uTime;
+  uniform float uBurst;
   varying vec3 vN;
+  varying vec3 vL;
+  varying float vR;
+  varying float vCrater;
+  varying float vBurst;
+  mat3 rotY(float a) { float c = cos(a); float s = sin(a); return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c); }
+  mat3 rotX(float a) { float c = cos(a); float s = sin(a); return mat3(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c); }
   void main() {
-    vec4 w = modelMatrix * vec4(position, 1.0);
-    vW = w.xyz;
-    vN = normalize(mat3(modelMatrix) * normal);
-    gl_Position = projectionMatrix * viewMatrix * w;
+    vec3 o = instanceMatrix[3].xyz;
+    float e = smoothstep(aRand * 0.4, aRand * 0.4 + 0.6, uBurst);
+    float ang = atan(o.z, o.x) + uTime * (0.05 + aRand * 0.06) + e * 1.6;
+    float rr = 10.0 + aRand * 7.0;
+    vec3 ring = vec3(cos(ang) * rr, (fract(aRand * 7.31) - 0.5) * 1.6, sin(ang) * rr);
+    ring = rotX(0.45) * ring;
+    vec3 pos = mix(o * (1.0 - aCrater * 0.07), ring, e);
+    pos = rotY(uTime * 0.025) * pos;
+    mat3 tumble = rotY(e * aRand * 7.0) * rotX(e * fract(aRand * 3.7) * 5.0);
+    vec3 w = uCenter + pos + tumble * position * mix(1.0, 0.55, e);
+    vL = position;
+    vN = normalize(tumble * normal);
+    vR = aRand;
+    vCrater = aCrater;
+    vBurst = e;
+    gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }
 `;
 
-export const propFragment = /* glsl */ `
-  uniform vec3 uColor;
-  uniform float uLand;
+export const moonFragment = /* glsl */ `
+  uniform float uTime;
   uniform float uExposure;
-  uniform vec3 uCam;
-  uniform vec3 uFog;
-  varying vec3 vW;
   varying vec3 vN;
+  varying vec3 vL;
+  varying float vR;
+  varying float vCrater;
+  varying float vBurst;
+  ${NOISE}
   void main() {
     vec3 N = normalize(vN);
-    if (!gl_FrontFacing) N = -N;
-    vec3 L = normalize(vec3(-0.8, 0.5, 0.33));
-    vec3 real = uColor * (0.08 + 0.6 * max(dot(N, L), 0.0) + 0.15 * (0.5 + 0.5 * N.y));
-    float fres = pow(1.0 - abs(dot(N, normalize(uCam - vW))), 2.0);
-    vec3 col = mix(vec3(0.35, 0.75, 1.0) * fres * 0.9, real, uLand);
-    col = mix(col, uFog, smoothstep(26.0, 75.0, distance(vW, uCam)));
+    vec3 a = abs(vL) / 0.45;
+    float mx = max(a.x, max(a.y, a.z));
+    float mn = min(a.x, min(a.y, a.z));
+    float edge = smoothstep(0.8, 0.97, a.x + a.y + a.z - mx - mn);
+    float facing = 0.72 + 0.28 * max(dot(N, normalize(vec3(-0.5, 0.35, 1.0))), 0.0);
+    vec3 base = mix(vec3(0.8, 0.87, 0.97), vec3(0.36, 0.44, 0.58), vCrater);
+    base *= 0.86 + 0.28 * hash13(vec3(vR * 91.0, vR * 17.0, 3.0));
+    vec3 col = base * facing + vec3(0.6, 0.86, 1.0) * edge * 0.45;
+    col *= 0.93 + 0.07 * sin(uTime * 2.0 + vR * 50.0);
+    col = mix(col, col * vec3(0.55, 0.85, 1.25), vBurst * 0.6);
     gl_FragColor = vec4(col * uExposure, 1.0);
   }
 `;
@@ -327,12 +426,9 @@ export const skyFragment = /* glsl */ `
     float star = step(0.9965, s) * smoothstep(0.32, 0.0, length(fract(sp) - 0.5));
     col += star * smoothstep(0.0, 0.25, y) * (0.55 + 0.45 * sin(uTime * 2.0 + s * 60.0)) * 0.9;
 
-    // Moon with a soft halo
-    float md = dot(d, uMoonDir);
-    float disc = smoothstep(0.99955, 0.99968, md);
-    float craters = vnoise(d * 900.0) * 0.22 + vnoise(d * 2600.0) * 0.1;
-    col += vec3(0.86, 0.9, 1.0) * disc * (0.92 - craters);
-    col += vec3(0.35, 0.5, 0.72) * pow(max(md, 0.0), 260.0) * 0.28 + vec3(0.08, 0.12, 0.2) * pow(max(md, 0.0), 14.0) * 0.3;
+    // Soft halo around the (voxel) moon
+    float md = max(dot(d, uMoonDir), 0.0);
+    col += vec3(0.3, 0.45, 0.68) * pow(md, 160.0) * 0.3 + vec3(0.08, 0.12, 0.2) * pow(md, 14.0) * 0.3;
 
     gl_FragColor = vec4(col * uExposure, 1.0);
   }

@@ -107,7 +107,7 @@ export default function Loader() {
             {LOG.slice(0, lines).map((l, i) => (
               <li key={l.text} className={i === lines - 1 ? "is-current" : undefined}>
                 <span>&gt;</span> {l.text}
-                {l.text === "RAISING THE VILLAGE" && blocks ? ` · ${blocks} PIECES` : ""}
+                {l.text === "RAISING THE VILLAGE" && blocks ? ` · ${blocks.toLocaleString("en-GB")} CUBES` : ""}
               </li>
             ))}
           </ul>

@@ -89,7 +89,7 @@ function Telemetry() {
       }
       const c = sceneState.cam;
       if (camRef.current) camRef.current.textContent = `${signed(c.x)} ${signed(c.y)} ${signed(c.z)}`;
-      if (blocksRef.current && sceneState.blocks) blocksRef.current.textContent = String(sceneState.blocks);
+      if (blocksRef.current && sceneState.blocks) blocksRef.current.textContent = sceneState.blocks.toLocaleString("en-GB");
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -101,7 +101,7 @@ function Telemetry() {
       <ScrambleText key={formation} text={FORMATIONS[formation]} trigger="mount" duration={500} className="hud-telemetry__val" />
       <span className="hud-dot" />
       <span>
-        <span ref={blocksRef}>—</span> pieces
+        <span ref={blocksRef}>—</span> cubes
       </span>
       <span className="hud-dot" />
       <span>

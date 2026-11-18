@@ -7,18 +7,19 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { sceneState, ui, type LayoutKey } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { buildLayouts, KIND_DOME, terrainHeight, type Layout } from "./layouts";
+import { buildFloes, buildLayouts, buildMoon, buildTerrain, CELL, KIND_DOME, type Layout } from "./layouts";
 import {
   FinalShader,
   dustFragment,
   dustVertex,
   lineFragment,
   lineVertex,
+  moonFragment,
+  moonVertex,
   pieceFragment,
   pieceVertex,
-  propFragment,
-  propVertex,
   seaFragment,
+  seaVertex,
   skyFragment,
   skyVertex,
   snowFragment,
@@ -30,7 +31,7 @@ import {
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const damp = (dt: number, lambda: number) => 1 - Math.exp(-dt * lambda);
-const MOON_DIR = new THREE.Vector3(0.42, 0.18, -1).normalize();
+const MOON_DIR = new THREE.Vector3(0.62, 0.24, -1).normalize();
 
 /** Which two layouts we are between, and how far (0..1), for the current scroll. */
 function resolveBlend(scrollY: number, vh: number): { a: LayoutKey; b: LayoutKey; t: number } {
@@ -96,7 +97,6 @@ export default function IceScene() {
     /* ---------------- Village pieces ---------------- */
     const set = buildLayouts();
     const N = set.count;
-    sceneState.blocks = N;
     const L = set.layouts;
 
     const boxGeo = keep(new RoundedBoxGeometry(1, 1, 1, 2, 0.06));
@@ -112,6 +112,10 @@ export default function IceScene() {
     boxGeo.setAttribute("aMix", boxMixAttr);
     domeGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(domeRand, 1));
     domeGeo.setAttribute("aMix", domeMixAttr);
+    const boxTint = new Float32Array(Math.max(1, set.boxCount) * 4);
+    for (let i = 0; i < N; i++) if (set.kinds[i] !== KIND_DOME) boxTint.set(set.tints.subarray(i * 4, i * 4 + 4), set.local[i] * 4);
+    boxGeo.setAttribute("aTint", new THREE.InstancedBufferAttribute(boxTint, 4));
+    domeGeo.setAttribute("aTint", new THREE.InstancedBufferAttribute(new Float32Array(Math.max(1, set.domeCount) * 4), 4));
 
     const pieceUniforms = (dome: boolean) => ({
       uCam: { value: new THREE.Vector3() },
@@ -143,7 +147,7 @@ export default function IceScene() {
     const curS = L.village.scale.map((s) => s.clone());
     const curMix = new Float32Array(N);
 
-    /* ---------------- Landscape: terrain, sea, windmills ---------------- */
+    /* ---------------- Landscape: voxel hills, sea, voxel moon, floes ---------------- */
     const landU = {
       uTime: { value: 0 },
       uLand: { value: 1 },
@@ -152,68 +156,91 @@ export default function IceScene() {
       uFog: { value: fog },
       uMoonDir: { value: MOON_DIR },
     };
-    const terrGeo = keep(new THREE.PlaneGeometry(76, 48, small ? 190 : 300, small ? 120 : 190));
-    terrGeo.rotateX(-Math.PI / 2);
-    terrGeo.translate(0, 0, -9);
-    const tp0 = terrGeo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < tp0.count; i++) tp0.setY(i, terrainHeight(tp0.getX(i), tp0.getZ(i)));
-    terrGeo.computeVertexNormals();
-    const terrMat = keep(new THREE.ShaderMaterial({ vertexShader: terrainVertex, fragmentShader: terrainFragment, uniforms: landU }));
-    scene.add(new THREE.Mesh(terrGeo, terrMat));
+
+    // Hills: one instance per voxel column
+    const terrain = buildTerrain();
+    const voxGeo = keep(new THREE.BoxGeometry(1, 1, 1));
+    const voxRand = new Float32Array(terrain.count);
+    for (let i = 0; i < terrain.count; i++) voxRand[i] = Math.random();
+    voxGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(voxRand, 1));
+    const terrU = {
+      ...landU,
+      uGrow: { value: 0 },
+      uAmp: { value: 1 },
+      uCenter: { value: new THREE.Vector3(0, 0, -4) },
+      uMouse: { value: new THREE.Vector3(999, 999, 999) },
+      uMouseOn: { value: 0 },
+      uShockT: { value: -100 },
+      uPulseT: { value: -100 },
+    };
+    const terrMat = keep(new THREE.ShaderMaterial({ vertexShader: terrainVertex, fragmentShader: terrainFragment, uniforms: terrU }));
+    const hills = new THREE.InstancedMesh(voxGeo, terrMat, terrain.count);
+    {
+      const m = new THREE.Matrix4();
+      const q = new THREE.Quaternion();
+      const pos = new THREE.Vector3();
+      const sc = new THREE.Vector3();
+      for (let i = 0; i < terrain.count; i++) {
+        const [x, z, top, bottom] = terrain.data.subarray(i * 4, i * 4 + 4);
+        pos.set(x, (top + bottom) / 2, z);
+        sc.set(CELL, top - bottom, CELL);
+        hills.setMatrixAt(i, m.compose(pos, q, sc));
+      }
+    }
+    hills.frustumCulled = false;
+    scene.add(hills);
 
     const seaGeo = keep(new THREE.PlaneGeometry(420, 420));
     seaGeo.rotateX(-Math.PI / 2);
-    const seaMat = keep(new THREE.ShaderMaterial({ vertexShader: terrainVertex, fragmentShader: seaFragment, uniforms: landU }));
+    const seaMat = keep(new THREE.ShaderMaterial({ vertexShader: seaVertex, fragmentShader: seaFragment, uniforms: landU }));
     scene.add(new THREE.Mesh(seaGeo, seaMat));
 
-    const propMat = (r: number, g: number, b: number) =>
-      keep(
-        new THREE.ShaderMaterial({
-          vertexShader: propVertex,
-          fragmentShader: propFragment,
-          uniforms: { ...landU, uColor: { value: new THREE.Vector3(r, g, b) } },
-          side: THREE.DoubleSide,
-        })
-      );
-    const whiteM = propMat(0.86, 0.89, 0.95);
-    const capM = propMat(0.16, 0.12, 0.11);
-    const sailM = propMat(0.9, 0.87, 0.8);
-    const woodM = propMat(0.2, 0.15, 0.12);
-    const doorM = propMat(0.06, 0.18, 0.48);
-    const bodyGeo = keep(new THREE.CylinderGeometry(0.42, 0.5, 1.7, 24));
-    bodyGeo.translate(0, 0.85, 0);
-    const capGeo = keep(new THREE.ConeGeometry(0.52, 0.6, 24));
-    capGeo.translate(0, 2.0, 0);
-    const doorGeo = keep(new THREE.BoxGeometry(0.24, 0.42, 0.08));
-    doorGeo.translate(0, 0.21, 0.47);
-    const spokeGeo = keep(new THREE.BoxGeometry(0.035, 1.3, 0.035));
-    spokeGeo.translate(0, 0.65, 0);
-    // Narrow triangular canvas sails, like the Cycladic windmills
-    const sailGeo = keep(new THREE.BufferGeometry());
-    sailGeo.setAttribute("position", new THREE.Float32BufferAttribute([0, 0.28, 0, 0, 1.28, 0, 0.2, 1.16, 0], 3));
-    sailGeo.computeVertexNormals();
-    const hubGeo = keep(new THREE.SphereGeometry(0.08, 12, 8));
-    const rotors: THREE.Group[] = [];
-    for (const wm of set.windmills) {
-      const g = new THREE.Group();
-      g.position.copy(wm.pos);
-      g.rotation.y = wm.yaw;
-      g.scale.setScalar(wm.scale);
-      g.add(new THREE.Mesh(bodyGeo, whiteM), new THREE.Mesh(capGeo, capM), new THREE.Mesh(doorGeo, doorM));
-      const rotor = new THREE.Group();
-      rotor.position.set(0, 1.62, 0.54);
-      rotor.add(new THREE.Mesh(hubGeo, woodM));
-      for (let k = 0; k < 8; k++) {
-        const arm = new THREE.Group();
-        arm.rotation.z = (k * Math.PI) / 4;
-        arm.add(new THREE.Mesh(spokeGeo, woodM), new THREE.Mesh(sailGeo, sailM));
-        rotor.add(arm);
+    // Moon: a shell of glowing cubes far behind the village
+    const moonData = buildMoon();
+    const moonGeo = keep(new THREE.BoxGeometry(moonData.cube * 0.94, moonData.cube * 0.94, moonData.cube * 0.94));
+    const moonRand = new Float32Array(moonData.count);
+    for (let i = 0; i < moonData.count; i++) moonRand[i] = Math.random();
+    moonGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(moonRand, 1));
+    moonGeo.setAttribute("aCrater", new THREE.InstancedBufferAttribute(moonData.crater, 1));
+    const moonMat = keep(
+      new THREE.ShaderMaterial({
+        vertexShader: moonVertex,
+        fragmentShader: moonFragment,
+        uniforms: {
+          uCenter: { value: MOON_DIR.clone().multiplyScalar(118).add(new THREE.Vector3(0, 4, -4)) },
+          uTime: { value: 0 },
+          uBurst: { value: 0 },
+          uExposure: { value: 1 },
+        },
+      })
+    );
+    const moon = new THREE.InstancedMesh(moonGeo, moonMat, moonData.count);
+    {
+      const m = new THREE.Matrix4();
+      for (let i = 0; i < moonData.count; i++) {
+        m.makeTranslation(moonData.offsets[i * 3], moonData.offsets[i * 3 + 1], moonData.offsets[i * 3 + 2]);
+        moon.setMatrixAt(i, m);
       }
-      rotor.rotation.z = Math.random() * Math.PI;
-      g.add(rotor);
-      rotors.push(rotor);
-      scene.add(g);
     }
+    moon.frustumCulled = false;
+    scene.add(moon);
+
+    // Ice floes bobbing at the foot of the cliff (same material as the pieces, fully iced)
+    const floes = buildFloes(small ? 40 : 70);
+    const floeGeo = keep(new RoundedBoxGeometry(1, 1, 1, 2, 0.08));
+    floeGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(Float32Array.from(floes.map((f) => f.rand)), 1));
+    floeGeo.setAttribute("aMix", new THREE.InstancedBufferAttribute(new Float32Array(floes.length).fill(1), 1));
+    floeGeo.setAttribute("aTint", new THREE.InstancedBufferAttribute(new Float32Array(floes.length * 4), 4));
+    const floeMesh = new THREE.InstancedMesh(floeGeo, houseMat, floes.length);
+    floeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    floeMesh.frustumCulled = false;
+    scene.add(floeMesh);
+
+    // Windmill rotors turn as a whole (their cubes are pieces in the village layout)
+    const rotorAngle = new Float32Array(set.windmills.length).map(() => Math.random() * Math.PI);
+    const zAxis = new THREE.Vector3(0, 0, 1);
+    const qRotor = new THREE.Quaternion();
+    sceneState.blocks = N + terrain.count + moonData.count + floes.length;
 
     /* ---------------- Sky ---------------- */
     const skyMat = keep(
@@ -406,6 +433,14 @@ export default function IceScene() {
 
     const sample = (lay: Layout, i: number, time: number, outP: THREE.Vector3, outQ: THREE.Quaternion, outS: THREE.Vector3) => {
       outS.copy(lay.scale[i]);
+      const mill = set.rotorMill[i];
+      if (lay.rotors && mill >= 0) {
+        const wm = set.windmills[mill];
+        qRotor.setFromAxisAngle(zAxis, rotorAngle[mill]);
+        outP.copy(set.rotorLocal[i]).applyQuaternion(qRotor).add(wm.hub).multiplyScalar(wm.scale).applyQuaternion(wm.yawQ).add(wm.base);
+        outQ.copy(wm.yawQ).multiply(qRotor).multiply(set.rotorLocalQ[i]);
+        return;
+      }
       if (!lay.spin && !lay.bob) {
         outP.copy(lay.pos[i]);
         outQ.copy(lay.quat[i]);
@@ -424,6 +459,7 @@ export default function IceScene() {
     let slowFrames = 0;
     let firstFrame = true;
     let revealAt = -1;
+    let wasPressed = false;
 
     const tick = () => {
       raf = requestAnimationFrame(tick);
@@ -481,6 +517,8 @@ export default function IceScene() {
       lineOp += (mixS("lines") - lineOp) * damp(dt, 2.5);
       push += (mixS("push") - push) * damp(dt, 3);
       pressAmt += ((sceneState.press ? 1 : 0) - pressAmt) * damp(dt, sceneState.press ? 2.2 : 3.2);
+      if (sceneState.press && !wasPressed) terrU.uShockT.value = time;
+      wasPressed = sceneState.press;
 
       /* Pointer → world point on a plane through the camera target */
       const fine = !coarse && nowMs - p.lastMove < 4000;
@@ -607,7 +645,17 @@ export default function IceScene() {
       sceneState.velocity *= Math.exp(-dt * 4);
       const speed = Math.abs(smoothVel);
       snowOffset += smoothVel * dt * 0.0022;
-      for (const r of rotors) r.rotation.z -= dt * (0.55 + Math.min(speed / 500, 6)) * motion;
+      for (let m = 0; m < rotorAngle.length; m++) rotorAngle[m] -= dt * (0.55 + Math.min(speed / 500, 6)) * motion;
+
+      // Floes bob on the swell; when the land goes holographic they lift into the air
+      for (let i = 0; i < floes.length; i++) {
+        const f = floes[i];
+        tp.copy(f.pos);
+        tp.y += Math.sin(time * 0.8 * motion + f.rand * 6.28) * 0.03 + (1 - landAmt) * (1.2 + f.rand * 3.5);
+        tq.setFromAxisAngle(yAxis, f.yaw + time * 0.05 * f.rand * motion + (1 - landAmt) * f.rand * 3);
+        floeMesh.setMatrixAt(i, mtx.compose(tp, tq, f.size));
+      }
+      floeMesh.instanceMatrix.needsUpdate = true;
 
       /* Telemetry for the HUD */
       sceneState.formation = camT < 0.5 ? a : b;
@@ -631,6 +679,15 @@ export default function IceScene() {
       landU.uLand.value = landAmt;
       landU.uExposure.value = exposure;
       landU.uCam.value.copy(camera.position);
+      terrU.uGrow.value = revealAt < 0 ? 0 : clamp01((time - revealAt) / 2.6);
+      terrU.uAmp.value = 1 + Math.min(speed / 2500, 1.5);
+      terrU.uCenter.value.copy(camTarget);
+      terrU.uMouse.value.copy(mouseW);
+      terrU.uMouseOn.value = mouseOn;
+      terrU.uPulseT.value = pulseT;
+      moonMat.uniforms.uTime.value = time * motion;
+      moonMat.uniforms.uBurst.value = clamp01((1 - landAmt) * 1.15);
+      moonMat.uniforms.uExposure.value = 0.75 + 0.25 * exposure;
       skyMat.uniforms.uTime.value = time * motion;
       skyMat.uniforms.uExposure.value = 0.6 + exposure * 0.4;
       snowMat.uniforms.uTime.value = time * motion;
