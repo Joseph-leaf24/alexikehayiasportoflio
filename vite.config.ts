@@ -5,18 +5,29 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "/alexikehayiasportoflio/", 
+  base: "/alexikehayiasportoflio/",
   server: {
     host: "::",
     port: 8080,
   },
-  plugins: [
-    react(),
-    mode === "development" && componentTagger(),
-  ].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    // three.js alone is ~530 kB (130 kB gzipped) and is cached in its own chunk
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Keep the heavy WebGL + motion libraries in their own cacheable chunks
+        manualChunks: {
+          three: ["three"],
+          motion: ["gsap", "lenis"],
+          react: ["react", "react-dom", "react-router-dom"],
+        },
+      },
     },
   },
 }));

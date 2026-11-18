@@ -1,5 +1,6 @@
 // Import project images
-import dataAnalyticsImg from "@/assets/data-analytics.jpg";
+import sdgImg from "@/assets/SDG-Indicators.png";
+import ikeaImg from "@/assets/Ikea-Card-Skimming.png";
 import computerVisionImg from "@/assets/computer-vision.jpg";
 import cv1_accuracyCurves from "@/assets/Accuracy-Curves-Occupied-Unoccupied-Classrooms.png";
 import cv1_lossCurves from "@/assets/Loss--Curves-Occupied-Unoccupied-Classrooms.png";
@@ -33,6 +34,7 @@ import mlops_thumbnail from "@/assets/mlops_thumbnail.png";
 import mlopsImg_1 from "@/assets/Azure Architecutre Diagram CV1.png";
 import mlopsImg_2 from "@/assets/CLI Training Working.png";
 import mlopsImg_3 from "@/assets/MLOps-Learning-Curves.png";
+import mlopsImg_4 from "@/assets/Airflow.png";
 
 import { ProjectData } from "@/types/project";
 
@@ -44,7 +46,7 @@ export const projectData: ProjectData = {
       {
         title: "Tuberculosis Analysis in Zimbabwe",
         description: "This is an interactive Power BI dashboard made to support health decision-making by analyzing TB trends in Zimbabwe. It also features regional benchmarking against neighbouring countries and tracks progress toward SDG 3 goals.",
-        image: dataAnalyticsImg,
+        image: sdgImg,
         tags: ["Power BI", "Public Health", "SDG Tracking"],
         concepts: ["Exploratory Data Analysis", "Data Visualization", "Time Series Analysis", "Regional Benchmarking"],
         tools: ["Microsoft Power BI", "Excel", "WHO Data APIs"],
@@ -55,7 +57,7 @@ export const projectData: ProjectData = {
       {
         title: "IKEA Card Skimming Detection Dashboard",
         description: "This is a dashboard for monitoring payment terminal redeployment at IKEA Breda. It enables tracking of terminal movements, employee behavior analysis, and identification of security risk hotspots.",
-        image: dataAnalyticsImg,
+        image: ikeaImg,
         tags: ["Power BI", "Security Analytics", "Retail"],
         concepts: ["Security Risk Analytics", "Operational Intelligence", "Employee Behavior Analysis", "Compliance Monitoring"],
         tools: ["Microsoft Power BI", "SQL Server", "Excel"],
@@ -67,11 +69,11 @@ export const projectData: ProjectData = {
   
   computerVision: {
     title: "Computer Vision",
-    description: "Advanced image processing and AI solutions for applications such occupancy detection and agricultural phenotyping.",
+    description: "Advanced image processing and AI solutions for applications such as occupancy detection and agricultural phenotyping.",
     projects: [
       {
         title: "Classroom Occupancy Detection with Explainable AI",
-        description: "this project makes use of a Convolutional Neural Network-based image classification system to detect classroom occupancy with Grad-CAM explainability. It is designed for university space optimization with privacy-first approach.",
+        description: "This project makes use of a Convolutional Neural Network-based image classification system to detect classroom occupancy with Grad-CAM explainability. It is designed for university space optimization with privacy-first approach.",
         image: computerVisionImg,
         images: [ 
           cv1_accuracyCurves,
@@ -86,7 +88,7 @@ export const projectData: ProjectData = {
       },
       {
         title: "Primary Root Detection Pipeline (NPEC)",
-        description: "For this project, the aim was to create a fully automated AI pipeline for the detection, segmentation, and measurement of plant root structures. This integrated robotics through the use of a virutal OT2 environment for automated innoculation of plant root tips..",
+        description: "For this project, the aim was to create a fully automated AI pipeline for the detection, segmentation, and measurement of plant root structures. This integrated robotics through the use of a virtual OT2 environment for automated inoculation of plant root tips.",
         image: computerVisionImg_root,
         images: [
           computerVisionImg_root_1,
@@ -125,11 +127,11 @@ export const projectData: ProjectData = {
   
   nlp: {
     title: "Natural Language Processing",
-    description: "Advanced text processing and multilingual(English and Greek) AI for emotion detection and content analysis.",
+    description: "Advanced text processing and multilingual (English and Greek) AI for emotion detection and content analysis.",
     projects: [
       {
         title: "Greek Emotion Detection with Translation",
-        description: "This is an NLP pipeline for emotion detection in Greek & English YouTube videos. It combines Whisper speech recognition, multilingual translation(Greek to English), and transformer-based emotion classification with intensity scoring.",
+        description: "This is an NLP pipeline for emotion detection in Greek & English YouTube videos. It combines Whisper speech recognition, multilingual translation (Greek to English), and transformer-based emotion classification with intensity scoring.",
         image: nlpImg,
         images: [ 
           nlpImg_1,
@@ -186,12 +188,13 @@ export const projectData: ProjectData = {
     projects: [
       {
         title: "ROALT: Root Analysis Toolkit Deployment",
-        description: "A Machine Learning Operations(MLOps) deployment of deep learning pipelines using Docker, Azure ML, and Airflow. It features FastAPI for the backend, Gradio UI, and full CI/CD integration for plant research applications, in this case being root segmentation analysis in computer vision.",
+        description: "A Machine Learning Operations (MLOps) deployment of deep learning pipelines using Docker, Azure ML, and Airflow. It features FastAPI for the backend, Gradio UI, and full CI/CD integration for plant research applications, in this case being root segmentation analysis in computer vision.",
         image: mlops_thumbnail,
         images: [ // Additional gallery images 
             mlopsImg_1,
             mlopsImg_2,
-            mlopsImg_3
+            mlopsImg_3,
+            mlopsImg_4
         ],
         tags: ["Docker", "Azure ML", "CI/CD"],
         concepts: ["MLOps Lifecycle", "Container Orchestration", "Cloud Deployment", "Workflow Automation"],

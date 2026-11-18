@@ -1,112 +1,128 @@
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { useLocation, useNavigationType } from "react-router-dom";
 import Hero from "@/components/Hero";
+import About from "@/components/About";
 import Skills from "@/components/Skills";
-import SpecializationSlider from "@/components/SpecializationSlider";
-import ProjectSection from "@/components/ProjectSection";
-import { projectData } from "@/data/projects";
+import Work from "@/components/Work";
+import Contact from "@/components/Contact";
+import { specializations } from "@/data/profile";
+import { sceneState, ui, type LayoutKey } from "@/lib/store";
+import { refreshScroll, scrollToTarget } from "@/lib/smoothScroll";
+
+interface HomeState {
+  scrollTo?: string;
+  category?: string;
+}
+
+const readNumber = (key: string) => {
+  try {
+    const v = Number(sessionStorage.getItem(key));
+    return Number.isFinite(v) ? v : 0;
+  } catch {
+    return 0;
+  }
+};
 
 const Index = () => {
-  const [activeSpecialization, setActiveSpecialization] = useState(0);
+  const location = useLocation();
+  const navType = useNavigationType();
+  const state = (location.state ?? {}) as HomeState;
+
+  // Coming back from a project restores the specialization that was open
+  const [active, setActive] = useState(() => {
+    const fromState = specializations.findIndex((s) => s.id === state.category);
+    if (fromState >= 0) return fromState;
+    const saved = readNumber("ak:spec");
+    return saved >= 0 && saved < specializations.length ? saved : 0;
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("ak:spec", String(active));
+    } catch {
+      /* ignore */
+    }
+  }, [active]);
+
+  // Scroll position on arrival: explicit target > browser back/forward > top
+  useLayoutEffect(() => {
+    if (state.scrollTo) {
+      scrollToTarget(`#${state.scrollTo}`, { immediate: true, offset: -10 });
+    } else if (navType === "POP") {
+      scrollToTarget(readNumber("ak:homeY"), { immediate: true });
+    } else {
+      scrollToTarget(0, { immediate: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
+
+  // Remember the scroll position for "back"
+  useEffect(() => {
+    let t = 0;
+    const onScroll = () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(() => {
+        try {
+          sessionStorage.setItem("ak:homeY", String(window.scrollY));
+        } catch {
+          /* ignore */
+        }
+      }, 120);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  // Feed section positions to the 3D scene and keep the HUD section label in sync
+  useEffect(() => {
+    sceneState.override = null;
+    const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-scene]"));
+    const measure = () => {
+      sceneState.stops = sections.map((el) => ({
+        y: el.getBoundingClientRect().top + window.scrollY,
+        layout: el.dataset.scene as LayoutKey,
+      }));
+    };
+    measure();
+    const ro = new ResizeObserver(() => {
+      measure();
+      refreshScroll();
+    });
+    ro.observe(document.body);
+    window.addEventListener("resize", measure);
+
+    const labelled = Array.from(document.querySelectorAll<HTMLElement>("[data-section]"));
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const [idx, label] = (e.target as HTMLElement).dataset.section!.split("|");
+          ui.set({ sectionIndex: idx, sectionLabel: label });
+        }
+      },
+      { rootMargin: "-50% 0px -50% 0px" }
+    );
+    labelled.forEach((el) => io.observe(el));
+
+    return () => {
+      ro.disconnect();
+      io.disconnect();
+      window.removeEventListener("resize", measure);
+      sceneState.stops = [];
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background">{/* Force refresh */}
-      {/* Hero Section */}
+    <>
       <Hero />
-      
-      {/* Skills Overview */}
+      <About />
       <Skills />
-      
-      <SpecializationSlider 
-        activeSpecialization={activeSpecialization}
-        setActiveSpecialization={setActiveSpecialization}
-      />
-      
-      {/* Projects - Only show sections for the active specialization */}
-      <div id="projects">
-        {(() => {
-          const specializationMapping: Record<number, string[]> = {
-            0: ["dataAnalytics"], // Data Analytics
-            1: ["computerVision"], // Computer Vision
-            2: ["machineLearning"], // Machine Learning
-            3: ["nlp"], // Natural Language Processing
-            4: ["research"], // Research Methods
-            5: ["mlops"] // MLOps & Deployment
-          };
-
-          const sectionsToShow = specializationMapping[activeSpecialization] || [];
-
-          return sectionsToShow.map((sectionId) => {
-            const sectionData = {
-              dataAnalytics: {
-                title: projectData.dataAnalytics.title,
-                description: projectData.dataAnalytics.description,
-                projects: projectData.dataAnalytics.projects
-              },
-              computerVision: {
-                title: projectData.computerVision.title,
-                description: projectData.computerVision.description,
-                projects: projectData.computerVision.projects
-              },
-              machineLearning: {
-                title: projectData.machineLearning.title,
-                description: projectData.machineLearning.description,
-                projects: projectData.machineLearning.projects
-              },
-              nlp: {
-                title: projectData.nlp.title,
-                description: projectData.nlp.description,
-                projects: projectData.nlp.projects
-              },
-              research: {
-                title: projectData.research.title,
-                description: projectData.research.description,
-                projects: projectData.research.projects
-              },
-              mlops: {
-                title: projectData.mlops.title,
-                description: projectData.mlops.description,
-                projects: projectData.mlops.projects
-              }
-            };
-
-            const section = sectionData[sectionId];
-            if (!section) return null;
-
-            return (
-              <ProjectSection
-                key={sectionId}
-                id={sectionId}
-                title={section.title}
-                description={section.description}
-                projects={section.projects}
-              />
-            );
-          });
-        })()}
-      </div>
-      
-      {/* Footer */}
-      <footer className="bg-background border-t border-primary/30 text-foreground py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h3 className="text-2xl font-bold mb-4 text-primary font-heading">Interested?</h3>
-          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-            Click the links below to get in touch or connect with me on LinkedIn!
-          </p>
-          <div className="flex justify-center gap-4">
-            <a href="mailto:your.email@example.com" className="text-primary hover:text-primary-light transition-colors hover:shadow-glow">
-              Contact Me
-            </a>
-            <span className="text-muted-foreground">•</span>
-            <a href="#" className="text-secondary hover:text-secondary-light transition-colors hover:shadow-cyan-glow">
-              LinkedIn
-            </a>
-            <span className="text-muted-foreground">•</span>
-            <a href="#" className="text-accent hover:text-accent transition-colors hover:shadow-orange-glow">
-              GitHub
-            </a>
-          </div>
-        </div>
-      </footer>
-    </div>
+      <Work active={active} setActive={setActive} />
+      <Contact />
+    </>
   );
 };
 

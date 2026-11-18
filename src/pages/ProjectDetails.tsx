@@ -1,175 +1,200 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Github, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Github } from "lucide-react";
 import { projectData } from "@/data/projects";
-import { Project } from "@/types/project";
-import React, { useState } from "react";
+import { allProjects, projectPath, specializations, type CategoryId } from "@/data/profile";
+import { sceneState, ui } from "@/lib/store";
+import { scrollToTarget } from "@/lib/smoothScroll";
+import { TLink } from "@/components/chrome/Transition";
+import ScrambleText from "@/components/fx/ScrambleText";
+import Reveal from "@/components/fx/Reveal";
+import Corners from "@/components/fx/Corners";
+import Lightbox from "@/components/Lightbox";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
 const ProjectDetails = () => {
   const { category, projectIndex } = useParams();
-  const navigate = useNavigate();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalImage, setModalImage] = useState<string | null>(null);
-  
-  // Find the project based on category and index
-  const categoryData = category ? projectData[category as keyof typeof projectData] : null;
-  const project: Project | null = categoryData && projectIndex ? categoryData.projects[parseInt(projectIndex)] : null;
-  
+  const [lightbox, setLightbox] = useState<number | null>(null);
+
+  const categoryData = category && category in projectData ? projectData[category] : null;
+  const idx = Number(projectIndex);
+  const project = categoryData && Number.isInteger(idx) ? categoryData.projects[idx] : undefined;
+  const spec = specializations.find((s) => s.id === category);
+  const flatIndex = allProjects.findIndex((r) => r.category === category && r.index === idx);
+  const total = allProjects.length;
+  const prev = flatIndex >= 0 ? allProjects[(flatIndex - 1 + total) % total] : null;
+  const next = flatIndex >= 0 ? allProjects[(flatIndex + 1) % total] : null;
+
+  // Always open a project at the top (HashRouter doesn't reset scroll)
+  useLayoutEffect(() => {
+    scrollToTarget(0, { immediate: true });
+    setLightbox(null);
+  }, [category, projectIndex]);
+
+  useEffect(() => {
+    sceneState.override = "cube";
+    ui.set({ sectionIndex: flatIndex >= 0 ? pad(flatIndex + 1) : "--", sectionLabel: spec?.title ?? "Project" });
+    const prevTitle = document.title;
+    if (project) document.title = `${project.title} — Alexi Kehayias`;
+    return () => {
+      sceneState.override = null;
+      document.title = prevTitle;
+    };
+  }, [project, spec, flatIndex]);
+
+  const closeLightbox = useCallback(() => setLightbox(null), []);
+
+  const backState = { scrollTo: "projects", category: category as CategoryId };
+
   if (!project || !categoryData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Project not found</h1>
-          <Button onClick={() => navigate('/')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Button>
-        </div>
-      </div>
+      <section className="notfound container-x">
+        <span className="mono-label">[ 404 ] — Project</span>
+        <h1 className="display-2">
+          <ScrambleText text="Project not found" trigger="mount" />
+        </h1>
+        <TLink to="/" state={{ scrollTo: "projects" }} className="btn-ice">
+          <ArrowLeft className="h-4 w-4" /> Back to Home
+        </TLink>
+      </section>
     );
   }
 
+  const images = project.images ?? [];
+
   return (
-    <div className="min-h-screen bg-gradient-surface">
-            {/* Fullscreen Image Modal */}
-      {modalOpen && modalImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-          onClick={() => setModalOpen(false)}
-        >
-          <button
-            className="absolute top-6 right-8 text-white text-3xl z-60 bg-black/50 rounded-full p-2 hover:bg-black/80 transition"
-            onClick={e => {
-              e.stopPropagation();
-              setModalOpen(false);
-            }}
-            aria-label="Close"
-          >
-            
-          </button>
-          <img
-            src={modalImage}
-            alt="Fullscreen"
-            className="max-h-[90vh] max-w-[90vw] rounded-lg shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          />
-        </div>
-      )}
-      <div className="container mx-auto px-4 py-8">
-        <Button 
-          variant="outline" 
-          onClick={() => navigate('/')}
-          className="mb-8"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Portfolio
-        </Button>
-        
-        <div className="w-full mx-auto">
-          {/* Project Header */}
-          <div className="text-center mb-12">
-            <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium mb-4">
-              {categoryData.title}
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-accent bg-clip-text text-transparent font-heading">
-              {project.title}
-            </h1>
-            <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-              {project.description}
-            </p>
-          </div>
-
-          {/* Project Image or Power BI Dashboard */}
-          {project.powerBiUrl ? (
-            <div className="mb-12">
-              <h3 className="text-2xl font-semibold mb-6 text-center text-foreground">Interactive Dashboard</h3>
-              <div className="relative rounded-lg overflow-hidden shadow-glow bg-card w-full">
-                <iframe 
-                  title={project.title}
-                  width="100%" 
-                  height="600"
-                  src={project.powerBiUrl}
-                  frameBorder="0" 
-                  allowFullScreen={true}
-                  className="w-full block"
-                  style={{ aspectRatio: '16/10' }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="mb-12">
-            {/* Additional images gallery */}
-            {project.images && project.images.length > 0 && (
-              <div>
-                <h3 className="text-2xl font-semibold mb-6 text-center text-foreground">Project Gallery</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {project.images.map((imageUrl, index) => (
-                    <div
-                      key={index}
-                      className="relative rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow flex justify-center items-center cursor-pointer"
-                      onClick={() => {
-                        setModalImage(imageUrl);
-                        setModalOpen(true);
-                      }}
-                    >
-                      <img
-                        src={imageUrl}
-                        alt={`${project.title} - Image ${index + 1}`}
-                        className="block max-w-full h-auto transition-transform duration-300 hover:scale-105"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          )}
-
-          {/* Project Details Grid */}
-          <div className="grid md:grid-cols-2 gap-12 mb-12">
-            {/* Technologies & Tools */}
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-xl font-semibold mb-4 text-foreground">Technologies Used</h3>
-                <div className="flex flex-wrap gap-2">
-                  {project.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="text-sm px-3 py-1">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              
-              {project.tools && project.tools.length > 0 && (
-                <div>
-                  <h3 className="text-xl font-semibold mb-4 text-foreground">Tools & Languages</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {project.tools.map((tool, index) => (
-                      <Badge key={index} variant="outline" className="text-sm px-3 py-1">
-                        {tool}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* AI/Data Science Concepts */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-foreground">AI/Data Science Concepts</h3>
-              <div className="flex flex-wrap gap-2">
-                {project.concepts.map((concept, index) => (
-                  <Badge key={index} className="text-sm px-3 py-1 bg-gradient-primary text-white">
-                    {concept}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-
-        </div>
+    <article className="detail container-x">
+      <div className="detail__top">
+        <TLink to="/" state={backState} className="back-link" data-cursor="BACK">
+          <ArrowLeft className="h-4 w-4" />
+          <ScrambleText text="Back to Portfolio" trigger="none" hover />
+        </TLink>
+        <span className="mono-label">
+          {pad(flatIndex + 1)} / {pad(total)}
+        </span>
       </div>
-    </div>
+
+      <header className="detail__head">
+        <Reveal variant="fade" className="mono-label detail__cat">
+          [ {pad(idx + 1)} ] — {categoryData.title}
+          {spec && spec.title !== categoryData.title ? ` · ${spec.title}` : ""}
+        </Reveal>
+        <h1 className="detail__title">
+          <ScrambleText text={project.title} trigger="mount" duration={1100} />
+        </h1>
+        <Reveal delay={200}>
+          <p className="detail__desc">{project.description}</p>
+        </Reveal>
+        <Reveal delay={320} className="detail__actions">
+          {project.githubUrl ? (
+            <a className="btn-ice btn-ice--solid" href={project.githubUrl} target="_blank" rel="noopener noreferrer" data-cursor="GITHUB">
+              <Github className="h-4 w-4" />
+              <ScrambleText text="View on GitHub" trigger="none" hover />
+              <ArrowUpRight className="h-4 w-4" />
+            </a>
+          ) : null}
+          {project.demoUrl ? (
+            <a className="btn-ice" href={project.demoUrl} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
+              <ScrambleText text="Live Demo" trigger="none" hover />
+              <ArrowUpRight className="h-4 w-4" />
+            </a>
+          ) : null}
+          {project.powerBiUrl ? (
+            <a className="btn-ice" href={project.powerBiUrl} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
+              <ScrambleText text="Open Dashboard" trigger="none" hover />
+              <ArrowUpRight className="h-4 w-4" />
+            </a>
+          ) : null}
+        </Reveal>
+      </header>
+
+      <div className="detail__specs">
+        <Reveal className="spec-panel hc">
+          <Corners />
+          <h3 className="mono-label">Technologies Used</h3>
+          <ul className="chips chips--lg">
+            {project.tags.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </Reveal>
+        {project.tools && project.tools.length > 0 ? (
+          <Reveal className="spec-panel hc" delay={100}>
+            <Corners />
+            <h3 className="mono-label">Tools &amp; Languages</h3>
+            <ul className="chips chips--lg">
+              {project.tools.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </Reveal>
+        ) : null}
+        <Reveal className="spec-panel hc" delay={200}>
+          <Corners />
+          <h3 className="mono-label">AI/Data Science Concepts</h3>
+          <ul className="chips chips--lg chips--accent">
+            {project.concepts.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </Reveal>
+      </div>
+
+      {project.powerBiUrl ? (
+        <section className="detail__block">
+          <div className="detail__block-head">
+            <h2 className="mono-label">Interactive Dashboard</h2>
+            <span className="mono-label">Microsoft Power BI</span>
+          </div>
+          <Reveal variant="clip" className="embed-frame">
+            <Corners />
+            <iframe title={project.title} src={project.powerBiUrl} allowFullScreen loading="lazy" />
+          </Reveal>
+        </section>
+      ) : null}
+
+      {images.length > 0 ? (
+        <section className="detail__block">
+          <div className="detail__block-head">
+            <h2 className="mono-label">Project Gallery</h2>
+            <span className="mono-label">{pad(images.length)} assets</span>
+          </div>
+          <div className="gallery">
+            {images.map((src, i) => (
+              <Reveal key={src + i} variant="clip" delay={(i % 3) * 90}>
+                <button type="button" className="gallery__item hc" onClick={() => setLightbox(i)} data-cursor="EXPAND" aria-label={`Open image ${i + 1} of ${images.length}`}>
+                  <img src={src} alt={`${project.title} - Image ${i + 1}`} loading="lazy" decoding="async" />
+                  <Corners />
+                  <span className="gallery__idx">IMG/{pad(i + 1)}</span>
+                </button>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {prev && next ? (
+        <nav className="pager" aria-label="More projects">
+          <TLink to={projectPath(prev.category, prev.index)} className="pager__link" data-cursor="PREV">
+            <span className="mono-label">
+              <ArrowLeft className="h-3.5 w-3.5" /> Previous project
+            </span>
+            <ScrambleText text={prev.project.title} trigger="none" hover className="pager__title" />
+          </TLink>
+          <TLink to={projectPath(next.category, next.index)} className="pager__link pager__link--next" data-cursor="NEXT">
+            <span className="mono-label">
+              Next project <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+            <ScrambleText text={next.project.title} trigger="none" hover className="pager__title" />
+          </TLink>
+        </nav>
+      ) : null}
+
+      {lightbox !== null ? (
+        <Lightbox images={images} index={lightbox} title={project.title} onClose={closeLightbox} onIndex={setLightbox} />
+      ) : null}
+    </article>
   );
 };
 

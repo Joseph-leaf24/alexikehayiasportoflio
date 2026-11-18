@@ -1,79 +1,118 @@
-import { Button } from "@/components/ui/button";
-import { ArrowDown, Linkedin, Mail } from "lucide-react";
-import profile_photo from "@/assets/profile_photo.jpg";
-
-const cvFile = "/alexikehayiasportoflio/Alexi_Kehayias_CV.pdf";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { profile } from "@/data/profile";
+import { sceneState } from "@/lib/store";
+import { gsap, scrollToTarget } from "@/lib/smoothScroll";
+import { sound } from "@/lib/sound";
+import ScrambleText from "@/components/fx/ScrambleText";
+import Reveal from "@/components/fx/Reveal";
 
 const Hero = () => {
-  const scrollToProjects = () => {
-    document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" });
-  };
+  const ref = useRef<HTMLElement>(null);
+  const [coarse] = useState(() => window.matchMedia("(pointer: coarse)").matches);
+
+  // Click / touch & hold anywhere on the hero (not on controls) to shatter the igloo
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let start: { x: number; y: number } | null = null;
+    const down = (e: PointerEvent) => {
+      if ((e.target as HTMLElement).closest("a,button")) return;
+      start = { x: e.clientX, y: e.clientY };
+      sceneState.press = true;
+      el.classList.add("is-pressing");
+      sound.blip("click");
+    };
+    const move = (e: PointerEvent) => {
+      if (start && e.pointerType !== "mouse" && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) up();
+    };
+    const up = () => {
+      start = null;
+      sceneState.press = false;
+      el.classList.remove("is-pressing");
+    };
+    el.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move, { passive: true });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    window.addEventListener("blur", up);
+    return () => {
+      up();
+      el.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("blur", up);
+    };
+  }, []);
+
+  // Hero copy drifts up and fades as you leave it
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.to(".hero__inner", {
+        yPercent: -14,
+        opacity: 0,
+        ease: "none",
+        scrollTrigger: { trigger: ref.current, start: "top top", end: "bottom top", scrub: true },
+      });
+    }, ref);
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <section className="min-h-screen flex items-center justify-center bg-gradient-hero relative overflow-hidden">
-      {/* Removed decorative shapes & glowing lines */}
+    <section id="top" ref={ref} className="hero" data-scene="dome" data-section="00|Intro">
+      <div className="hero__inner container-x">
+        <div className="hero__top">
+          <Reveal variant="fade" className="mono-label">
+            [ 00 ] — Portfolio · {new Date().getFullYear()}
+          </Reveal>
+          <ScrambleText text={profile.role} trigger="mount" delay={500} className="mono-label hero__role" />
+        </div>
 
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="text-center max-w-4xl mx-auto">
-          {/* Profile photo */}
-          <img
-            src={profile_photo}
-            alt="Alexi Kehayias"
-            className="mx-auto mb-6 w-60 h-60 rounded-full shadow-lg border-4 border-primary/40 object-cover"
-          />
+        <div className="hero__hint" aria-hidden="true">
+          <span className="hero__hint-ring" />
+          <ScrambleText text={coarse ? "Touch & hold" : "Click & hold to shatter"} trigger="mount" delay={1400} className="mono-label" />
+        </div>
 
-          {/* Name in solid black (no gradient/glow) */}
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 font-heading text-black">
-            Alexi Kehayias
+        <div className="hero__bottom">
+          <h1 className="hero__title">
+            <span className="sr-only">{profile.name}</span>
+            <span aria-hidden="true">
+              <ScrambleText text={profile.firstName} trigger="mount" duration={1300} delay={120} className="hero__line" />
+              <ScrambleText text={profile.lastName} trigger="mount" duration={1500} delay={320} className="hero__line hero__line--r" />
+            </span>
           </h1>
 
-          {/* Subheading in black */}
-          <h2 className="text-2xl md:text-3xl font-semibold mb-6 font-mono text-black">
-            Data Science & AI Student
-          </h2>
-
-          {/* Intro paragraph in black */}
-          <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto leading-relaxed text-black">
-            Hi there! I'm Alexi, a student in Breda studying Data Science and AI with a focus on a number of areas such as Computer Vision, Natural Language processing as well as MLOps. I enjoy building innovative solutions that make a difference to companies and society. Explore my projects below to see what I've been working on!
-          </p>
-
-          <div className="flex flex-wrap gap-4 justify-center mb-12">
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={scrollToProjects}
-              className="bg-primary/20 backdrop-blur border-primary hover:bg-primary/30 text-primary hover:shadow-glow"
-            >
-              View Projects
-              <ArrowDown className="ml-2 h-4 w-4" />
-            </Button>
-
-            <a href={cvFile} download rel="noopener noreferrer">
-              <Button
-                variant="secondary"
-                size="lg"
-                className="bg-secondary/20 backdrop-blur border-secondary hover:bg-secondary/30 text-secondary hover:shadow-cyan-glow"
-              >
-                Download CV
-              </Button>
-            </a>
-          </div>
-
-          <div className="flex justify-center gap-6">
-            <a href="mailto:kehayiasjalexi@gmail.com" target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm" className="text-primary hover:text-primary-light hover:shadow-glow">
-                <Mail className="h-5 w-5" />
-              </Button>
-            </a>
-            <a href="https://www.linkedin.com/in/alexi-kehayias/" target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="sm" className="text-secondary hover:text-secondary-light hover:shadow-cyan-glow">
-                <Linkedin className="h-5 w-5" />
-              </Button>
-            </a>
+          <div className="hero__meta">
+            <Reveal className="hero__focus" delay={700}>
+              <span className="mono-label">Focus</span>
+              <ul>
+                {profile.focus.map((f, i) => (
+                  <li key={f}>
+                    <span>0{i + 1}</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal className="hero__ctas" delay={850}>
+              <button type="button" className="btn-ice" onClick={() => scrollToTarget("#projects", { offset: -10 })} data-cursor="SCROLL">
+                <ScrambleText text="View Projects" trigger="none" hover />
+                <ArrowDown className="h-4 w-4" />
+              </button>
+              <a className="btn-ice btn-ice--solid" href={profile.cv} download data-cursor="PDF">
+                <ScrambleText text="Download CV" trigger="none" hover />
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </Reveal>
           </div>
         </div>
-      </div>
 
+        <div className="scroll-cue" aria-hidden="true">
+          <span>Scroll</span>
+          <i />
+        </div>
+      </div>
     </section>
   );
 };

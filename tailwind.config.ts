@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindAnimate from "tailwindcss-animate";
 
 export default {
 	darkMode: ["class"],
@@ -24,34 +25,29 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
-				surface: 'hsl(var(--surface))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					dark: 'hsl(var(--primary-dark))',
-					light: 'hsl(var(--primary-light))',
 					foreground: 'hsl(var(--primary-foreground))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
-					dark: 'hsl(var(--secondary-dark))',
-					light: 'hsl(var(--secondary-light))',
 					foreground: 'hsl(var(--secondary-foreground))'
 				},
+				ice: 'var(--ice)',
+				frost: 'var(--frost)',
+				ink: 'var(--bg)',
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
 				},
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
-					dark: 'hsl(var(--muted-dark))',
 					foreground: 'hsl(var(--muted-foreground))'
 				},
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
 					foreground: 'hsl(var(--accent-foreground))'
 				},
-				success: 'hsl(var(--success))',
-				warning: 'hsl(var(--warning))',
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
 					foreground: 'hsl(var(--popover-foreground))'
@@ -71,27 +67,11 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				}
 			},
-			backgroundImage: {
-				'gradient-primary': 'var(--gradient-primary)',
-				'gradient-hero': 'var(--gradient-hero)',
-				'gradient-card': 'var(--gradient-card)',
-				'gradient-surface': 'var(--gradient-surface)',
-				'gradient-accent': 'var(--gradient-accent)',
-				'circuit-pattern': 'var(--circuit-pattern)',
-				'circuit-lines': 'var(--circuit-lines)',
-			},
-			boxShadow: {
-				'soft': 'var(--shadow-soft)',
-				'medium': 'var(--shadow-medium)',
-				'large': 'var(--shadow-large)',
-				'glow': 'var(--shadow-glow)',
-				'cyan-glow': 'var(--shadow-cyan-glow)',
-				'orange-glow': 'var(--shadow-orange-glow)',
-			},
 			fontFamily: {
-				'mono': 'var(--font-mono)',
-				'heading': 'var(--font-heading)',
-				'body': 'var(--font-body)',
+				sans: ['var(--font-sans)'],
+				mono: ['var(--font-mono)'],
+				heading: ['var(--font-sans)'],
+				body: ['var(--font-sans)'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -136,5 +116,5 @@ export default {
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [tailwindAnimate],
 } satisfies Config;

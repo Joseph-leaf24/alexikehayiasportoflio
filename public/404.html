@@ -1,16 +1,24 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Redirecting...</title>
-    <meta http-equiv="refresh" content="0; URL=/#/" />
+    <title>Redirecting…</title>
     <script>
-      // Redirect to root with hash (so HashRouter can handle it)
-      const redirectTo = window.location.origin + '/alexi-ai-artistry/#' + window.location.pathname + window.location.search + window.location.hash;
-      window.location.replace(redirectTo);
+      // GitHub Pages serves this file for unknown paths. The app uses a HashRouter,
+      // so turn e.g. /alexikehayiasportoflio/project/nlp/0 into
+      // /alexikehayiasportoflio/#/project/nlp/0 and let the router take over.
+      (function () {
+        var base = "/alexikehayiasportoflio";
+        var path = window.location.pathname;
+        if (path.indexOf(base) === 0) path = path.slice(base.length);
+        if (!path || path.charAt(0) !== "/") path = "/" + path;
+        window.location.replace(
+          window.location.origin + base + "/#" + path + window.location.search
+        );
+      })();
     </script>
   </head>
-  <body>
-    Redirecting...
+  <body style="background:#05070a;color:#e6edf5;font-family:monospace">
+    Redirecting…
   </body>
 </html>
