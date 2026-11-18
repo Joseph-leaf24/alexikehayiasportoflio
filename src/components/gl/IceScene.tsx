@@ -7,7 +7,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { sceneState, ui, type LayoutKey } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { buildFloes, buildLayouts, buildMoon, buildTerrain, CELL, KIND_DOME, type Layout } from "./layouts";
+import { buildFloes, buildLayouts, buildMoon, buildTerrain, CELL, KIND_DOME, SEA_LEVEL, type Layout } from "./layouts";
 import {
   FinalShader,
   dustFragment,
@@ -157,12 +157,17 @@ export default function IceScene() {
       uMoonDir: { value: MOON_DIR },
     };
 
-    // Hills: one instance per voxel column
+    // Hills: one instance per cube, so the whole landscape can break apart
     const terrain = buildTerrain();
     const voxGeo = keep(new THREE.BoxGeometry(1, 1, 1));
     const voxRand = new Float32Array(terrain.count);
-    for (let i = 0; i < terrain.count; i++) voxRand[i] = Math.random();
+    const voxDepth = new Float32Array(terrain.count);
+    for (let i = 0; i < terrain.count; i++) {
+      voxRand[i] = Math.random();
+      voxDepth[i] = terrain.data[i * 4 + 3];
+    }
     voxGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(voxRand, 1));
+    voxGeo.setAttribute("aDepth", new THREE.InstancedBufferAttribute(voxDepth, 1));
     const terrU = {
       ...landU,
       uGrow: { value: 0 },
@@ -172,6 +177,8 @@ export default function IceScene() {
       uMouseOn: { value: 0 },
       uShockT: { value: -100 },
       uPulseT: { value: -100 },
+      uBreak: { value: 0 },
+      uBreakC: { value: new THREE.Vector3(0, 2, -4) },
     };
     const terrMat = keep(new THREE.ShaderMaterial({ vertexShader: terrainVertex, fragmentShader: terrainFragment, uniforms: terrU }));
     const hills = new THREE.InstancedMesh(voxGeo, terrMat, terrain.count);
@@ -179,11 +186,9 @@ export default function IceScene() {
       const m = new THREE.Matrix4();
       const q = new THREE.Quaternion();
       const pos = new THREE.Vector3();
-      const sc = new THREE.Vector3();
+      const sc = new THREE.Vector3(CELL, CELL, CELL);
       for (let i = 0; i < terrain.count; i++) {
-        const [x, z, top, bottom] = terrain.data.subarray(i * 4, i * 4 + 4);
-        pos.set(x, (top + bottom) / 2, z);
-        sc.set(CELL, top - bottom, CELL);
+        pos.set(terrain.data[i * 4], terrain.data[i * 4 + 1], terrain.data[i * 4 + 2]);
         hills.setMatrixAt(i, m.compose(pos, q, sc));
       }
     }
@@ -192,6 +197,7 @@ export default function IceScene() {
 
     const seaGeo = keep(new THREE.PlaneGeometry(420, 420));
     seaGeo.rotateX(-Math.PI / 2);
+    seaGeo.translate(0, SEA_LEVEL, 0);
     const seaMat = keep(new THREE.ShaderMaterial({ vertexShader: seaVertex, fragmentShader: seaFragment, uniforms: landU }));
     scene.add(new THREE.Mesh(seaGeo, seaMat));
 
@@ -651,8 +657,8 @@ export default function IceScene() {
       for (let i = 0; i < floes.length; i++) {
         const f = floes[i];
         tp.copy(f.pos);
-        tp.y += Math.sin(time * 0.8 * motion + f.rand * 6.28) * 0.03 + (1 - landAmt) * (1.2 + f.rand * 3.5);
-        tq.setFromAxisAngle(yAxis, f.yaw + time * 0.05 * f.rand * motion + (1 - landAmt) * f.rand * 3);
+        tp.y += Math.sin(time * 0.8 * motion + f.rand * 6.28) * 0.03 + Math.max(1 - landAmt, pressAmt) * (1.2 + f.rand * 3.5);
+        tq.setFromAxisAngle(yAxis, f.yaw + time * 0.05 * f.rand * motion + Math.max(1 - landAmt, pressAmt) * f.rand * 3);
         floeMesh.setMatrixAt(i, mtx.compose(tp, tq, f.size));
       }
       floeMesh.instanceMatrix.needsUpdate = true;
@@ -685,8 +691,9 @@ export default function IceScene() {
       terrU.uMouse.value.copy(mouseW);
       terrU.uMouseOn.value = mouseOn;
       terrU.uPulseT.value = pulseT;
+      terrU.uBreak.value = pressAmt;
       moonMat.uniforms.uTime.value = time * motion;
-      moonMat.uniforms.uBurst.value = clamp01((1 - landAmt) * 1.15);
+      moonMat.uniforms.uBurst.value = Math.max(clamp01((1 - landAmt) * 1.15), pressAmt);
       moonMat.uniforms.uExposure.value = 0.75 + 0.25 * exposure;
       skyMat.uniforms.uTime.value = time * motion;
       skyMat.uniforms.uExposure.value = 0.6 + exposure * 0.4;

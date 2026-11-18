@@ -186,6 +186,7 @@ const LINES = /* glsl */ `
 /* ------------------------------------------------------------------ */
 export const terrainVertex = /* glsl */ `
   attribute float aRand;
+  attribute float aDepth;
   uniform float uTime;
   uniform float uLand;
   uniform float uGrow;
@@ -195,22 +196,34 @@ export const terrainVertex = /* glsl */ `
   uniform float uMouseOn;
   uniform float uShockT;
   uniform float uPulseT;
+  uniform float uBreak;
+  uniform vec3 uBreakC;
   varying vec3 vW;
   varying vec3 vL;
   varying vec3 vLN;
-  varying vec3 vS;
   varying vec3 vN;
   varying float vR;
   varying float vLift;
+  varying float vDepth;
+  varying float vSize;
   ${NOISE}
+  mat3 rotAxis(vec3 a, float ang) {
+    a = normalize(a);
+    float s = sin(ang);
+    float c = cos(ang);
+    float oc = 1.0 - c;
+    return mat3(oc * a.x * a.x + c, oc * a.x * a.y + a.z * s, oc * a.z * a.x - a.y * s,
+                oc * a.x * a.y - a.z * s, oc * a.y * a.y + c, oc * a.y * a.z + a.x * s,
+                oc * a.z * a.x + a.y * s, oc * a.y * a.z - a.x * s, oc * a.z * a.z + c);
+  }
   void main() {
     vL = position;
     vLN = normal;
-    vS = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+    float size = length(instanceMatrix[0].xyz);
     vec3 c = instanceMatrix[3].xyz;
     float r = length(c.xz - uCenter.xz);
     float holo = 1.0 - uLand;
-    // Equaliser: columns pump with a travelling wave once the land goes holographic
+    // Equaliser: whole columns pump with a travelling wave once the land goes holographic
     float eq = (sin(r * 0.55 - uTime * 2.2) * 0.5 + 0.5) * 0.9 + vnoise(vec3(c.xz * 0.22, uTime * 0.6)) * 1.1;
     float lift = holo * eq * uAmp * 0.6;
     lift += holo * smoothstep(3.0, 0.0, length(c.xz - uMouse.xz)) * 1.4 * uMouseOn;
@@ -221,15 +234,25 @@ export const terrainVertex = /* glsl */ `
     lift += exp(-pow(r - pt * 12.0, 2.0) * 0.5) * smoothstep(1.8, 0.0, pt) * 0.5;
     // Intro: the hills rise out of the sea in a ripple from the village
     float grow = smoothstep(r * 0.025, r * 0.025 + 0.45, uGrow);
-    lift -= (1.0 - grow) * (vS.y + 2.5);
-    vLift = lift;
-    mat4 m = modelMatrix * instanceMatrix;
-    vec4 w = m * vec4(position, 1.0);
+    lift -= (1.0 - grow) * (c.y + 3.0);
+
+    // Hold-to-shatter: every cube tears loose and tumbles, in a wave spreading out from the village
+    vec3 rel = c - uBreakC;
+    float rb = length(rel.xz);
+    float e = smoothstep(rb * 0.02, rb * 0.02 + 0.5, uBreak) * smoothstep(42.0, 6.0, rb);
+    vec3 dir = normalize(vec3(rel.x * 0.08, 0.0, rel.z * 0.08) + vec3(aRand - 0.5, 1.0 + aRand, fract(aRand * 7.13) - 0.5));
+    vec3 axis = vec3(fract(aRand * 3.1) - 0.5, fract(aRand * 5.7) - 0.5, fract(aRand * 9.3) - 0.5) + 0.001;
+    mat3 R = rotAxis(axis, e * (1.5 + aRand * 5.0));
+    vec3 w = c + R * (position * size * (1.0 - e * 0.25)) + dir * e * (1.5 + aRand * 6.5) * (1.0 + aDepth * 0.15);
     w.y += lift;
-    vW = w.xyz;
-    vN = normalize(mat3(m) * (normal / max(vS * vS, vec3(1e-4))));
+
+    vW = w;
+    vN = normalize(R * normal);
     vR = aRand;
-    gl_Position = projectionMatrix * viewMatrix * w;
+    vLift = lift;
+    vDepth = aDepth;
+    vSize = size;
+    gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }
 `;
 
@@ -242,32 +265,28 @@ export const terrainFragment = /* glsl */ `
   varying vec3 vW;
   varying vec3 vL;
   varying vec3 vLN;
-  varying vec3 vS;
   varying vec3 vN;
   varying float vR;
   varying float vLift;
+  varying float vDepth;
+  varying float vSize;
   ${NOISE}
   ${ENV}
   void main() {
-    float cell = 0.5;
     vec3 N = normalize(vN);
     vec3 V = normalize(uCam - vW);
     vec3 L = normalize(vec3(-0.8, 0.5, 0.33));
     float ndl = max(dot(N, L), 0.0);
     float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
 
-    // Column edges + the seams between the stacked cubes
-    vec3 dE = (0.5 - abs(vL)) * vS;
+    // Glowing cube edges
+    vec3 dE = (0.5 - abs(vL)) * vSize;
     float dmax = max(dE.x, max(dE.y, dE.z));
     float dmin = min(dE.x, min(dE.y, dE.z));
-    float dmid = dE.x + dE.y + dE.z - dmax - dmin;
-    float yl = (vL.y + 0.5) * vS.y;
-    float side = 1.0 - step(0.5, abs(vLN.y));
-    float seam = side * (1.0 - smoothstep(0.0, 0.022, abs(fract(yl / cell + 0.5) - 0.5) * cell));
-    float edge = max(1.0 - smoothstep(0.0, 0.028, dmid), seam);
-    float depth = vS.y - yl;
+    float edge = 1.0 - smoothstep(0.0, 0.026, dE.x + dE.y + dE.z - dmax - dmin);
+    float depth = vDepth + (0.5 - vL.y) * vSize;
     float topF = step(0.5, vLN.y);
-    float h = hash12(vec2(vR * 97.0, floor(yl / cell)));
+    float h = hash12(vec2(vR * 97.0, vDepth));
 
     // Moonlit: dark glacial ice cubes with frosted tops
     vec3 deep = mix(vec3(0.03, 0.05, 0.08), vec3(0.06, 0.09, 0.13), h);

@@ -129,9 +129,13 @@ export function terrainHeight(x: number, z: number) {
 /** Height of the voxel column at (x, z): the terrain snapped down to whole cubes. */
 export const voxelTop = (x: number, z: number) => Math.floor(terrainHeight(x, z) / CELL) * CELL;
 
+/** Sea surface height. Kept just below the lowest cube tops so land and water never z-fight. */
+export const SEA_LEVEL = -0.15;
+
 /**
- * The hills as voxel columns. Each column is one instance: x, z, top, bottom.
- * Bottoms only go as deep as needed to close the gap to the lowest neighbour.
+ * The hills as individual cubes (so they can break apart). Each cube: x, y, z, depth,
+ * where depth is the distance from the cube's top to the top of its column.
+ * Columns only go as deep as needed to close the gap to the lowest neighbour.
  */
 export function buildTerrain() {
   const x0 = -28;
@@ -141,7 +145,7 @@ export function buildTerrain() {
   const tops = new Float32Array(nx * nz);
   for (let ix = 0; ix < nx; ix++)
     for (let iz = 0; iz < nz; iz++) tops[ix * nz + iz] = voxelTop(x0 + ix * CELL, z0 + iz * CELL);
-  const cols: number[] = [];
+  const cubes: number[] = [];
   for (let ix = 0; ix < nx; ix++)
     for (let iz = 0; iz < nz; iz++) {
       const top = tops[ix * nz + iz];
@@ -150,13 +154,21 @@ export function buildTerrain() {
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const jx = ix + dx;
         const jz = iz + dz;
-        let t = jx >= 0 && jx < nx && jz >= 0 && jz < nz ? tops[jx * nz + jz] : -2;
-        if (t < 0) t = -2;
+        let t = jx >= 0 && jx < nx && jz >= 0 && jz < nz ? tops[jx * nz + jz] : -1;
+        if (t < 0) t = -1;
         minN = Math.min(minN, t);
       }
-      cols.push(x0 + ix * CELL, z0 + iz * CELL, top, Math.max(-2, minN - CELL));
+      // Nothing below the waterline is visible, so stop half a cube under the surface
+      const bottom = Math.max(-CELL, minN - CELL);
+      const n = Math.round((top - bottom) / CELL);
+      const x = x0 + ix * CELL;
+      const z = z0 + iz * CELL;
+      for (let k = 0; k < n; k++) {
+        const y = top - (k + 0.5) * CELL;
+        cubes.push(x, y, z, k * CELL);
+      }
     }
-  return { data: Float32Array.from(cols), count: cols.length / 4 };
+  return { data: Float32Array.from(cubes), count: cubes.length / 4 };
 }
 
 /** The moon as a shell of cubes, with a few recessed craters. */
@@ -189,7 +201,7 @@ export function buildFloes(count = 70) {
     const x = (rnd() - 0.5) * 30;
     const z = rimZ(x) + 3.4 + rnd() * 7;
     const s = 0.18 + Math.pow(rnd(), 2) * 0.45;
-    return { pos: new THREE.Vector3(x, 0.02, z), size: new THREE.Vector3(s * (0.8 + rnd() * 0.6), s * 0.45, s * (0.8 + rnd() * 0.6)), yaw: rnd() * 6.28, rand: rnd() };
+    return { pos: new THREE.Vector3(x, SEA_LEVEL + 0.04, z), size: new THREE.Vector3(s * (0.8 + rnd() * 0.6), s * 0.45, s * (0.8 + rnd() * 0.6)), yaw: rnd() * 6.28, rand: rnd() };
   });
 }
 
