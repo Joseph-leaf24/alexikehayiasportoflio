@@ -41,6 +41,8 @@ export function resetState() {
     override: null,
     press: false,
     transition: false,
+    fps: 0,
+    res: 1,
     pulse: -100,
     velocity: 0,
     ready: false,

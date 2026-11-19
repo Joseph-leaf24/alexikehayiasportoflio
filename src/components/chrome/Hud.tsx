@@ -59,6 +59,7 @@ function Telemetry() {
   const [formation, setFormation] = useState<LayoutKey>(sceneState.formation);
   const camRef = useRef<HTMLSpanElement>(null);
   const blocksRef = useRef<HTMLSpanElement>(null);
+  const fpsRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     let raf = 0;
     let last = 0;
@@ -74,6 +75,7 @@ function Telemetry() {
       const c = sceneState.cam;
       if (camRef.current) camRef.current.textContent = `${signed(c.x)} ${signed(c.y)} ${signed(c.z)}`;
       if (blocksRef.current && sceneState.blocks) blocksRef.current.textContent = sceneState.blocks.toLocaleString("en-GB");
+      if (fpsRef.current && sceneState.fps) fpsRef.current.textContent = `${Math.round(sceneState.fps)} fps · ${sceneState.res.toFixed(2)}×`;
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -90,6 +92,11 @@ function Telemetry() {
       <span className="hud-dot" />
       <span>
         Cam <span ref={camRef} className="tabular-nums" />
+      </span>
+      <span className="hud-dot" />
+      {/* Live frame rate and render resolution (the adaptive quality at work) */}
+      <span ref={fpsRef} className="hud-fps tabular-nums">
+        — fps
       </span>
     </div>
   );

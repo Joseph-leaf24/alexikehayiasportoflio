@@ -7,7 +7,7 @@ import {
   isIntegratedGpu,
   qualityFor,
   readSignals,
-  rememberDowngrade,
+  rememberTier,
   resetQualityCache,
   scoreDevice,
   type DeviceSignals,
@@ -120,10 +120,8 @@ describe("device tiers", () => {
     const low = qualityFor("low", true);
     expect(high.msaa).toBeGreaterThan(mid.msaa);
     expect(mid.particles).toBeGreaterThan(low.particles);
-    expect(low.bloom).toBe(false);
-    expect(low.fpsCap).toBe(30);
-    expect(high.dprCap).toBeLessThanOrEqual(1.5);
-    expect(mid.dprCap).toBeLessThan(high.dprCap);
+    expect(low.msaa).toBe(0);
+    expect(low.bloomStrength).toBeGreaterThan(0); // bloom is the live controller's call now
     expect(qualityFor("high", true).msaa).toBeLessThan(high.msaa);
     expect(qualityFor("mid", true).particles).toBeLessThan(mid.particles);
     expect(high.terrain.xMax - high.terrain.xMin).toBeGreaterThan(low.terrain.xMax - low.terrain.xMin);
@@ -166,16 +164,19 @@ describe("device tiers", () => {
     HTMLCanvasElement.prototype.getContext = getContext;
   });
 
-  it("honours ?quality= and remembered downgrades", () => {
+  it("honours ?quality= and a tier remembered this session (down or up)", () => {
     window.history.replaceState({}, "", "/?quality=high");
     expect(getQuality({ ...base, webgl2: false }).tier).toBe("high");
     resetQualityCache();
     window.history.replaceState({}, "", "/");
-    expect(rememberDowngrade("high")).toBe("mid");
-    expect(document.documentElement.dataset.perf).toBe("degraded");
+    expect(rememberTier("high", -1)).toBe("mid");
     expect(getQuality(base).tier).toBe("mid");
     resetQualityCache();
-    expect(rememberDowngrade("low")).toBe("low");
+    expect(rememberTier("low", 1)).toBe("mid");
+    expect(getQuality({ ...base, webgl2: false }).tier).toBe("mid");
+    resetQualityCache();
+    expect(rememberTier("low", -1)).toBe("low");
+    expect(rememberTier("high", 1)).toBe("high");
   });
 
   it("survives blocked storage", () => {
@@ -186,7 +187,7 @@ describe("device tiers", () => {
       throw new Error("denied");
     });
     expect(getQuality(base).tier).toBe("high");
-    expect(rememberDowngrade("mid")).toBe("low");
+    expect(rememberTier("mid", -1)).toBe("low");
     get.mockRestore();
     set.mockRestore();
   });

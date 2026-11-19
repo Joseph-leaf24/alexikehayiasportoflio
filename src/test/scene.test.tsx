@@ -6,7 +6,7 @@ import { resetState, useAnimationTimers, advance } from "./utils";
 import { media, setScrollY } from "./setup";
 
 /* GPU-facing classes are stubbed; geometry, materials and maths are real three.js */
-const gl = vi.hoisted(() => ({ fail: false, renders: 0, passes: [] as { enabled?: boolean }[] }));
+const gl = vi.hoisted(() => ({ fail: false, renders: 0, dpr: 1, passes: [] as { enabled?: boolean }[] }));
 
 vi.mock("three", async (importOriginal) => {
   const actual = await importOriginal<typeof import("three")>();
@@ -16,7 +16,9 @@ vi.mock("three", async (importOriginal) => {
     constructor() {
       if (gl.fail) throw new Error("WebGL unavailable");
     }
-    setPixelRatio() {}
+    setPixelRatio(d: number) {
+      gl.dpr = d;
+    }
     setSize() {}
     setClearColor() {}
     compile() {}
@@ -62,7 +64,47 @@ beforeEach(() => {
 });
 afterEach(() => {
   document.documentElement.classList.remove("no-webgl");
+  delete document.documentElement.dataset.perf;
+  Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+  window.history.replaceState({}, "", "/");
 });
+
+type Settings = { dpr: number; bloom: boolean; fx: boolean };
+
+/**
+ * Runs the scene on a simulated display: rAF fires once per refresh, and a rendered frame
+ * whose GPU cost (ms, from the settings in use) is longer than a refresh pushes the next
+ * callback back to a later refresh, the way the browser waits for the GPU.
+ */
+function display(refreshMs: number, cost: (s: Settings) => number) {
+  let now = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => now);
+  const frames: FrameRequestCallback[] = [];
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+    frames.push(cb);
+    return frames.length;
+  });
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+  const settings = (): Settings => {
+    const [bloom, fx] = gl.passes.filter((p) => "enabled" in p);
+    return { dpr: gl.dpr, bloom: !!bloom?.enabled, fx: !!fx?.enabled };
+  };
+  return {
+    settings,
+    /** Simulated seconds */
+    run(seconds: number) {
+      const end = now + seconds * 1000;
+      while (now < end && frames.length) {
+        const before = gl.renders;
+        frames.shift()!(now);
+        const busy = gl.renders > before ? Math.max(refreshMs, cost(settings())) : refreshMs;
+        now += Math.ceil(busy / refreshMs - 1e-9) * refreshMs;
+      }
+    },
+  };
+}
+
+const setScreenDpr = (value: number) => Object.defineProperty(window, "devicePixelRatio", { configurable: true, value });
 
 const stops = [
   { y: 0, layout: "village" as const },
@@ -137,66 +179,108 @@ describe("IceScene", () => {
     unmount();
   });
 
-  it("steps quality down when a device can't keep up", () => {
-    window.history.replaceState({}, "", "/?quality=high");
-    resetQualityCache();
-    let now = 0;
-    vi.spyOn(performance, "now").mockImplementation(() => (now += 30));
-    const frames: FrameRequestCallback[] = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
-      frames.push(cb);
-      return frames.length;
+  describe("live quality (a steady 60 fps at the best settings the device holds)", () => {
+    it("climbs to the richest settings on a fast device, and remembers a bigger budget", () => {
+      window.history.replaceState({}, "", "/?quality=mid");
+      resetQualityCache();
+      setScreenDpr(2);
+      const d = display(1000 / 60, () => 4);
+      const { unmount } = render(<IceScene />);
+      // Starts at 1× with bloom (the mid tier's rung)…
+      d.run(1);
+      expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
+      // …and climbs to the screen's own 2× within ~15 s, then flags the tier as too small
+      d.run(40);
+      expect(d.settings()).toEqual({ dpr: 2, bloom: true, fx: true });
+      expect(sceneState.res).toBe(2);
+      expect(Math.round(sceneState.fps)).toBe(60);
+      expect(sessionStorage.getItem("ak:tier")).toBe("high");
+      unmount();
     });
-    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
-    const { unmount } = render(<IceScene />);
-    ui.set({ ready: true });
-    // ~24 s of 30 ms frames: bloom → post-fx → remembered downgrade
-    for (let i = 0; i < 800 && frames.length; i++) frames.shift()!(now);
-    expect(gl.passes.filter((p) => "enabled" in p).every((p) => p.enabled === false)).toBe(true);
-    expect(document.documentElement.dataset.perf).toBe("degraded");
-    expect(sessionStorage.getItem("ak:tier")).toBe("mid");
-    unmount();
+
+    it("steps down to the best settings a slower GPU holds at 60 fps, and stops re-trying richer ones", () => {
+      window.history.replaceState({}, "", "/?quality=high");
+      resetQualityCache();
+      setScreenDpr(1.5);
+      // 1× with grain fits a 60 fps frame (16 ms); adding bloom doesn't (20 ms)
+      const d = display(1000 / 60, ({ dpr, bloom, fx }) => 3 + 12 * dpr * dpr + (bloom ? 4 : 0) + (fx ? 1 : 0));
+      const { unmount } = render(<IceScene />);
+      d.run(50);
+      expect(d.settings()).toEqual({ dpr: 1, bloom: false, fx: true });
+      // Three failed tries at bloom and it stops trying: the settings hold from here on
+      const rung = sessionStorage.getItem("ak:rung");
+      const renders = gl.renders;
+      d.run(30);
+      expect(sessionStorage.getItem("ak:rung")).toBe(rung);
+      expect(gl.renders - renders).toBeGreaterThan(30 * 58);
+      unmount();
+    });
+
+    it("drops to 30 fps as a last resort, then remembers a smaller budget", () => {
+      window.history.replaceState({}, "", "/?quality=mid");
+      resetQualityCache();
+      const d = display(1000 / 60, ({ dpr, bloom }) => 30 + 40 * dpr * dpr + (bloom ? 10 : 0));
+      const { unmount } = render(<IceScene />);
+      d.run(20);
+      expect(d.settings()).toEqual({ dpr: 0.5, bloom: false, fx: false });
+      expect(document.documentElement.dataset.perf).toBe("degraded");
+      expect(sessionStorage.getItem("ak:tier")).toBe("low");
+      unmount();
+    });
+
+    it("keeps its quality when lowering it doesn't speed frames up (a CPU limit, not the GPU)", () => {
+      window.history.replaceState({}, "", "/?quality=high");
+      resetQualityCache();
+      const d = display(1000 / 60, () => 30);
+      const { unmount } = render(<IceScene />);
+      d.run(10);
+      expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
+      // It tries once more later, finds the same, and then leaves the settings alone for good
+      d.run(45);
+      expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
+      expect(document.documentElement.dataset.perf).toBeUndefined();
+      unmount();
+    });
+
+    it("renders every other refresh on a 120 Hz screen (≈60 fps), starting low-end devices without effects", () => {
+      window.history.replaceState({}, "", "/?quality=low");
+      resetQualityCache();
+      const d = display(1000 / 120, () => 2);
+      const { unmount } = render(<IceScene />);
+      d.run(1);
+      expect(d.settings()).toEqual({ dpr: 0.65, bloom: false, fx: false });
+      const before = gl.renders;
+      d.run(3);
+      // 3 s of a 120 Hz screen is 360 refreshes; ~180 of them are drawn
+      expect(gl.renders - before).toBeGreaterThan(170);
+      expect(gl.renders - before).toBeLessThan(190);
+      unmount();
+    });
+
+    it("starts a reload where this session's last visit settled", () => {
+      resetQualityCache();
+      sessionStorage.setItem("ak:rung", "3");
+      const d = display(1000 / 60, () => 4);
+      const { unmount } = render(<IceScene />);
+      d.run(0.2);
+      expect(d.settings()).toEqual({ dpr: 0.8, bloom: false, fx: true });
+      unmount();
+    });
   });
 
   it("stops drawing during page transitions when frames are already slow", () => {
     window.history.replaceState({}, "", "/?quality=low");
     resetQualityCache();
-    let now = 0;
-    vi.spyOn(performance, "now").mockImplementation(() => (now += 120));
-    const frames: FrameRequestCallback[] = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
-      frames.push(cb);
-      return frames.length;
-    });
-    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
-    const run = (n: number) => {
-      for (let i = 0; i < n && frames.length; i++) frames.shift()!(now);
-    };
+    const d = display(1000 / 60, () => 120);
     const { unmount } = render(<IceScene />);
-    // Fast enough before the governor has measured anything; then ~8 fps
-    run(40);
+    d.run(3);
     sceneState.transition = true;
     const before = gl.renders;
-    run(20);
+    d.run(2);
     expect(gl.renders).toBe(before);
     sceneState.transition = false;
-    run(5);
+    d.run(1);
     expect(gl.renders).toBeGreaterThan(before);
-    unmount();
-    window.history.replaceState({}, "", "/");
-  });
-
-  it("runs the low tier at a capped frame rate on touch devices", () => {
-    media["(pointer: coarse)"] = true;
-    media["(prefers-reduced-motion: reduce)"] = true;
-    useAnimationTimers();
-    const { unmount } = render(<IceScene />);
-    advance(16);
-    const early = gl.renders;
-    advance(1000);
-    // 30 fps cap → roughly 30 frames, not 60
-    expect(gl.renders - early).toBeLessThan(40);
-    expect(gl.passes.filter((p) => "enabled" in p).every((p) => p.enabled === false)).toBe(true);
     unmount();
   });
 

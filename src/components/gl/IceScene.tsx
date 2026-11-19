@@ -7,7 +7,8 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { sceneState, ui, type LayoutKey } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { getQuality, rememberDowngrade } from "@/lib/device";
+import { getQuality, rememberTier } from "@/lib/device";
+import { buildLadder, createController, createPacer, rememberedRung, rememberRung, startRung, TARGET_MS } from "@/lib/adaptive";
 import { dayCycle, parseTimeOverride, sceneSun, sunDirection, wallClockToday } from "@/lib/sun";
 import { profile } from "@/data/profile";
 import {
@@ -131,10 +132,17 @@ export default function IceScene() {
     const reduced = prefersReducedMotion();
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     const motion = reduced ? 0.25 : 1;
-    // Rendering budget for this device (low-end phone … high-end PC)
+    // Build-time budget for this device (low-end phone … high-end PC). Resolution, bloom,
+    // grain and frame pacing are then tuned live for a steady 60 fps: the ladder of settings
+    // starts where the tier (or this session's last visit) says and the controller climbs or
+    // descends from there (src/lib/adaptive.ts).
     const q = getQuality();
-    let dpr = Math.min(window.devicePixelRatio || 1, q.dprCap);
-    const minFrameMs = q.fpsCap ? 1000 / q.fpsCap - 2 : 0;
+    const ladder = buildLadder(window.devicePixelRatio || 1);
+    // (?quality= picks the tier for testing: start at that tier's rung, not the remembered one)
+    const remembered = new URLSearchParams(window.location.search).has("quality") ? null : rememberedRung(ladder.length);
+    const level0 = remembered ?? startRung(ladder, q.tier);
+    let rung = ladder[level0];
+    let dpr = rung.dpr;
 
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     renderer.toneMapping = THREE.NoToneMapping;
@@ -511,10 +519,14 @@ export default function IceScene() {
     const composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), q.bloomStrength, 0.55, 0.72);
-    bloom.enabled = q.bloom;
+    bloom.enabled = rung.bloom;
     composer.addPass(bloom);
+    /** Bloom fades in and out (0–1) when the controller switches it, rather than popping */
+    let bloomAmt = rung.bloom ? 1 : 0;
+    /** Less bloom by day so the white houses don't wash out (set by updateDaylight) */
+    let dayBloom = 1;
     const finalPass = new ShaderPass(FinalShader);
-    finalPass.enabled = q.postFx;
+    finalPass.enabled = rung.fx;
     composer.addPass(finalPass);
 
     /* ---------------- Time of day ---------------- */
@@ -553,7 +565,7 @@ export default function IceScene() {
       moon.visible = d < 0.97;
       fog.copy(NIGHT_FOG).lerp(DAY_FOG, d).lerp(GOLD_FOG, g * 0.55);
       // Less bloom by day so the white houses don't wash out
-      bloom.strength = q.bloomStrength * (1 - 0.5 * d);
+      dayBloom = 1 - 0.5 * d;
       bloom.threshold = 0.72 + 0.2 * d;
       // Lets the CSS give text over the bright daytime scene a stronger shadow
       document.documentElement.dataset.sky = d > 0.5 ? "day" : "night";
@@ -576,6 +588,30 @@ export default function IceScene() {
     };
     resize();
     window.addEventListener("resize", resize);
+
+    /* ---------------- Live quality (a steady 60 fps at the best settings this device holds) ---------------- */
+    const applyRung = (level: number) => {
+      rung = ladder[level];
+      if (Math.abs(rung.dpr - dpr) > 0.01) {
+        dpr = rung.dpr;
+        resize();
+      }
+      finalPass.enabled = rung.fx;
+      snowGeo.setDrawRange(0, Math.round(SNOW * rung.snow));
+      // Heavier page effects (CSS) step aside on the lowest rungs too
+      if (level <= 1) document.documentElement.dataset.perf = "degraded";
+      else delete document.documentElement.dataset.perf;
+      sceneState.res = dpr;
+      rememberRung(level);
+    };
+    const quality = createController(ladder, {
+      start: level0,
+      onChange: applyRung,
+      // The build-time budget (cube and particle counts) is too big / small: use another tier next time
+      onBottom: () => rememberTier(q.tier, -1),
+      onTop: () => rememberTier(q.tier, 1),
+    });
+    applyRung(level0);
 
     /* ---------------- Interaction + animation state ---------------- */
     const pointerNdc = new THREE.Vector2();
@@ -638,16 +674,11 @@ export default function IceScene() {
     let last = performance.now();
     let raf = 0;
     let running = true;
-    let frameSum = 0;
-    let frameCount = 0;
-    let slowWindows = 0;
-    let longFrames = 0;
-    let degraded = false;
-    /** Average frame time (s) over the governor's last window */
-    let frameAvg = 0;
-    // Average frame-time budget (50 fps when uncapped) and what counts as a dropped frame
-    const budget = q.fpsCap ? 1 / (q.fpsCap - 4) : 1 / 50;
-    const hitch = q.fpsCap ? 1.8 / q.fpsCap : 1 / 30;
+    const pacer = createPacer();
+    let lastRaf = last;
+    let vsync = 0;
+    /** Smoothed time between rendered frames (ms) */
+    let frameMs = TARGET_MS;
     let firstFrame = true;
     let revealAt = -1;
     let wasPressed = false;
@@ -658,48 +689,28 @@ export default function IceScene() {
       raf = requestAnimationFrame(tick);
       if (!running) return;
       const nowMs = performance.now();
-      // Low-end devices render at a steady 30 fps instead of a stuttering 40-50
-      if (minFrameMs && nowMs - last < minFrameMs) return;
+      // Pacing: render every refresh on a 60–100 Hz screen and every other one on 120–144 Hz
+      // (about 60 fps either way, so spare GPU time goes into quality); the last-resort
+      // rung halves that again
+      const divisor = pacer.sample(nowMs - lastRaf) * (rung.half ? 2 : 1);
+      lastRaf = nowMs;
+      if (++vsync % divisor !== 0) return;
       // Where frames are already slow (software rendering, very weak GPUs), stop drawing while
       // a page wipe covers the screen: the wipe can only advance one frame at a time, so
       // with a heavy frame behind every step it would hold navigation up for seconds
-      if (sceneState.transition && frameAvg > 0.07) {
+      if (sceneState.transition && frameMs > 70) {
         last = nowMs;
+        quality.reset();
         return;
       }
-      const dt = Math.min((nowMs - last) / 1000, 0.1);
+      const interval = nowMs - last;
+      const dt = Math.min(interval / 1000, 0.1);
       last = nowMs;
       const time = nowMs / 1000 - start;
-
-      // Performance governor: if frames are consistently over budget (or keep hitching),
-      // step quality down — resolution first, then bloom, then post-processing; after
-      // that, remember a lower tier for later page loads this session.
-      frameSum += dt;
-      frameCount++;
-      if (dt > hitch) longFrames++;
-      if (frameSum > 1.5) {
-        const avg = frameSum / frameCount;
-        frameAvg = avg;
-        const janky = longFrames / frameCount > 0.12;
-        frameSum = 0;
-        frameCount = 0;
-        longFrames = 0;
-        slowWindows = time > 3 && (avg > budget || janky) ? slowWindows + 1 : 0;
-        if (slowWindows >= 2) {
-          slowWindows = 0;
-          if (dpr > q.dprFloor + 0.01) {
-            dpr = Math.max(q.dprFloor, dpr - 0.2);
-            resize();
-          } else if (bloom.enabled) {
-            bloom.enabled = false;
-          } else if (finalPass.enabled) {
-            finalPass.enabled = false;
-          } else if (!degraded) {
-            degraded = true;
-            rememberDowngrade(q.tier);
-          }
-        }
-      }
+      frameMs += (Math.min(interval, 250) - frameMs) * 0.1;
+      sceneState.fps = 1000 / frameMs;
+      // Live quality: climbs while frames are clean, steps down when they miss (see applyRung)
+      quality.frame(interval, nowMs);
 
       // The sun moves ~0.25° a minute: refreshing every 10 s is plenty
       if (nowMs - daylightAt > 10_000) updateDaylight();
@@ -955,6 +966,9 @@ export default function IceScene() {
       finalPass.uniforms.uTime.value = time;
       finalPass.uniforms.uAberr.value = 0.0012 + Math.min(speed / 3500, 1) * 0.008 * motion;
       finalPass.uniforms.uGlitch.value = reduced ? 0 : clamp01((speed - 2200) / 4000);
+      bloomAmt += ((rung.bloom ? 1 : 0) - bloomAmt) * damp(dt, 3);
+      bloom.enabled = bloomAmt > 0.01;
+      bloom.strength = q.bloomStrength * bloomAmt * dayBloom;
 
       composer.render(dt);
 
@@ -976,7 +990,8 @@ export default function IceScene() {
     let contextLost = false;
     const onVisibility = () => {
       running = !document.hidden && !contextLost;
-      last = performance.now();
+      last = lastRaf = performance.now();
+      quality.reset();
     };
     document.addEventListener("visibilitychange", onVisibility);
     const onLost = (e: Event) => {
@@ -987,7 +1002,8 @@ export default function IceScene() {
     const onRestored = () => {
       contextLost = false;
       running = !document.hidden;
-      last = performance.now();
+      last = lastRaf = performance.now();
+      quality.reset();
     };
     canvas.addEventListener("webglcontextlost", onLost);
     canvas.addEventListener("webglcontextrestored", onRestored);

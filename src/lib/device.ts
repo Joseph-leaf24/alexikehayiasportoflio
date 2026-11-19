@@ -1,8 +1,10 @@
 /**
- * Device tiering: picks a rendering budget so low-end phones stay smooth and
- * high-end PCs get the full effect. Detection is a pure function of the
- * signals below so it can be unit-tested; a runtime governor in the scene can
- * still step quality down if frames are slow.
+ * Device tiering: picks the build-time budget of the 3D scene (how many cubes and
+ * particles, MSAA) so low-end phones stay smooth and high-end PCs get the full effect, and
+ * where the live quality controller starts (src/lib/adaptive.ts). Detection is a pure
+ * function of the signals below so it can be unit-tested. While the scene runs, the
+ * controller tunes resolution and effects for a steady 60 fps, and if the budget turns
+ * out too big or too small it remembers a different tier for the next page load.
  */
 export type Tier = "low" | "mid" | "high";
 
@@ -24,19 +26,16 @@ export interface DeviceSignals {
   gpu?: string;
 }
 
-/** The rendering budget for one tier, read by the WebGL scene and the page transition. */
+/**
+ * The build-time budget for one tier, read by the WebGL scene and the page transition.
+ * (Resolution, bloom, grain and the frame rate are tuned live; see src/lib/adaptive.ts.)
+ */
 export interface Quality {
   tier: Tier;
-  /** Max device-pixel-ratio the WebGL canvas renders at */
-  dprCap: number;
-  /** Lowest DPR the runtime governor may drop to */
-  dprFloor: number;
   /** MSAA samples on the scene's render target */
   msaa: number;
-  bloom: boolean;
+  /** Bloom strength whenever the controller turns bloom on */
   bloomStrength: number;
-  /** Grain / aberration / glitch composite pass */
-  postFx: boolean;
   /** Voxel terrain extents (x min/max, z min) — smaller = fewer cubes */
   terrain: { xMin: number; xMax: number; zMin: number };
   /** Edge length of the near-sea water blocks (bigger = fewer blocks) */
@@ -49,8 +48,6 @@ export interface Quality {
   floes: number;
   /** Edge length of the moon's cubes (bigger = fewer cubes) */
   moonCube: number;
-  /** Frame cap in fps (0 = uncapped / display refresh) */
-  fpsCap: number;
   /** Ice-sheet slices in the page transition */
   shards: number;
 }
@@ -95,56 +92,40 @@ export function qualityFor(tier: Tier, coarse: boolean): Quality {
     case "high":
       return {
         tier,
-        // Above ~1.5 the extra pixels are invisible under bloom + grain but cost ~1.8x the fill
-        dprCap: 1.5,
-        dprFloor: 1,
         msaa: coarse ? 0 : 4,
-        bloom: true,
         bloomStrength: coarse ? 0.5 : 0.6,
-        postFx: true,
         terrain: { xMin: -28, xMax: 28, zMin: -30 },
         waterCell: 0.6,
         particles: coarse ? 1000 : 1800,
         dust: coarse ? 0 : 480,
         floes: 70,
         moonCube: 0.9,
-        fpsCap: 0,
         shards: 7,
       };
     case "mid":
       return {
         tier,
-        dprCap: coarse ? 1.25 : 1.35,
-        dprFloor: 0.85,
         msaa: coarse ? 0 : 2,
-        bloom: true,
         bloomStrength: 0.45,
-        postFx: true,
         terrain: { xMin: -24, xMax: 26, zMin: -26 },
         waterCell: 0.8,
         particles: coarse ? 600 : 1000,
         dust: coarse ? 0 : 240,
         floes: 45,
         moonCube: 1.0,
-        fpsCap: 0,
         shards: 5,
       };
     default:
       return {
         tier: "low",
-        dprCap: 1,
-        dprFloor: 0.65,
         msaa: 0,
-        bloom: false,
-        bloomStrength: 0,
-        postFx: false,
+        bloomStrength: 0.4,
         terrain: { xMin: -18, xMax: 22, zMin: -20 },
         waterCell: 1.2,
         particles: 300,
         dust: 0,
         floes: 18,
         moonCube: 1.25,
-        fpsCap: 30,
         shards: 3,
       };
   }
@@ -187,7 +168,7 @@ let cached: Quality | null = null;
 
 /**
  * Resolve the quality budget once per page load and expose the tier as html[data-tier].
- * Priority: ?quality=low|mid|high  >  a downgrade remembered this session  >  detection.
+ * Priority: ?quality=low|mid|high  >  a tier remembered this session  >  detection.
  * The signals are read only on that first call: probing the GPU creates a throwaway WebGL
  * context, which on a busy GPU can block the page for seconds (and callers such as the
  * page transition ask on every render).
@@ -198,7 +179,7 @@ export function getQuality(given?: DeviceSignals): Quality {
   let tier: Tier = scoreDevice(signals);
   try {
     const remembered = sessionStorage.getItem(STORAGE_KEY);
-    if (isTier(remembered) && TIERS.indexOf(remembered) < TIERS.indexOf(tier)) tier = remembered;
+    if (isTier(remembered)) tier = remembered;
   } catch {
     /* storage blocked */
   }
@@ -210,19 +191,18 @@ export function getQuality(given?: DeviceSignals): Quality {
 }
 
 /**
- * Called by the runtime governor when a device can't keep up: remember the next tier down
- * for this session, mark html[data-perf="degraded"] so CSS drops heavier effects, and
- * return the new tier.
+ * Called by the scene's quality controller when this tier's build-time budget is wrong
+ * for the device: remember the next tier down (`by` −1) or up (+1) for later page loads
+ * this session, and return it.
  */
-export function rememberDowngrade(tier: Tier) {
-  const lower = TIERS[Math.max(0, TIERS.indexOf(tier) - 1)];
+export function rememberTier(tier: Tier, by: -1 | 1) {
+  const next = TIERS[Math.min(TIERS.length - 1, Math.max(0, TIERS.indexOf(tier) + by))];
   try {
-    sessionStorage.setItem(STORAGE_KEY, lower);
+    sessionStorage.setItem(STORAGE_KEY, next);
   } catch {
     /* storage blocked */
   }
-  document.documentElement.dataset.perf = "degraded";
-  return lower;
+  return next;
 }
 
 /** Test helper: forget the cached decision. */

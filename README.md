@@ -44,8 +44,11 @@ npm run dev          # http://localhost:8080/alexikehayiasportoflio/
 ```
 
 `npm run build` writes the static site to `dist/`, and `npm run preview` serves that build.
-Add `?quality=low`, `?quality=mid` or `?quality=high` to the URL to try the different
-device tiers, and `?time=HH:MM` (Amsterdam time, e.g. `?time=16:30`) to see the scene at
+The 3D scene tunes itself while it runs: it aims for a steady 60 fps and raises or lowers
+the resolution, bloom and grain to the best that device can hold (the live frame rate and
+resolution show at the end of the HUD's bottom bar on wide screens; `src/lib/adaptive.ts`).
+Add `?quality=low`, `?quality=mid` or `?quality=high` to the URL to start from a different
+device tier, and `?time=HH:MM` (Amsterdam time, e.g. `?time=16:30`) to see the scene at
 another time of day.
 
 ## Run it in Docker
