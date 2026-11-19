@@ -1,3 +1,4 @@
+/** Vitest setup: jsdom stand-ins for the browser APIs the site uses, reset after every test. */
 import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
@@ -25,7 +26,7 @@ Object.defineProperty(window, "matchMedia", {
 
 /** Everything observed is reported as in view (unless a test turns this off). */
 export const io = { autoIntersect: true, instances: [] as MockIntersectionObserver[] };
-export class MockIntersectionObserver {
+class MockIntersectionObserver {
   root = null;
   rootMargin = "";
   thresholds = [];

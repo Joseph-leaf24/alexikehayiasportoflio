@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import Domains from "@/components/Domains";
 import DepthImage from "@/components/fx/DepthImage";
 import ProjectCard from "@/components/ProjectCard";
@@ -8,7 +8,8 @@ import { allProjects, projectPath, specializations } from "@/data/profile";
 import { projectData } from "@/data/projects";
 import { buildLayouts } from "@/components/gl/layouts";
 import { sceneState } from "@/lib/store";
-import { renderRoute, resetState } from "./utils";
+import { flush, renderRoute, resetState } from "./utils";
+import { io } from "./setup";
 
 beforeEach(resetState);
 
@@ -89,13 +90,13 @@ describe("Domains section", () => {
 });
 
 describe("DepthImage", () => {
-  it("builds back, middle and front layers for cover images", () => {
-    const { container } = render(<DepthImage src="a.png" alt="Pipeline diagram" focus={[30, 60]} eager />);
+  it("builds a picture and a lifted focal layer for cover images", () => {
+    const { container } = render(<DepthImage src="a.png" alt="Pipeline diagram" />);
     const root = container.querySelector(".depth") as HTMLElement;
     expect(root).toHaveClass("depth--cover");
-    expect(root.style.getPropertyValue("--fx")).toBe("30%");
-    expect(container.querySelectorAll("img")).toHaveLength(3);
-    expect(screen.getByAltText("Pipeline diagram")).toHaveAttribute("loading", "eager");
+    expect(container.querySelectorAll("img")).toHaveLength(2);
+    expect(container.querySelector(".depth__back")).toBeNull();
+    expect(screen.getByAltText("Pipeline diagram")).toHaveAttribute("loading", "lazy");
     expect(container.querySelectorAll(".depth__particles i").length).toBeGreaterThan(3);
   });
 
@@ -103,8 +104,21 @@ describe("DepthImage", () => {
     const { container } = render(<DepthImage src="chart.png" alt="Loss curve" fit="contain" />);
     expect(container.querySelector(".depth")).toHaveClass("depth--contain");
     expect(container.querySelectorAll("img")).toHaveLength(2);
-    expect(container.querySelector(".depth__back")).toHaveAttribute("aria-hidden", "true");
+    const back = container.querySelector(".depth__back")!;
+    expect(back).toHaveAttribute("aria-hidden", "true");
+    // The blurred fill is static: it sits outside the animated 3D stage
+    expect(back.closest(".depth__stage")).toBeNull();
     expect(screen.getByAltText("Loss curve")).toHaveAttribute("loading", "lazy");
+  });
+
+  it("only animates while on screen", async () => {
+    const { container } = render(<DepthImage src="a.png" alt="" />);
+    const root = container.querySelector(".depth") as HTMLElement;
+    await flush();
+    expect(root).toHaveAttribute("data-live");
+    const observer = io.instances.find((o) => o.targets.includes(root))!;
+    act(() => observer.fire(false, root));
+    expect(root).not.toHaveAttribute("data-live");
   });
 
   it("tilts toward a mouse pointer and settles when it leaves", () => {

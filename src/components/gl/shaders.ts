@@ -1,5 +1,10 @@
-/* All colours are authored directly in display space (no tone mapping). */
+/**
+ * GLSL for every material in the 3D scene (village pieces, voxel terrain, sea, voxel
+ * moon, sky, snow, cursor dust, network edges) plus the final composite pass. All
+ * colours are authored directly in display space (no tone mapping).
+ */
 
+/** Hash, value-noise and fBm helpers shared by several shaders. */
 const NOISE = /* glsl */ `
   float hash13(vec3 p) {
     p = fract(p * 0.3183099 + 0.1);
@@ -27,6 +32,7 @@ const NOISE = /* glsl */ `
   }
 `;
 
+/** Cheap procedural environment (night-sky gradient, horizon glow, two highlights) for reflections and refraction. */
 const ENV = /* glsl */ `
   vec3 envColor(vec3 d) {
     float y = d.y * 0.5 + 0.5;
@@ -174,7 +180,7 @@ export const pieceFragment = /* glsl */ `
     float pt = uTime - uPulseT;
     float ring = exp(-pow(length(vW - uPulseC) - pt * 11.0, 2.0) * 1.2) * smoothstep(2.0, 0.0, pt);
     col += vec3(0.5, 0.85, 1.0) * ring * (0.4 + edge + edgeW);
-    // Domain cluster under the pointer glows
+    // The cluster of the hovered domain card glows
     col += vec3(0.45, 0.85, 1.0) * uHi * smoothstep(2.0, 0.4, distance(vW, uHiC)) * (0.35 + edge * 0.9);
     // Neural net: activations sweep layer by layer (forward propagation)
     if (uNet > 0.001) {
@@ -188,6 +194,7 @@ export const pieceFragment = /* glsl */ `
   }
 `;
 
+/** Anti-aliased grid lines (width in screen pixels, via fwidth). */
 const LINES = /* glsl */ `
   float gridLine(float x, float w) {
     float fw = max(fwidth(x), 1e-4);
@@ -241,7 +248,7 @@ export const terrainVertex = /* glsl */ `
     float eq = (sin(r * 0.55 - uTime * 2.2) * 0.5 + 0.5) * 0.9 + vnoise(vec3(c.xz * 0.22, uTime * 0.6)) * 1.1;
     float lift = holo * eq * uAmp * 0.6;
     lift += holo * smoothstep(3.0, 0.0, length(c.xz - uMouse.xz)) * 1.4 * uMouseOn;
-    // Shockwave (hold-to-shatter) and ripple (hovering a project)
+    // Shockwave (hold-to-shatter) and ripple (UI pulse, e.g. hovering a card)
     float st = uTime - uShockT;
     lift += exp(-pow(r - st * 9.0, 2.0) * 0.35) * smoothstep(3.0, 0.0, st) * 1.4;
     float pt = uTime - uPulseT;
@@ -564,7 +571,7 @@ export const lineFragment = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Final composite: chromatic aberration, glitch, grain, vignette      */
+/* Final composite: aberration, glitch, vignette, grain, scanlines     */
 /* ------------------------------------------------------------------ */
 export const FinalShader = {
   uniforms: {

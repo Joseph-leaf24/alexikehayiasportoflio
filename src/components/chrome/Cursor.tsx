@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from "react";
 /** The element an event happened on (events can also target window or text nodes). */
 const elementOf = (t: EventTarget | null) => (t instanceof Element ? t : null);
 
+/** Controls that lean toward the pointer while hovered (the ring snaps to them). */
 const MAGNETIC = ".btn-ice, .hud-nav a, .back-link, .site-footer__top, .hud-burger, .hud-brand, [data-magnetic]";
 
-/** Dot + lagging ring cursor with contextual labels (`data-cursor="OPEN"`). Mouse only. */
+/** Dot + lagging ring cursor with contextual labels (`data-cursor="OPEN"`) and magnetic controls. Mouse only. */
 export default function Cursor() {
   const [enabled] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches
@@ -74,12 +75,19 @@ export default function Cursor() {
       magnet = null;
     };
 
+    const drawn = { x: NaN, y: NaN, rx: NaN, ry: NaN };
     const loop = () => {
       raf = requestAnimationFrame(loop);
       const tx = magnet ? stick.x + (pos.x - stick.x) * 0.3 : pos.x;
       const ty = magnet ? stick.y + (pos.y - stick.y) * 0.3 : pos.y;
       ring.x += (tx - ring.x) * 0.18;
       ring.y += (ty - ring.y) * 0.18;
+      // Idle pointer: nothing moved since the last frame, so skip the style writes
+      if (pos.x === drawn.x && pos.y === drawn.y && Math.abs(ring.x - drawn.rx) < 0.05 && Math.abs(ring.y - drawn.ry) < 0.05) return;
+      drawn.x = pos.x;
+      drawn.y = pos.y;
+      drawn.rx = ring.x;
+      drawn.ry = ring.y;
       if (dotRef.current) dotRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
       if (ringRef.current) ringRef.current.style.transform = `translate3d(${ring.x}px, ${ring.y}px, 0)`;
     };

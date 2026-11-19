@@ -13,7 +13,13 @@ interface Props {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/**
+ * Full-screen gallery viewer (portalled to <body>). Locks page scroll, focuses Close, keeps
+ * Tab focus inside the dialog and hands focus back on exit; Esc closes, ←/→ (and the side
+ * buttons) cycle, clicking the backdrop closes.
+ */
 export default function Lightbox({ images, index, title, onClose, onIndex }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const count = images.length;
   const prev = () => onIndex((index - 1 + count) % count);
@@ -34,13 +40,25 @@ export default function Lightbox({ images, index, title, onClose, onIndex }: Pro
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowRight" && count > 1) onIndex((index + 1) % count);
       else if (e.key === "ArrowLeft" && count > 1) onIndex((index - 1 + count) % count);
+      else if (e.key === "Tab") {
+        // aria-modal: Tab / Shift+Tab cycle through the dialog's buttons only
+        const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button") ?? []);
+        if (!buttons.length) return;
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        const at = buttons.indexOf(document.activeElement as HTMLElement);
+        if (at === -1 || (e.shiftKey && at === 0) || (!e.shiftKey && at === buttons.length - 1)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [index, count, onClose, onIndex]);
 
   return createPortal(
-    <div className="lightbox" role="dialog" aria-modal="true" aria-label={`${title} — image viewer`} onClick={onClose}>
+    <div ref={dialogRef} className="lightbox" role="dialog" aria-modal="true" aria-label={`${title} — image viewer`} onClick={onClose}>
       <div className="lightbox__top" onClick={(e) => e.stopPropagation()}>
         <span>
           {pad(index + 1)} / {pad(count)}

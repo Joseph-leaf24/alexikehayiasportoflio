@@ -17,6 +17,11 @@ interface DomainsProps {
   onExplore: (specializationIndex: number) => void;
 }
 
+/**
+ * Domains section: the data lifecycle strip and one card per domain with its related
+ * projects. Hovering or focusing a card lights up its cluster in the 3D scene; "Explore
+ * the work" opens the matching specialization in Work and scrolls there.
+ */
 export default function Domains({ onExplore }: DomainsProps) {
   const explore = (categoryId: string) => {
     const i = specializations.findIndex((s) => s.id === categoryId);

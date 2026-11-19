@@ -94,14 +94,17 @@ describe("home page", () => {
 });
 
 describe("project page", () => {
-  it("shows the project with its links, specs, cover and gallery", () => {
+  it("shows the project with its specs, network cover, gallery and pager", () => {
     const project = projectData.computerVision.projects[0];
     renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: "/project/computerVision/0" });
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(project.title);
     expect(document.title).toBe(`${project.title} — Alexi Kehayias`);
-    expect(screen.getByRole("link", { name: /view on github/i })).toHaveAttribute("href", project.githubUrl);
+    expect(screen.queryByRole("link", { name: /github/i })).toBeNull();
     expect(screen.getByText("Technologies Used")).toBeInTheDocument();
-    expect(screen.getByAltText(`${project.title} — cover`)).toBeInTheDocument();
+    // The cover is the project drawn as a neural network, not a picture
+    expect(screen.getByRole("img", { name: /neural network diagram/i })).toBeInTheDocument();
+    expect(screen.queryByAltText(`${project.title} — cover`)).toBeNull();
+    expect(document.querySelector(".detail__actions")).toBeNull();
     expect(sceneState.override).toBe("cube");
     expect(ui.get().sectionLabel).toBe("Computer Vision");
     expect(within(screen.getByRole("list", { name: "Domains" })).getByText("Data Science & AI")).toBeInTheDocument();

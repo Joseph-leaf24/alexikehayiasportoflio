@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { ArrowDown } from "lucide-react";
 import { profile } from "@/data/profile";
 import { sceneState } from "@/lib/store";
 import { gsap, prefersReducedMotion, scrollToTarget } from "@/lib/smoothScroll";
@@ -7,6 +7,11 @@ import { getQuality } from "@/lib/device";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 
+/**
+ * Hero: role, giant name, focus areas and the "View Projects" CTA. Pressing and holding
+ * on it shatters the 3D village; with a mouse (and motion allowed, above the low tier) the
+ * letters of the name shy away from the cursor.
+ */
 const Hero = () => {
   const ref = useRef<HTMLElement>(null);
   const [coarse] = useState(() => window.matchMedia("(pointer: coarse)").matches);
@@ -22,6 +27,7 @@ const Hero = () => {
       sceneState.press = true;
       el.classList.add("is-pressing");
     };
+    // A touch that turns into a scroll or drag cancels the hold
     const move = (e: PointerEvent) => {
       if (start && e.pointerType !== "mouse" && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) up();
     };
@@ -142,14 +148,10 @@ const Hero = () => {
               </ul>
             </Reveal>
             <Reveal className="hero__ctas" delay={850}>
-              <button type="button" className="btn-ice" onClick={() => scrollToTarget("#projects", { offset: -10 })} data-cursor="SCROLL">
+              <button type="button" className="btn-ice btn-ice--solid" onClick={() => scrollToTarget("#projects", { offset: -10 })} data-cursor="SCROLL">
                 <ScrambleText text="View Projects" trigger="none" hover />
                 <ArrowDown className="h-4 w-4" />
               </button>
-              <a className="btn-ice btn-ice--solid" href={profile.cv} download data-cursor="PDF">
-                <ScrambleText text="Download CV" trigger="none" hover />
-                <ArrowUpRight className="h-4 w-4" />
-              </a>
             </Reveal>
           </div>
         </div>

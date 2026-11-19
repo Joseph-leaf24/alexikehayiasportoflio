@@ -1,3 +1,8 @@
+/**
+ * Page scrolling: Lenis smooth scroll kept in sync with GSAP ScrollTrigger, plus helpers
+ * to scroll to a target, lock scrolling and re-measure. With reduced motion it falls back
+ * to native scrolling. Either way the scroll velocity is fed to the WebGL scene.
+ */
 import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -8,10 +13,11 @@ gsap.registerPlugin(ScrollTrigger);
 let lenis: Lenis | null = null;
 let teardown: (() => void) | null = null;
 
+/** The visitor asked the OS for reduced motion. */
 export const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Start Lenis smooth scrolling driven by the GSAP ticker (falls back to native scroll). */
+/** Start Lenis smooth scrolling driven by the GSAP ticker (falls back to native scroll). Idempotent; returns the teardown. */
 export function initSmoothScroll() {
   if (teardown) return teardown;
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
@@ -61,8 +67,10 @@ export function initSmoothScroll() {
   return teardown;
 }
 
+/** An element, a selector or a y position in px. */
 type Target = HTMLElement | number | string;
 
+/** Scroll to an element, selector or y position (through Lenis when it is running). */
 export function scrollToTarget(target: Target, opts: { offset?: number; immediate?: boolean; duration?: number } = {}) {
   const { offset = 0, immediate = false, duration } = opts;
   if (lenis) {
@@ -91,9 +99,11 @@ export function setScrollLocked(locked: boolean) {
   document.documentElement.classList.toggle("scroll-locked", locked);
 }
 
+/** Re-measure page height and ScrollTrigger positions after the layout changes. */
 export function refreshScroll() {
   lenis?.resize();
   ScrollTrigger.refresh();
 }
 
-export { gsap, ScrollTrigger };
+/** Components import gsap from here so ScrollTrigger is always registered first. */
+export { gsap };

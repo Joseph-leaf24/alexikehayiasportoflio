@@ -31,10 +31,16 @@ import {
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** Frame-rate independent smoothing factor: `x += (target - x) * damp(dt, rate)` */
 const damp = (dt: number, lambda: number) => 1 - Math.exp(-dt * lambda);
+/** Where the moon hangs: places the voxel moon, the sky halo and the moon path on the sea */
 const MOON_DIR = new THREE.Vector3(0.62, 0.24, -1).normalize();
 
-/** Which two layouts we are between, and how far (0..1), for the current scroll. */
+/**
+ * Which two layouts we are between, and how far (0..1), for the current scroll. Each
+ * transition runs while the next section's top moves from 95% to 25% of the viewport
+ * height; a page override (detail / 404) wins outright.
+ */
 function resolveBlend(scrollY: number, vh: number): { a: LayoutKey; b: LayoutKey; t: number } {
   if (sceneState.override) return { a: sceneState.override, b: sceneState.override, t: 0 };
   const stops = sceneState.stops;
@@ -58,6 +64,14 @@ function resolveBlend(scrollY: number, vh: number): { a: LayoutKey; b: LayoutKey
   return { a, b, t };
 }
 
+/**
+ * The fixed WebGL backdrop: a voxel Cycladic village on a caldera cliff (instanced
+ * houses, domes and windmills over voxel hills, sea, a voxel moon, ice floes, snow and
+ * cursor ice dust) that morphs between formations as the page scrolls (see layouts.ts).
+ * Hold-to-shatter, the pointer, scroll velocity and UI pulses all feed in through
+ * sceneState. Quality follows the device tier, and a runtime governor steps it down
+ * when frames are slow. Without WebGL it adds `no-webgl` to <html> and draws nothing.
+ */
 export default function IceScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -361,6 +375,8 @@ export default function IceScene() {
     dust.visible = DUST > 0;
     scene.add(dust);
     let dustHead = 0;
+    /** Seconds until every spawned grain has faded — lets idle frames skip the update + upload */
+    let dustBusy = 0;
     let emitCarry = 0;
     let lastBurst = sceneState.burst;
     const lastEmit = new THREE.Vector3(999, 999, 999);
@@ -381,6 +397,7 @@ export default function IceScene() {
       dustVel[o + 2] = Math.sin(ph) * Math.sin(th) * sp + along.z * 0.8;
       dustAge[i] = 0;
       dustLife[i] = 0.7 + Math.random() * 1.1;
+      dustBusy = 1.9;
     };
 
     /* ---------------- Post-processing ---------------- */
@@ -475,8 +492,11 @@ export default function IceScene() {
     let frameSum = 0;
     let frameCount = 0;
     let slowWindows = 0;
+    let longFrames = 0;
     let degraded = false;
-    const budget = q.fpsCap ? 1 / (q.fpsCap - 4) : 1 / 45;
+    // Average frame-time budget (50 fps when uncapped) and what counts as a dropped frame
+    const budget = q.fpsCap ? 1 / (q.fpsCap - 4) : 1 / 50;
+    const hitch = q.fpsCap ? 1.8 / q.fpsCap : 1 / 30;
     let firstFrame = true;
     let revealAt = -1;
     let wasPressed = false;
@@ -493,15 +513,19 @@ export default function IceScene() {
       last = nowMs;
       const time = nowMs / 1000 - start;
 
-      // Performance governor: if frames are consistently over budget, step quality
-      // down — resolution first, then bloom, then post-processing.
+      // Performance governor: if frames are consistently over budget (or keep hitching),
+      // step quality down — resolution first, then bloom, then post-processing; after
+      // that, remember a lower tier for later page loads this session.
       frameSum += dt;
       frameCount++;
-      if (frameSum > 2) {
+      if (dt > hitch) longFrames++;
+      if (frameSum > 1.5) {
         const avg = frameSum / frameCount;
+        const janky = longFrames / frameCount > 0.12;
         frameSum = 0;
         frameCount = 0;
-        slowWindows = time > 4 && avg > budget ? slowWindows + 1 : 0;
+        longFrames = 0;
+        slowWindows = time > 3 && (avg > budget || janky) ? slowWindows + 1 : 0;
         if (slowWindows >= 2) {
           slowWindows = 0;
           if (dpr > q.dprFloor + 0.01) {
@@ -590,24 +614,28 @@ export default function IceScene() {
             for (let k = 0; k < 42; k++) spawnDust(rawW, emitDir, 2.6);
           }
         }
-        for (let i = 0; i < DUST; i++) {
-          if (dustAge[i] >= dustLife[i]) {
-            dustAlpha[i] = 0;
-            continue;
+        // Simulate + upload only while grains are alive; once all have faded the buffers stay blank
+        if (dustBusy > 0) {
+          dustBusy -= dt;
+          for (let i = 0; i < DUST; i++) {
+            if (dustAge[i] >= dustLife[i]) {
+              dustAlpha[i] = 0;
+              continue;
+            }
+            dustAge[i] += dt;
+            const o = i * 3;
+            const drag = Math.exp(-dt * 2.2);
+            dustVel[o] *= drag;
+            dustVel[o + 1] = dustVel[o + 1] * drag - 0.35 * dt;
+            dustVel[o + 2] *= drag;
+            dustPos[o] += dustVel[o] * dt;
+            dustPos[o + 1] += dustVel[o + 1] * dt;
+            dustPos[o + 2] += dustVel[o + 2] * dt;
+            dustAlpha[i] = Math.pow(Math.max(0, 1 - dustAge[i] / dustLife[i]), 1.5);
           }
-          dustAge[i] += dt;
-          const o = i * 3;
-          const drag = Math.exp(-dt * 2.2);
-          dustVel[o] *= drag;
-          dustVel[o + 1] = dustVel[o + 1] * drag - 0.35 * dt;
-          dustVel[o + 2] *= drag;
-          dustPos[o] += dustVel[o] * dt;
-          dustPos[o + 1] += dustVel[o + 1] * dt;
-          dustPos[o + 2] += dustVel[o + 2] * dt;
-          dustAlpha[i] = Math.pow(Math.max(0, 1 - dustAge[i] / dustLife[i]), 1.5);
+          dustPosAttr.needsUpdate = true;
+          dustAlphaAttr.needsUpdate = true;
         }
-        dustPosAttr.needsUpdate = true;
-        dustAlphaAttr.needsUpdate = true;
       }
 
       /* Pieces */
@@ -686,7 +714,7 @@ export default function IceScene() {
       snowOffset += smoothVel * dt * 0.0022;
       for (let m = 0; m < rotorAngle.length; m++) rotorAngle[m] -= dt * (0.55 + Math.min(speed / 500, 6)) * motion;
 
-      // Floes bob on the swell; when the land goes holographic they lift into the air
+      // Floes bob on the swell; when the land goes holographic (or on hold-to-shatter) they lift into the air
       for (let i = 0; i < floes.length; i++) {
         const f = floes[i];
         tp.copy(f.pos);
@@ -772,17 +800,21 @@ export default function IceScene() {
     }
     raf = requestAnimationFrame(tick);
 
+    // Render only while the tab is visible and the WebGL context is alive
+    let contextLost = false;
     const onVisibility = () => {
-      running = !document.hidden;
+      running = !document.hidden && !contextLost;
       last = performance.now();
     };
     document.addEventListener("visibilitychange", onVisibility);
     const onLost = (e: Event) => {
       e.preventDefault();
+      contextLost = true;
       running = false;
     };
     const onRestored = () => {
-      running = true;
+      contextLost = false;
+      running = !document.hidden;
       last = performance.now();
     };
     canvas.addEventListener("webglcontextlost", onLost);

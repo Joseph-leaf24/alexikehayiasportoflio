@@ -16,11 +16,15 @@ import { getQuality } from "@/lib/device";
 type Go = (to: string, state?: unknown) => void;
 const TransitionCtx = createContext<Go>(() => {});
 
+/** `go(to, state?)`: navigate behind the page-wipe transition (ignored while one is already running). */
 export const usePageTransition = () => useContext(TransitionCtx);
 
 const EASE = "cubic-bezier(.76,0,.24,1)";
 
-/** Wipes an icy panel over the page, swaps the route underneath, then wipes it away. */
+/**
+ * Wipes slanted ice sheets over the page, swaps the route underneath, then wipes them away.
+ * With reduced motion (or no Web Animations API) it navigates straight away.
+ */
 export function TransitionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();

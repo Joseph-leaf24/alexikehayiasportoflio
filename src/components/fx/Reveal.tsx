@@ -5,8 +5,9 @@ import { onAppReady } from "@/lib/store";
 interface Props extends HTMLAttributes<HTMLElement> {
   children?: ReactNode;
   as?: ElementType;
-  /** up: rise + unblur · fade · clip: wipe from the bottom · line: draw horizontally */
+  /** up: rise + fade in · fade · clip: wipe from the bottom · line: draw horizontally */
   variant?: "up" | "fade" | "clip" | "line";
+  /** Transition delay, ms */
   delay?: number;
   [dataAttr: `data-${string}`]: string | undefined;
 }

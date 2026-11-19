@@ -10,11 +10,15 @@ import { specializations } from "@/data/profile";
 import { sceneState, ui, type LayoutKey } from "@/lib/store";
 import { refreshScroll, scrollToTarget } from "@/lib/smoothScroll";
 
+/** Router state other pages send when linking home. */
 interface HomeState {
+  /** Section id to land on */
   scrollTo?: string;
+  /** Specialization to open in Work */
   category?: string;
 }
 
+/** A number from sessionStorage (0 when missing or storage is blocked). */
 const readNumber = (key: string) => {
   try {
     const v = Number(sessionStorage.getItem(key));
@@ -24,6 +28,11 @@ const readNumber = (key: string) => {
   }
 };
 
+/**
+ * Home page: every section in scroll order. Each section's data-scene / data-section
+ * attributes drive the 3D formation and the HUD label. Coming back from a project
+ * restores the open specialization and scroll position.
+ */
 const Index = () => {
   const location = useLocation();
   const navType = useNavigationType();

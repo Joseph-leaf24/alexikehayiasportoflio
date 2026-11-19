@@ -1,24 +1,30 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Github } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 import { projectData } from "@/data/projects";
 import { allProjects, projectPath, specializations, type CategoryId } from "@/data/profile";
 import { sceneState, ui } from "@/lib/store";
-import { gsap, prefersReducedMotion, scrollToTarget } from "@/lib/smoothScroll";
+import { scrollToTarget } from "@/lib/smoothScroll";
 import { TLink } from "@/components/chrome/Transition";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
 import DepthImage from "@/components/fx/DepthImage";
+import ProjectGraph from "@/components/fx/ProjectGraph";
 import { domainsFor } from "@/data/domains";
 import Lightbox from "@/components/Lightbox";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/**
+ * Project page (`/project/:category/:projectIndex`): header, a neural-network figure of
+ * the project (ProjectGraph), spec panels, the Power BI embed and image gallery when the
+ * project has them, and prev/next links that cycle through every project. The 3D scene
+ * holds its voxel-cube formation here.
+ */
 const ProjectDetails = () => {
   const { category, projectIndex } = useParams();
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const coverRef = useRef<HTMLDivElement>(null);
 
   const categoryData = category && category in projectData ? projectData[category] : null;
   const idx = Number(projectIndex);
@@ -47,22 +53,6 @@ const ProjectDetails = () => {
   }, [project, spec, flatIndex]);
 
   const closeLightbox = useCallback(() => setLightbox(null), []);
-
-  // Cover image drifts inside its frame while scrolling
-  useEffect(() => {
-    const el = coverRef.current;
-    if (!el || prefersReducedMotion()) return;
-    const img = el.querySelector(".depth");
-    const tween = gsap.fromTo(
-      img,
-      { yPercent: -7 },
-      { yPercent: 7, ease: "none", scrollTrigger: { trigger: el, start: "top bottom", end: "bottom top", scrub: true } }
-    );
-    return () => {
-      tween.scrollTrigger?.kill();
-      tween.kill();
-    };
-  }, [category, projectIndex]);
 
   const backState = { scrollTo: "projects", category: category as CategoryId };
 
@@ -112,35 +102,30 @@ const ProjectDetails = () => {
         <Reveal delay={200}>
           <p className="detail__desc">{project.description}</p>
         </Reveal>
-        <Reveal delay={320} className="detail__actions">
-          {project.githubUrl ? (
-            <a className="btn-ice btn-ice--solid" href={project.githubUrl} target="_blank" rel="noopener noreferrer" data-cursor="GITHUB">
-              <Github className="h-4 w-4" />
-              <ScrambleText text="View on GitHub" trigger="none" hover />
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-          ) : null}
-          {project.demoUrl ? (
-            <a className="btn-ice" href={project.demoUrl} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
-              <ScrambleText text="Live Demo" trigger="none" hover />
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-          ) : null}
-          {project.powerBiUrl ? (
-            <a className="btn-ice" href={project.powerBiUrl} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
-              <ScrambleText text="Open Dashboard" trigger="none" hover />
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-          ) : null}
-        </Reveal>
+        {project.demoUrl || project.powerBiUrl ? (
+          <Reveal delay={320} className="detail__actions">
+            {project.demoUrl ? (
+              <a className="btn-ice" href={project.demoUrl} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
+                <ScrambleText text="Live Demo" trigger="none" hover />
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            ) : null}
+            {project.powerBiUrl ? (
+              <a className="btn-ice btn-ice--solid" href={project.powerBiUrl} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
+                <ScrambleText text="Open Dashboard" trigger="none" hover />
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            ) : null}
+          </Reveal>
+        ) : null}
       </header>
 
       <Reveal variant="clip" className="detail__cover">
-        <div ref={coverRef} className="detail__cover-frame">
-          <DepthImage src={project.image} alt={`${project.title} — cover`} eager />
+        <div className="detail__cover-frame">
+          <ProjectGraph project={project} />
         </div>
         <Corners />
-        <span className="detail__cover-tag">Fig. 01 — {categoryData.title}</span>
+        <span className="detail__cover-tag">Fig. 01 — Project network · {categoryData.title}</span>
       </Reveal>
 
       <div className="detail__specs">

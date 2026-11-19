@@ -18,13 +18,15 @@ import { io, media } from "./setup";
 beforeEach(resetState);
 
 describe("Hero", () => {
-  it("shows the name and the calls to action", () => {
+  it("shows the name, focus areas and the call to action", () => {
     const projects = document.createElement("section");
     projects.id = "projects";
     document.body.appendChild(projects);
     renderRoute(<Hero />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Alexi Kehayias");
-    expect(screen.getByRole("link", { name: /download cv/i })).toHaveAttribute("href", profile.cv);
+    // The CV is offered once, in Contact
+    expect(screen.queryByRole("link", { name: /download cv/i })).toBeNull();
+    expect(screen.getByText("Data Engineering")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /view projects/i }));
     expect(window.scrollTo).toHaveBeenCalled();
     projects.remove();
@@ -72,13 +74,15 @@ describe("Hero", () => {
 });
 
 describe("About", () => {
-  it("shows the statement, intro, stats and links — but no email", () => {
+  it("shows the intro, portrait, stats, focus areas and LinkedIn — but no email or CV", () => {
     renderRoute(<About />);
     expect(screen.getByText(profile.intro)).toBeInTheDocument();
     expect(screen.getByAltText(`Portrait of ${profile.name}`)).toBeInTheDocument();
     expect(screen.getByText("Projects")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /linkedin/i })).toHaveAttribute("href", profile.linkedin);
     expect(screen.queryByRole("link", { name: /email/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /download cv/i })).toBeNull();
+    expect(screen.getAllByText("Data Analytics").length).toBeGreaterThan(0);
   });
 });
 
@@ -205,6 +209,25 @@ describe("Lightbox", () => {
     fireEvent.click(dialog);
     expect(onClose).toHaveBeenCalledTimes(2);
     expect(document.documentElement).toHaveClass("scroll-locked");
+  });
+
+  it("keeps Tab focus inside the dialog", () => {
+    render(<Lightbox images={["a.png", "b.png"]} index={0} title="Demo" onClose={() => {}} onIndex={() => {}} />);
+    const close = screen.getByRole("button", { name: "Close image viewer" });
+    const next = screen.getByRole("button", { name: "Next image" });
+    next.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(next).toHaveFocus();
+    // Focus that escaped the dialog is pulled back in
+    (document.activeElement as HTMLElement).blur();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(close).toHaveFocus();
+    // Moving between buttons inside the dialog is left to the browser
+    screen.getByRole("button", { name: "Previous image" }).focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Previous image" })).toHaveFocus();
   });
 
   it("hides paging for a single image", () => {

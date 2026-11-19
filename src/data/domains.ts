@@ -4,6 +4,7 @@ import type { CategoryId } from "@/data/profile";
 
 export type DomainId = "engineering" | "analytics" | "science" | "deployment";
 
+/** A project by its category and index in projectData. */
 export interface ProjectLink {
   category: CategoryId;
   index: number;
@@ -18,13 +19,17 @@ export interface Domain {
   description: string;
   capabilities: string[];
   tools: string[];
+  /** Related projects, linked from the card (and tagged with this domain on cards and project pages) */
   projects: ProjectLink[];
   /** Specialization tab to open when exploring this domain's work */
   explore: CategoryId;
   icon: LucideIcon;
 }
 
-/** The four disciplines of the data lifecycle, in the order data flows through them. */
+/**
+ * The four disciplines of the data lifecycle, in the order data flows through them.
+ * The order also matches the clusters formation's anchors (sceneState.highlight).
+ */
 export const domains: Domain[] = [
   {
     id: "engineering",
@@ -118,6 +123,7 @@ export const domains: Domain[] = [
   },
 ];
 
+/** Heading copy for the Domains section. */
 export const domainIntro = {
   title: "Domains",
   text: "Four disciplines across the data lifecycle — from raw data to models in production.",

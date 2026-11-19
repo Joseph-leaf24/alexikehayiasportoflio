@@ -4,6 +4,7 @@ import { prefersReducedMotion, setScrollLocked } from "@/lib/smoothScroll";
 import { profile } from "@/data/profile";
 import profilePhoto from "@/assets/profile_photo.jpg";
 
+/** Boot log lines and the progress (0..1) at which each one appears. */
 const LOG = [
   { at: 0, text: "BOOTING RENDERER" },
   { at: 0.16, text: "RAISING THE VILLAGE" },

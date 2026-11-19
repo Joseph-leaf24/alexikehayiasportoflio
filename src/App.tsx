@@ -11,6 +11,10 @@ import { TransitionProvider } from "./components/chrome/Transition";
 import { initSmoothScroll } from "./lib/smoothScroll";
 import { sceneState } from "./lib/store";
 
+/**
+ * Everything around the routed page: the WebGL backdrop, HUD, cursor and loader. Also
+ * starts smooth scrolling and feeds the pointer (and mouse clicks) to the 3D scene.
+ */
 function Shell() {
   useEffect(() => {
     const stopScroll = initSmoothScroll();
@@ -46,6 +50,7 @@ function Shell() {
   return (
     <>
       <a href="#main" className="skip-link" onClick={(e) => {
+        // HashRouter would read "#main" as a route, so move focus to the landmark by hand
         e.preventDefault();
         document.getElementById("main")?.focus();
       }}>
@@ -66,6 +71,7 @@ function Shell() {
   );
 }
 
+/** Root component: hash routing (works on GitHub Pages without server rewrites) plus the page-wipe transition. */
 const App = () => (
   <HashRouter>
     <TransitionProvider>

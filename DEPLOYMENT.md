@@ -6,11 +6,10 @@ source normally sit side by side in public. The setup below fixes that with two 
 | Repo | Visibility | Contains |
 | --- | --- | --- |
 | `alexikehayiasportoflio-source` | **Private** | All website source (this repo, including its full history) |
-| `alexikehayiasportoflio` | Public | `gh-pages` branch: the **compiled** site only · `main` branch: the `Projects/` files |
+| `alexikehayiasportoflio` | Public | `gh-pages` branch: the **compiled** site only |
 
 The public repo keeps the current name, so the site URL stays
-`https://joseph-leaf24.github.io/alexikehayiasportoflio/` and the "View on GitHub"
-project links keep working.
+`https://joseph-leaf24.github.io/alexikehayiasportoflio/`.
 
 > **What this does and doesn't protect.** Anything a browser downloads (minified
 > JS, CSS, images) can always be saved by a visitor. This setup keeps the
@@ -22,7 +21,7 @@ project links keep working.
 
 ## One-time setup (about 15 minutes)
 
-The site goes offline between step 1 and step 7.
+The site goes offline between step 1 and step 6.
 
 ### 1. Make the current repo the private source repo
 On github.com, open **Joseph-leaf24/alexikehayiasportoflio → Settings → General**:
@@ -41,16 +40,7 @@ and publishes your source.
 **New repository** → name `alexikehayiasportoflio` → **Public** → leave it empty
 (no README, no .gitignore).
 
-### 4. Publish the project files to it
-In Git Bash, from this folder:
-```bash
-bash scripts/publish-project-files.sh
-```
-This pushes only `Projects/`, a README and the LICENSE to the public repo's `main`.
-It refuses to run if `origin` still points at the public repo. Re-run it whenever
-your project files change.
-
-### 5. Create a deploy key so the private repo can publish
+### 4. Create a deploy key so the private repo can publish
 ```bash
 ssh-keygen -t ed25519 -C "pages-deploy" -f pages_deploy_key -N ""
 ```
@@ -63,7 +53,7 @@ ssh-keygen -t ed25519 -C "pages-deploy" -f pages_deploy_key -N ""
     value `Joseph-leaf24/alexikehayiasportoflio`.
 - Then delete both key files from your computer.
 
-### 6. Deploy
+### 5. Deploy
 ```bash
 git push
 ```
@@ -71,7 +61,7 @@ The workflow sees `PUBLIC_PAGES_REPO`, builds the site and pushes only `dist/` t
 public repo's `gh-pages` branch, as a single commit with no history.
 You can watch it under **Actions** in the private repo.
 
-### 7. Turn on Pages in the public repo
+### 6. Turn on Pages in the public repo
 **Public repo → Settings → Pages → Source: Deploy from a branch → `gh-pages` / `(root)`**.
 The site is live again within a minute or two.
 
@@ -93,7 +83,7 @@ The site is live again within a minute or two.
   authentication. Use a passkey or an authenticator app.
 - [ ] Don't add collaborators to the private repo unless you need them.
 - [ ] The deploy key can only write to the public repo. If it ever leaks, delete it
-  there and generate a new one (step 5).
+  there and generate a new one (step 4).
 - The site has no backend, API keys or secrets, so there is nothing to steal from
   the deployed page.
 
@@ -112,7 +102,6 @@ The site is live again within a minute or two.
 
 ## Day to day
 - Edit the site, then `git push`. It deploys automatically.
-- Changed project files? Run `bash scripts/publish-project-files.sh`.
 - Tests: `npm test` (run once), `npm run test:watch` (while coding), `npm run test:coverage`
   (with the coverage table). Every deploy runs `npm run test:report`: the deploy fails if
   any test fails or coverage drops below 80%, and the results shown at the bottom of the
@@ -134,8 +123,5 @@ secrets scan fails the build if a key, token or hard-coded password slips in.
 ## Alternative: GitHub Pro (free for students)
 The [GitHub Student Developer Pack](https://education.github.com/pack) includes
 GitHub Pro, which can serve Pages from a **private** repo. With Pro you can skip
-the two-repo setup:
-1. Make this repo private. Leave `PUBLIC_PAGES_REPO` unset, and the workflow keeps
-   deploying from this repo.
-2. Put `Projects/` in a separate public repo (`scripts/publish-project-files.sh <url>`)
-   and change `PROJECT_FILES_REPO` in `src/data/projects.ts` to that repo.
+the two-repo setup: make this repo private and leave `PUBLIC_PAGES_REPO` unset, and
+the workflow keeps deploying from this repo.

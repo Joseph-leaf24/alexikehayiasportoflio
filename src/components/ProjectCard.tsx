@@ -13,12 +13,18 @@ import { domainsFor } from "@/data/domains";
 interface ProjectCardProps {
   project: Project;
   category: string;
+  /** Index within the category (builds the link and the P/xx label) */
   index: number;
+  /** Position in the grid (staggers the reveal) */
   order: number;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/**
+ * Project card linking to its detail page: the project image with the depth effect, domains, chips.
+ * Tilts toward the mouse (--rx/--ry) with a glare that follows it (--mx/--my).
+ */
 const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
   const ref = useRef<HTMLAnchorElement>(null);
   const { title, description, image, tags, tools, concepts, powerBiUrl } = project;

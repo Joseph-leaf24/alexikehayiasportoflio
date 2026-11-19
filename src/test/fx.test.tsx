@@ -125,7 +125,7 @@ describe("decorations", () => {
     unmount();
   });
 
-  it("skips the ghost parallax with reduced motion", () => {
+  it("still renders the ghost index with reduced motion", () => {
     media["(prefers-reduced-motion: reduce)"] = true;
     const { container } = render(<SectionHead index="01" label="Who" />);
     expect(container.querySelector(".ghost-num")).toBeInTheDocument();

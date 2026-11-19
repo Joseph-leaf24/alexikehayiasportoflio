@@ -103,6 +103,7 @@ jobs:
             **/*.tsx
             **/*.js
             **/*.mjs
+            **/*.cjs
             **/*.json
             **/*.md
             **/*.yml
@@ -110,6 +111,12 @@ jobs:
             **/*.env
             **/*.cfg
             **/*.toml
+            **/*.ini
+            **/*.txt
+            **/*.html
+            **/*.css
+            **/*.sh
+            **/*.urdf
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

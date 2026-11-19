@@ -43,13 +43,13 @@ const CSP = [
   "img-src 'self' data: blob:",
   "frame-src https://app.powerbi.com",
   "connect-src 'self'",
-  "media-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'none'",
   "upgrade-insecure-requests",
 ].join("; ");
 
+/** Injects the CSP and a referrer policy right after <meta charset> in the built index.html. */
 function securityHeaders(): Plugin {
   return {
     name: "security-meta",

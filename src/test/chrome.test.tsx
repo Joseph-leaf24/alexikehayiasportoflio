@@ -50,7 +50,7 @@ describe("HUD", () => {
     expect(screen.getByTestId("location").textContent).toBe("/");
   });
 
-  it("shows live telemetry, the clock and the scroll meter", () => {
+  it("shows live telemetry, the clock, the scroll meter and the current section", () => {
     useAnimationTimers();
     sceneState.blocks = 12941;
     sceneState.formation = "network";
@@ -60,9 +60,13 @@ describe("HUD", () => {
     expect(screen.getAllByText("Neural net").length).toBeGreaterThan(0);
     expect(screen.getByText("12,941")).toBeInTheDocument();
     expect(document.querySelector(".hud-telemetry")?.textContent).toMatch(/−01\.50/);
-    expect(document.querySelector(".hud-bottom__left")?.textContent).toMatch(/\d{2}:\d{2}:\d{2} CET/);
+    expect(document.querySelector(".hud-bottom__left")?.textContent).toMatch(/\d{2}:\d{2}:\d{2} CES?T/);
     Object.defineProperty(document.documentElement, "scrollHeight", { configurable: true, value: 3000 });
-    setScrollY(1116);
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+      setScrollY(1116);
+      window.dispatchEvent(new Event("scroll"));
+    });
     advance(50);
     expect(document.querySelector(".scroll-meter")?.textContent).toMatch(/050%/);
     act(() => ui.set({ sectionLabel: "Toolbox", sectionIndex: "02" }));
@@ -192,7 +196,7 @@ describe("page transitions", () => {
     expect(await screen.findByText("next page")).toBeInTheDocument();
   });
 
-  it("remembers the home scroll position when leaving", async () => {
+  it("remembers the home scroll position when leaving (and copes with blocked storage)", async () => {
     setScrollY(640);
     render(app);
     fireEvent.click(screen.getByRole("link", { name: "go" }));

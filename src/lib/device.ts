@@ -6,24 +6,32 @@
  */
 export type Tier = "low" | "mid" | "high";
 
+/** What the browser reveals about the hardware (see readSignals). */
 export interface DeviceSignals {
+  /** navigator.hardwareConcurrency */
   cores?: number;
   /** navigator.deviceMemory in GB (Chromium only; capped at 8 by the browser) */
   memory?: number;
   dpr: number;
+  /** Viewport width in CSS px */
   width: number;
+  /** Primary pointer is coarse (touch) */
   coarse: boolean;
+  /** Data Saver is on */
   saveData: boolean;
   webgl2: boolean;
+  /** Unmasked WebGL renderer string, when the browser exposes it */
   gpu?: string;
 }
 
+/** The rendering budget for one tier, read by the WebGL scene and the page transition. */
 export interface Quality {
   tier: Tier;
   /** Max device-pixel-ratio the WebGL canvas renders at */
   dprCap: number;
   /** Lowest DPR the runtime governor may drop to */
   dprFloor: number;
+  /** MSAA samples on the scene's render target */
   msaa: number;
   bloom: boolean;
   bloomStrength: number;
@@ -31,8 +39,11 @@ export interface Quality {
   postFx: boolean;
   /** Voxel terrain extents (x min/max, z min) — smaller = fewer cubes */
   terrain: { xMin: number; xMax: number; zMin: number };
+  /** Drifting snow particles */
   particles: number;
+  /** Ice-dust particles for the cursor trail and click bursts (0 = off) */
   dust: number;
+  /** Ice floes bobbing at the foot of the cliff */
   floes: number;
   /** Edge length of the moon's cubes (bigger = fewer cubes) */
   moonCube: number;
@@ -42,10 +53,21 @@ export interface Quality {
   shards: number;
 }
 
+/** Software renderers and old mobile / Intel GPUs: always the low tier. */
 const SLOW_GPU = /(swiftshader|llvmpipe|software|mali-4\d\d|mali-t\d|powervr|sgx|adreno \(tm\) [1-5]\d\d|intel\(r\) hd graphics [2-5]\d{2,3}|gma)/i;
-const FAST_GPU = /(rtx|gtx 1[06-9]|gtx [2-9]\d{2,3}|radeon rx|radeon pro|apple m\d|apple gpu|adreno \(tm\) 7\d\d|mali-g7[1-9]|mali-g[89]\d|immortalis|arc a\d)/i;
+/** Dedicated desktop / laptop GPUs and recent high-end mobile GPUs: a score bonus. */
+const FAST_GPU =/(rtx|gtx 1[06-9]|gtx [2-9]\d{2,3}|radeon rx|radeon pro|apple m\d|apple gpu|adreno \(tm\) 7\d\d|mali-g7[1-9]|mali-g[89]\d|immortalis|arc a\d)/i;
+/**
+ * Integrated laptop/desktop graphics (Intel Iris / UHD / HD, Intel Arc iGPU, AMD Radeon
+ * "Graphics" APUs). On Windows the browser usually runs on these even when the laptop
+ * also has a powerful dedicated GPU, so they are never treated as high-end.
+ */
+const INTEGRATED_GPU = /(intel.*(iris|uhd graphics|hd graphics|arc\(tm\) graphics)|radeon\(tm\) graphics|radeon graphics|radeon \d{3}m|radeon vega \d+ graphics|vega \d+ graphics)/i;
 
-/** Score the hardware and map it to a tier. */
+/** True for integrated GPUs (see INTEGRATED_GPU). Exported for tests. */
+export const isIntegratedGpu = (gpu?: string) => !!gpu && INTEGRATED_GPU.test(gpu) && !FAST_GPU.test(gpu);
+
+/** Score the hardware and map it to a tier (integrated GPUs are capped at mid). */
 export function scoreDevice(d: DeviceSignals): Tier {
   if (!d.webgl2 || d.saveData) return "low";
   if (d.gpu && SLOW_GPU.test(d.gpu)) return "low";
@@ -60,17 +82,19 @@ export function scoreDevice(d: DeviceSignals): Tier {
   if (d.gpu && FAST_GPU.test(d.gpu)) score += 2;
   if (d.coarse) score -= 1;
   if (d.width < 768) score -= 1;
-  if (score >= 4) return "high";
+  if (score >= 4) return isIntegratedGpu(d.gpu) ? "mid" : "high";
   if (score >= 2) return "mid";
   return "low";
 }
 
+/** The budget for a tier. On mid/high, touch devices get a lighter mix (no MSAA or dust, fewer particles). */
 export function qualityFor(tier: Tier, coarse: boolean): Quality {
   switch (tier) {
     case "high":
       return {
         tier,
-        dprCap: coarse ? 1.5 : 2,
+        // Above ~1.5 the extra pixels are invisible under bloom + grain but cost ~1.8x the fill
+        dprCap: 1.5,
         dprFloor: 1,
         msaa: coarse ? 0 : 4,
         bloom: true,
@@ -87,7 +111,7 @@ export function qualityFor(tier: Tier, coarse: boolean): Quality {
     case "mid":
       return {
         tier,
-        dprCap: coarse ? 1.25 : 1.5,
+        dprCap: coarse ? 1.25 : 1.35,
         dprFloor: 0.85,
         msaa: coarse ? 0 : 2,
         bloom: true,
@@ -140,6 +164,7 @@ function probeGpu(): { webgl2: boolean; gpu?: string } {
   }
 }
 
+/** Collect the live browser signals for scoreDevice. */
 export function readSignals(): DeviceSignals {
   const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
   return {
@@ -156,7 +181,7 @@ export function readSignals(): DeviceSignals {
 let cached: Quality | null = null;
 
 /**
- * Resolve the quality budget once per page load.
+ * Resolve the quality budget once per page load and expose the tier as html[data-tier].
  * Priority: ?quality=low|mid|high  >  a downgrade remembered this session  >  detection.
  */
 export function getQuality(signals: DeviceSignals = readSignals()): Quality {
@@ -175,7 +200,11 @@ export function getQuality(signals: DeviceSignals = readSignals()): Quality {
   return cached;
 }
 
-/** Called by the runtime governor when a device can't keep up: remember it for this session. */
+/**
+ * Called by the runtime governor when a device can't keep up: remember the next tier down
+ * for this session, mark html[data-perf="degraded"] so CSS drops heavier effects, and
+ * return the new tier.
+ */
 export function rememberDowngrade(tier: Tier) {
   const lower = TIERS[Math.max(0, TIERS.indexOf(tier) - 1)];
   try {

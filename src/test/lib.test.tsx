@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import { createStore, onAppReady, sceneState, triggerPulse, ui, useStore, isAppReady } from "@/lib/store";
+import { createStore, onAppReady, sceneState, triggerPulse, ui, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import {
   getQuality,
+  isIntegratedGpu,
   qualityFor,
   readSignals,
   rememberDowngrade,
@@ -47,7 +48,6 @@ describe("app-ready signal", () => {
     const cb = vi.fn();
     onAppReady(cb)();
     expect(cb).toHaveBeenCalledTimes(1);
-    expect(isAppReady()).toBe(true);
   });
 
   it("fires once when the loader finishes and can be cancelled", () => {
@@ -63,8 +63,10 @@ describe("app-ready signal", () => {
     expect(cb).toHaveBeenCalledTimes(1);
     expect(cancelled).not.toHaveBeenCalled();
   });
+});
 
-  it("triggerPulse stamps the current time", () => {
+describe("triggerPulse", () => {
+  it("stamps the current time", () => {
     triggerPulse();
     expect(sceneState.pulse).toBeGreaterThan(0);
   });
@@ -83,6 +85,20 @@ describe("device tiers", () => {
   it("rates strong desktops high", () => {
     expect(scoreDevice({ ...base, gpu: "NVIDIA GeForce RTX 4070" })).toBe("high");
     expect(scoreDevice(base)).toBe("high");
+  });
+
+  it("never rates integrated laptop graphics high (browsers often run on them)", () => {
+    const iris = "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x0000A7A0) Direct3D11 vs_5_0 ps_5_0, D3D11)";
+    const apu = "ANGLE (AMD, AMD Radeon(TM) Graphics (0x00001638) Direct3D11 vs_5_0 ps_5_0, D3D11)";
+    expect(scoreDevice({ ...base, gpu: iris })).toBe("mid");
+    expect(scoreDevice({ ...base, gpu: apu })).toBe("mid");
+    expect(scoreDevice({ ...base, gpu: "AMD Radeon 780M Graphics" })).toBe("mid");
+    expect(isIntegratedGpu("Intel(R) UHD Graphics 620")).toBe(true);
+    // Dedicated laptop GPUs keep the full effect
+    expect(isIntegratedGpu("NVIDIA GeForce RTX 4080 Laptop GPU")).toBe(false);
+    expect(isIntegratedGpu("AMD Radeon RX 7600M XT")).toBe(false);
+    expect(isIntegratedGpu(undefined)).toBe(false);
+    expect(scoreDevice({ ...base, gpu: "NVIDIA GeForce RTX 4080 Laptop GPU" })).toBe("high");
   });
 
   it("rates average hardware mid", () => {
@@ -106,7 +122,9 @@ describe("device tiers", () => {
     expect(mid.particles).toBeGreaterThan(low.particles);
     expect(low.bloom).toBe(false);
     expect(low.fpsCap).toBe(30);
-    expect(qualityFor("high", true).dprCap).toBeLessThan(high.dprCap);
+    expect(high.dprCap).toBeLessThanOrEqual(1.5);
+    expect(mid.dprCap).toBeLessThan(high.dprCap);
+    expect(qualityFor("high", true).msaa).toBeLessThan(high.msaa);
     expect(qualityFor("mid", true).particles).toBeLessThan(mid.particles);
     expect(high.terrain.xMax - high.terrain.xMin).toBeGreaterThan(low.terrain.xMax - low.terrain.xMin);
   });

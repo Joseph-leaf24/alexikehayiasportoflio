@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectData, PROJECT_FILES_REPO } from "@/data/projects";
+import { projectData } from "@/data/projects";
 import { allProjects, profile, projectPath, specializations } from "@/data/profile";
 import { SKILLS } from "@/data/skills";
 import {
@@ -26,6 +26,10 @@ describe("portfolio content", () => {
     expect(JSON.stringify(profile)).not.toMatch(/@[a-z0-9-]+\.[a-z]{2,}/i);
   });
 
+  it("focuses on the three data disciplines", () => {
+    expect(profile.focus).toEqual(["Data Science", "Data Engineering", "Data Analytics"]);
+  });
+
   it("maps every specialization to a category with projects", () => {
     expect(specializations).toHaveLength(6);
     for (const s of specializations) {
@@ -42,7 +46,10 @@ describe("portfolio content", () => {
       expect(project.image).toBeTruthy();
       expect(project.tags.length).toBeGreaterThan(0);
       expect(project.concepts.length).toBeGreaterThan(0);
-      if (project.githubUrl) expect(project.githubUrl.startsWith(`${PROJECT_FILES_REPO}/`)).toBe(true);
+      // Covers are real project screenshots, never the old stock photos
+      expect(project.image).not.toMatch(/(computer-vision|machine-learning|nlp|research)\.jpg$/);
+      // No per-project source links
+      expect(project).not.toHaveProperty("githubUrl");
     }
   });
 

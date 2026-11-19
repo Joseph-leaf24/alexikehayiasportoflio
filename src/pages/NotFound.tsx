@@ -6,6 +6,7 @@ import { TLink } from "@/components/chrome/Transition";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 
+/** 404 page: the scene drifts into its scattered "lost" formation. */
 const NotFound = () => {
   const location = useLocation();
 

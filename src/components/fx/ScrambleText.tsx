@@ -12,17 +12,18 @@ interface Props {
   className?: string;
   /** "view": decode when scrolled into view · "mount": decode right after the loader · "none": static */
   trigger?: "view" | "mount" | "none";
-  /** Re-scramble when the closest link/button (or the element) is hovered. */
+  /** Re-scramble when the closest link / button / [data-scramble-host] (or the element itself) is hovered or focused. */
   hover?: boolean;
+  /** Wait before the first decode starts, ms. */
   delay?: number;
   /** Total time for the decode, ms. */
   duration?: number;
-  id?: string;
 }
 
 /**
  * Decoding "scramble" text. Every character is its own inline-block holding
- * the final glyph (invisible while scrambling), so nothing reflows.
+ * the final glyph (invisible while scrambling), so nothing reflows. Screen readers
+ * get the plain text.
  */
 export default function ScrambleText({
   text,
@@ -32,7 +33,6 @@ export default function ScrambleText({
   hover = false,
   delay = 0,
   duration = 900,
-  id,
 }: Props) {
   const rootRef = useRef<HTMLElement | null>(null);
   const rafRef = useRef(0);
@@ -56,6 +56,7 @@ export default function ScrambleText({
       const step = (now: number) => {
         const t = now - t0;
         let done = 0;
+        // Random glyphs change every 55 ms, not every frame
         const tick = Math.floor(now / 55);
         for (let i = 0; i < n; i++) {
           const el = els[i];
@@ -133,7 +134,7 @@ export default function ScrambleText({
 
   return createElement(
     as,
-    { ref: rootRef, className: cn("scramble", className), id },
+    { ref: rootRef, className: cn("scramble", className) },
     <>
       <span className="sr-only">{text}</span>
       <span aria-hidden="true">

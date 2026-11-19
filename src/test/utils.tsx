@@ -22,11 +22,13 @@ export function useAnimationTimers() {
   });
 }
 
+/** Advance fake timers (and animation frames) by `ms`, inside act(). */
 export const advance = (ms: number) =>
   act(() => {
     vi.advanceTimersByTime(ms);
   });
 
+/** Let pending microtasks (e.g. the mock IntersectionObserver callbacks) run, inside act(). */
 export const flush = () => act(async () => {
   await Promise.resolve();
 });
@@ -44,6 +46,7 @@ export function resetState() {
     webgl: true,
     blocks: 0,
     burst: 0,
+    highlight: -1,
     formation: "village",
   });
   sceneState.pointer.x = sceneState.pointer.y = 0;
@@ -55,6 +58,7 @@ export function resetState() {
   window.history.replaceState({}, "", "/");
 }
 
+/** Finish the loader: everything waiting on onAppReady starts. */
 export function markReady() {
   act(() => ui.set({ ready: true }));
 }

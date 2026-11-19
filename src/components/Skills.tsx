@@ -9,6 +9,7 @@ import Corners from "@/components/fx/Corners";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/** One marquee row. The set is rendered twice (the copy hidden from screen readers) so the CSS loop is seamless. */
 function MarqueeRow({ reverse = false, outline = false }: { reverse?: boolean; outline?: boolean }) {
   const items = reverse ? [...SKILLS].reverse() : SKILLS;
   const set = (key: string) => (
@@ -25,6 +26,7 @@ function MarqueeRow({ reverse = false, outline = false }: { reverse?: boolean; o
   return <div className={`marquee__row${reverse ? " marquee__row--rev" : ""}`}>{[set("a"), set("b")]}</div>;
 }
 
+/** Toolbox section: a two-row marquee that skews with scroll velocity, then a grid of skill tiles. */
 export default function Skills() {
   const marqueeRef = useRef<HTMLDivElement>(null);
 
@@ -34,6 +36,7 @@ export default function Skills() {
     if (!el) return;
     let raf = 0;
     let skew = 0;
+    let written = "";
     let visible = false;
     const io = new IntersectionObserver(([e]) => {
       visible = e.isIntersecting;
@@ -45,7 +48,8 @@ export default function Skills() {
       raf = requestAnimationFrame(loop);
       const target = Math.max(-9, Math.min(9, sceneState.velocity / 260));
       skew += (target - skew) * 0.12;
-      el.style.setProperty("--skew", `${skew.toFixed(2)}deg`);
+      const next = `${(Math.abs(skew) < 0.01 ? 0 : skew).toFixed(2)}deg`;
+      if (next !== written) el.style.setProperty("--skew", (written = next));
     };
     io.observe(el);
     return () => {

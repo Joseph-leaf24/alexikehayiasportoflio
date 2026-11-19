@@ -17,6 +17,10 @@ interface WorkProps {
   setActive: (i: number) => void;
 }
 
+/**
+ * Work section: specialization tabs (ARIA tabs pattern with arrow / Home / End keys and a
+ * roving tabindex) above the selected category's project cards.
+ */
 export default function Work({ active, setActive }: WorkProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ArrowUpRight, Linkedin } from "lucide-react";
+import { Linkedin } from "lucide-react";
 import profilePhoto from "@/assets/profile_photo.jpg";
 import { allProjects, profile, specializations } from "@/data/profile";
 import { SKILLS } from "@/data/skills";
@@ -17,6 +17,7 @@ const STATS = [
   { value: profile.focus.length, label: "Focus areas" },
 ];
 
+/** "Who I Am": the statement (lit word by word as it scrolls past), counters, portrait and focus areas. */
 export default function About() {
   const manifestoRef = useRef<HTMLParagraphElement>(null);
 
@@ -103,10 +104,6 @@ export default function About() {
               <a className="btn-ice" href={profile.linkedin} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
                 <Linkedin className="h-4 w-4" />
                 <ScrambleText text="LinkedIn" trigger="none" hover />
-              </a>
-              <a className="btn-ice" href={profile.cv} download data-cursor="PDF">
-                <ScrambleText text="Download CV" trigger="none" hover />
-                <ArrowUpRight className="h-4 w-4" />
               </a>
             </Reveal>
           </div>

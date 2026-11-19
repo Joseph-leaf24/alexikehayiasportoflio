@@ -12,6 +12,7 @@ const LINKS = [
   { key: "Download CV", value: "PDF", href: profile.cv, download: true, cursor: "PDF" },
 ];
 
+/** Contact section (LinkedIn, GitHub, CV download), the test-quality report and the site footer. */
 export default function Contact() {
   return (
     <section id="contact" className="section section--contact" data-scene="villageTop" data-section="05|Contact">

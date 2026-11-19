@@ -32,9 +32,11 @@ const RAGIcon: IconType = ({ className }) => <DatabaseZap className={className} 
 export interface Skill {
   name: string;
   Icon: IconType;
+  /** Caption under the name on the Toolbox tile */
   hint?: string;
 }
 
+/** The Toolbox: drives the marquee, the tile grid and the tool count in About. */
 export const SKILLS: Skill[] = [
   { name: "Python", Icon: SiPython, hint: "5+ yrs · data & backend" },
   { name: "PyTorch", Icon: SiPytorch, hint: "CV/NLP training & serving" },

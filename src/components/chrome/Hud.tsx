@@ -16,6 +16,7 @@ const NAV = [
   { id: "contact", label: "Contact" },
 ];
 
+/** Local time at the profile's time zone, ticking every second. */
 function Clock() {
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -25,9 +26,11 @@ function Clock() {
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
+      // "CET" in winter, "CEST" in summer
+      timeZoneName: "short",
     });
     const update = () => {
-      if (ref.current) ref.current.textContent = `${fmt.format(new Date())} CET`;
+      if (ref.current) ref.current.textContent = fmt.format(new Date());
     };
     update();
     const id = window.setInterval(update, 1000);
@@ -36,6 +39,7 @@ function Clock() {
   return <span ref={ref} className="tabular-nums" />;
 }
 
+/** HUD names for the scene's formations. */
 const FORMATIONS: Record<LayoutKey, string> = {
   village: "Cycladic village",
   shatter: "Fracture",
@@ -47,9 +51,10 @@ const FORMATIONS: Record<LayoutKey, string> = {
   lost: "Drift",
 };
 
+/** Fixed-width signed coordinate for the camera readout (typographic minus). */
 const signed = (v: number) => `${v < 0 ? "−" : "+"}${Math.abs(v).toFixed(2).padStart(5, "0")}`;
 
-/** Live readout of what the 3D scene is doing. */
+/** Live readout of what the 3D scene is doing (polled ~8×/s; hidden without WebGL). */
 function Telemetry() {
   const [formation, setFormation] = useState<LayoutKey>(sceneState.formation);
   const camRef = useRef<HTMLSpanElement>(null);
@@ -90,16 +95,22 @@ function Telemetry() {
   );
 }
 
+/** Scroll progress: a vertical bar plus a 000–100 % counter. */
 function ScrollMeter() {
   const barRef = useRef<HTMLSpanElement>(null);
   const numRef = useRef<HTMLSpanElement>(null);
+  // Redraws only when the page scrolls or resizes; the page height is cached so a
+  // scroll never forces a layout read.
   useEffect(() => {
     let raf = 0;
+    let max = 0;
+    let lastP = -1;
     let lastPct = -1;
-    const loop = () => {
-      raf = requestAnimationFrame(loop);
-      const max = document.documentElement.scrollHeight - window.innerHeight;
+    const draw = () => {
+      raf = 0;
       const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+      if (p === lastP) return;
+      lastP = p;
       const pct = Math.round(p * 100);
       if (barRef.current) barRef.current.style.transform = `scaleY(${p})`;
       if (numRef.current && pct !== lastPct) {
@@ -107,8 +118,24 @@ function ScrollMeter() {
         lastPct = pct;
       }
     };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(draw);
+    };
+    const measure = () => {
+      max = document.documentElement.scrollHeight - window.innerHeight;
+      schedule();
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.body);
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", measure);
+    };
   }, []);
   return (
     <div className="scroll-meter" aria-hidden="true">
@@ -122,6 +149,11 @@ function ScrollMeter() {
   );
 }
 
+/**
+ * Fixed chrome on every page: frame corners; a top bar with the brand, current section
+ * and nav (a full-screen menu on small screens); and a bottom bar with location, clock,
+ * scene telemetry and scroll progress. Off the home page, nav links go home first.
+ */
 export default function Hud() {
   const { sectionIndex, sectionLabel, menuOpen } = useStore(ui, (s) => s);
   const location = useLocation();

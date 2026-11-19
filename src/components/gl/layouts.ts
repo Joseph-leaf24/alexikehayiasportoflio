@@ -1,3 +1,8 @@
+/**
+ * Geometry for the 3D scene, all seeded so it is identical on every load: the caldera
+ * terrain (as voxels), the moon, the ice floes, the Cycladic village built from
+ * instanced pieces, and every formation those pieces morph between.
+ */
 import * as THREE from "three";
 import type { LayoutKey } from "@/lib/store";
 
@@ -6,9 +11,11 @@ export const BLOCK = new THREE.Vector3(0.62, 0.36, 0.34);
 /** Size of one terrain voxel (the hills are stacks of cubes this big). */
 export const CELL = 0.5;
 
+/** Piece kinds: drawn by the rounded-box or the dome InstancedMesh. */
 export const KIND_BOX = 0;
 export const KIND_DOME = 1;
 
+/** One formation: a target transform for every piece, plus the camera and scene settings it is shown with. */
 export interface Layout {
   pos: THREE.Vector3[];
   quat: THREE.Quaternion[];
@@ -22,7 +29,9 @@ export interface Layout {
   camTarget: THREE.Vector3;
   /** 1 = real moonlit landscape, 0 = holographic voxel equaliser. */
   land: number;
+  /** Opacity of the neural-network edges. */
   lines: number;
+  /** Overall brightness. */
   exposure: number;
   /** How strongly the pointer pushes pieces away. */
   push: number;
@@ -34,6 +43,7 @@ export interface Layout {
   anchors?: THREE.Vector3[];
 }
 
+/** Where a windmill stands; its rotor pieces are posed relative to `hub` (local, unscaled). */
 export interface Windmill {
   base: THREE.Vector3;
   yawQ: THREE.Quaternion;
@@ -41,6 +51,7 @@ export interface Windmill {
   scale: number;
 }
 
+/** Every piece's per-instance data plus all formations, indexed by piece. */
 export interface LayoutSet {
   count: number;
   kinds: Uint8Array;
@@ -51,10 +62,14 @@ export interface LayoutSet {
   /** rgb albedo + w = 1 if the piece gets windows */
   tints: Float32Array;
   layouts: Record<LayoutKey, Layout>;
+  /** Piece pairs wired together in the network formation. */
   edges: [number, number][];
   rand: Float32Array;
+  /** When each piece sets off during a transition (0..0.35 of its progress). */
   delay: Float32Array;
+  /** Per-piece smoothing rate (1/s), so pieces settle at slightly different speeds. */
   lambda: Float32Array;
+  /** Fling direction mid-transition and on hold-to-shatter. */
   burstDir: THREE.Vector3[];
   tumbleAxis: THREE.Vector3[];
   windmills: Windmill[];
@@ -67,6 +82,7 @@ export interface LayoutSet {
 /* ------------------------------------------------------------------ */
 /* Deterministic randomness + noise                                    */
 /* ------------------------------------------------------------------ */
+/** Seeded PRNG: returns a function yielding floats in [0, 1). */
 export function mulberry32(seed: number) {
   return () => {
     seed |= 0;
@@ -107,10 +123,13 @@ const smooth = (e0: number, e1: number, x: number) => {
 
 /** z of the cliff edge for a given x (the rim curves gently like a bay). */
 export const rimZ = (x: number) => -0.011 * x * x + 0.45 * Math.sin(x * 0.33);
+/** Yaw that lines a building up with the cliff edge at x (from the slope of rimZ). */
 const rimYaw = (x: number) => -Math.atan(-0.022 * x + 0.45 * 0.33 * Math.cos(x * 0.33));
 
+/** How far inland the village slope climbs before the ridge. */
 const VILLAGE_DEPTH = 8.4;
 
+/** Ground height at (x, z): sea floor → cliff → terraced slope up to the ridge, then gently down behind it. */
 export function terrainHeight(x: number, z: number) {
   const d = rimZ(x) - z; // distance inland from the cliff edge
   const rim = 2.0 + 0.35 * Math.sin(x * 0.21 + 0.6);
@@ -160,7 +179,7 @@ export function buildTerrain(ext: { xMin: number; xMax: number; zMin: number } =
         if (t < 0) t = -1;
         minN = Math.min(minN, t);
       }
-      // Nothing below the waterline is visible, so stop half a cube under the surface
+      // Nothing below the waterline is visible, so no column reaches more than one cube below y = 0
       const bottom = Math.max(-CELL, minN - CELL);
       const n = Math.round((top - bottom) / CELL);
       const x = x0 + ix * CELL;
@@ -227,6 +246,11 @@ interface Piece {
 const basis = (x: THREE.Vector3, y: THREE.Vector3, z: THREE.Vector3) =>
   new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
 
+/**
+ * The village as pieces: terraced houses (some two-storey), low walls along the cliff
+ * edge, churches with blue domes, bell towers, and three windmills built cube by cube.
+ * `primaryCount` is the number of pieces before the windmills.
+ */
 function buildVillage(rnd: () => number) {
   const pieces: Piece[] = [];
   const Y = new THREE.Vector3(0, 1, 0);
@@ -336,7 +360,7 @@ function buildVillage(rnd: () => number) {
 
   const primaryCount = pieces.length;
 
-  /* Windmills, built brick by brick like the igloo used to be ------- */
+  /* Windmills, built brick by brick ---------------------------------- */
   const windmills: Windmill[] = [];
   [-4.2, -1.5, 9.6].forEach((x, mi) => {
     const z = rimZ(x) - (VILLAGE_DEPTH + 0.2 + mi * 0.3);
@@ -432,12 +456,17 @@ function buildVillage(rnd: () => number) {
   return { pieces, windmills, primaryCount };
 }
 
+/** Uniformly distributed random rotation (Shoemake's method). */
 const randomQuat = (rnd: () => number) => {
   const u1 = rnd(), u2 = rnd() * Math.PI * 2, u3 = rnd() * Math.PI * 2;
   const a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
   return new THREE.Quaternion(a * Math.sin(u2), a * Math.cos(u2), b * Math.sin(u3), b * Math.cos(u3));
 };
 
+/**
+ * Builds the village pieces and every formation they morph between. In most formations
+ * the village pieces make the main shape and the windmill pieces a secondary one.
+ */
 export function buildLayouts(): LayoutSet {
   const rnd = mulberry32(232230);
   const { pieces, windmills, primaryCount: P } = buildVillage(rnd);
@@ -500,20 +529,6 @@ export function buildLayouts(): LayoutSet {
   }
   const lostPos = shatterPos.map((p) => p.clone().sub(sc).multiplyScalar(1.6).add(sc));
 
-  /** Secondary pieces as a thin tilted ring (an "accretion disc") around a centre. */
-  const ring = (center: THREE.Vector3, r0: number, r1: number, tilt: number) => {
-    const tq = new THREE.Quaternion().setFromAxisAngle(v(1, 0, 0), tilt);
-    const pos: THREE.Vector3[] = [];
-    const quat: THREE.Quaternion[] = [];
-    for (let j = 0; j < S; j++) {
-      const a = (j / S) * Math.PI * 2 * 3 + rnd() * 0.4;
-      const r = r0 + rnd() * (r1 - r0);
-      pos.push(v(Math.cos(a) * r, (rnd() - 0.5) * 0.35, Math.sin(a) * r).applyQuaternion(tq).add(center));
-      quat.push(randomQuat(rnd));
-    }
-    return { pos, quat };
-  };
-
   /* 3D bar chart + a scatter plot floating above it (Work) --------- */
   const barsCenter = fv(0, 1.6, 0);
   const barsPos: THREE.Vector3[] = [];
@@ -572,7 +587,7 @@ export function buildLayouts(): LayoutSet {
   /* Four domain clusters joined by a lifecycle ring (Domains) ------- */
   const clusterCenter = fv(0, 2.4, 0);
   const anchors = [0, 1, 2, 3].map((k) => {
-    const a = Math.PI * 0.75 - (k * Math.PI) / 2; // lifecycle order, clockwise from top-left
+    const a = Math.PI * 0.75 - (k * Math.PI) / 2; // lifecycle order: front-left, front-right, back-right, back-left (before the spin)
     return clusterCenter.clone().add(v(Math.cos(a) * 3.2, Math.sin(k * 1.7) * 0.5, Math.sin(a) * 3.2));
   });
   const clusterPos: THREE.Vector3[] = [];
