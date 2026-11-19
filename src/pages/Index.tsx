@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 import Hero from "@/components/Hero";
 import About from "@/components/About";
+import Domains from "@/components/Domains";
 import Skills from "@/components/Skills";
 import Work from "@/components/Work";
 import Contact from "@/components/Contact";
@@ -119,6 +120,7 @@ const Index = () => {
     <>
       <Hero />
       <About />
+      <Domains onExplore={setActive} />
       <Skills />
       <Work active={active} setActive={setActive} />
       <Contact />

@@ -1,7 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 
 /**
  * Production only: strips comments and whitespace from the inline GLSL in
@@ -67,13 +66,13 @@ function securityHeaders(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   base: "/alexikehayiasportoflio/",
   server: {
     host: "::",
     port: 8080,
   },
-  plugins: [react(), minifyInlineGlsl(), securityHeaders(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), minifyInlineGlsl(), securityHeaders()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

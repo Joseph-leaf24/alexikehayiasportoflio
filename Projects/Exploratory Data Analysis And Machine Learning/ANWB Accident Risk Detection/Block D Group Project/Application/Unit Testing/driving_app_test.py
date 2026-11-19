@@ -2,7 +2,9 @@ import unittest
 from unittest.mock import patch, MagicMock
 import pandas as pd
 import numpy as np
-from driving_app import DrivingRiskApp  
+import streamlit as st
+from driving_app import DrivingRiskApp
+
 
 class TestDrivingRiskApp(unittest.TestCase):
     def setUp(self):
@@ -35,14 +37,16 @@ class TestDrivingRiskApp(unittest.TestCase):
         self.app.scaler.transform = MagicMock(return_value=np.random.rand(1, 5))
         self.app.model = MagicMock()
         self.app.model.predict = MagicMock(return_value=np.array([[0.1, 0.2, 0.3, 0.4]]))
-        
-        data = pd.DataFrame({
-            'latitude': [51.57965],
-            'longitude': [4.803370],
-            'speed_kmh': [63.997307],
-            'maxwaarde': [71.150510],
-            'accident_count': [0]
-        })
+
+        data = pd.DataFrame(
+            {
+                'latitude': [51.57965],
+                'longitude': [4.803370],
+                'speed_kmh': [63.997307],
+                'maxwaarde': [71.150510],
+                'accident_count': [0],
+            }
+        )
         prediction, risk_level = self.app.predict_risk(data)
 
         self.app.scaler.transform.assert_called_once_with(data)
@@ -98,10 +102,11 @@ class TestDrivingRiskApp(unittest.TestCase):
         self.app.scaler.fit = MagicMock()
         self.app.scaler.transform = MagicMock(return_value=np.random.rand(1, 5))
         self.app.model.predict = MagicMock(return_value=np.array([[0.1, 0.2, 0.3, 0.4]]))
-        
+
         self.app.results_page()
         mock_success.assert_called_once_with("Predicted Risk Level: Severe accident risk")
         self.assertTrue(mock_write.called)
+
 
 if __name__ == '__main__':
     unittest.main()

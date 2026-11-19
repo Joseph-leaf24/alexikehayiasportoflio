@@ -1,7 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import numpy as np
-from model_evaluation import Model2BEvaluator  
+from model_evaluation import Model2BEvaluator
+
 
 class TestModel2BEvaluator(unittest.TestCase):
 
@@ -23,10 +24,12 @@ class TestModel2BEvaluator(unittest.TestCase):
             'accuracy': [0.1, 0.2, 0.3, 0.4, 0.5],
             'val_accuracy': [0.15, 0.25, 0.35, 0.45, 0.55],
             'loss': [1.0, 0.8, 0.6, 0.4, 0.2],
-            'val_loss': [1.1, 0.9, 0.7, 0.5, 0.3]
+            'val_loss': [1.1, 0.9, 0.7, 0.5, 0.3],
         }
 
-        self.evaluator = Model2BEvaluator(self.mock_model, self.history, self.X_train, self.y_train, self.X_test, self.y_test)
+        self.evaluator = Model2BEvaluator(
+            self.mock_model, self.history, self.X_train, self.y_train, self.X_test, self.y_test
+        )
 
     def test_evaluate_model(self):
         self.evaluator.evaluate_model()
@@ -56,19 +59,34 @@ class TestModel2BEvaluator(unittest.TestCase):
     def test_print_classification_report(self, mock_print):
         self.evaluator.print_classification_report()
         # Check if the print function is called and includes the expected strings
-        self.assertTrue(any("Classification Report:" in args[0] for args in mock_print.call_args_list))
+        self.assertTrue(
+            any("Classification Report:" in args[0] for args in mock_print.call_args_list)
+        )
         self.assertTrue(any("precision" in args[0] for args in mock_print.call_args_list))
 
     def test_run_evaluation(self):
-        with patch.object(Model2BEvaluator, 'evaluate_model', wraps=self.evaluator.evaluate_model) as mock_evaluate_model:
-            with patch.object(Model2BEvaluator, 'plot_learning_curves', wraps=self.evaluator.plot_learning_curves) as mock_plot_learning_curves:
-                with patch.object(Model2BEvaluator, 'plot_confusion_matrix', wraps=self.evaluator.plot_confusion_matrix) as mock_plot_confusion_matrix:
-                    with patch.object(Model2BEvaluator, 'print_classification_report', wraps=self.evaluator.print_classification_report) as mock_print_classification_report:
+        with patch.object(
+            Model2BEvaluator, 'evaluate_model', wraps=self.evaluator.evaluate_model
+        ) as mock_evaluate_model:
+            with patch.object(
+                Model2BEvaluator, 'plot_learning_curves', wraps=self.evaluator.plot_learning_curves
+            ) as mock_plot_learning_curves:
+                with patch.object(
+                    Model2BEvaluator,
+                    'plot_confusion_matrix',
+                    wraps=self.evaluator.plot_confusion_matrix,
+                ) as mock_plot_confusion_matrix:
+                    with patch.object(
+                        Model2BEvaluator,
+                        'print_classification_report',
+                        wraps=self.evaluator.print_classification_report,
+                    ) as mock_print_classification_report:
                         self.evaluator.run_evaluation()
                         mock_evaluate_model.assert_called_once()
                         mock_plot_learning_curves.assert_called_once()
                         mock_plot_confusion_matrix.assert_called_once()
                         mock_print_classification_report.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

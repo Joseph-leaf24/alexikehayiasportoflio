@@ -80,6 +80,11 @@ export const pieceFragment = /* glsl */ `
   uniform float uExposure;
   uniform vec3 uFog;
   uniform float uDome;
+  uniform float uNet;
+  uniform vec3 uNetC;
+  uniform float uNetRot;
+  uniform float uHi;
+  uniform vec3 uHiC;
   varying vec3 vN;
   varying vec3 vW;
   varying vec3 vL;
@@ -169,6 +174,15 @@ export const pieceFragment = /* glsl */ `
     float pt = uTime - uPulseT;
     float ring = exp(-pow(length(vW - uPulseC) - pt * 11.0, 2.0) * 1.2) * smoothstep(2.0, 0.0, pt);
     col += vec3(0.5, 0.85, 1.0) * ring * (0.4 + edge + edgeW);
+    // Domain cluster under the pointer glows
+    col += vec3(0.45, 0.85, 1.0) * uHi * smoothstep(2.0, 0.4, distance(vW, uHiC)) * (0.35 + edge * 0.9);
+    // Neural net: activations sweep layer by layer (forward propagation)
+    if (uNet > 0.001) {
+      vec3 dn = vW - uNetC;
+      float lx = dn.x * cos(uNetRot) - dn.z * sin(uNetRot);
+      float fire = pow(0.5 + 0.5 * sin(lx * 1.1 - uTime * 3.2), 14.0);
+      col += vec3(0.45, 0.85, 1.0) * fire * uNet * (0.22 + edge * 0.7);
+    }
     col = mix(col, uFog, smoothstep(26.0, 70.0, distance(vW, uCam)));
     gl_FragColor = vec4(col * uExposure, 1.0);
   }
@@ -521,11 +535,16 @@ export const dustFragment = /* glsl */ `
 export const lineVertex = /* glsl */ `
   attribute float aT;
   attribute float aRand;
+  uniform vec3 uNetC;
+  uniform float uNetRot;
   varying float vT;
   varying float vR;
+  varying float vLX;
   void main() {
     vT = aT;
     vR = aRand;
+    vec3 dn = (modelMatrix * vec4(position, 1.0)).xyz - uNetC;
+    vLX = dn.x * cos(uNetRot) - dn.z * sin(uNetRot);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
@@ -535,9 +554,11 @@ export const lineFragment = /* glsl */ `
   uniform float uOpacity;
   varying float vT;
   varying float vR;
+  varying float vLX;
   void main() {
     float sig = smoothstep(0.09, 0.0, abs(fract(uTime * (0.35 + vR * 0.4) + vR) - vT));
-    float a = (0.1 + 0.35 * vR) + sig * 1.4;
+    float wave = pow(0.5 + 0.5 * sin(vLX * 1.1 - uTime * 3.2), 10.0);
+    float a = (0.05 + 0.18 * vR) + sig * 0.55 + wave * 0.75;
     gl_FragColor = vec4(vec3(0.5, 0.82, 1.0) * a, a * uOpacity);
   }
 `;

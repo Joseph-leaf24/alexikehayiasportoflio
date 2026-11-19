@@ -10,8 +10,8 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { sound } from "@/lib/sound";
 import { triggerPulse } from "@/lib/store";
+import { getQuality } from "@/lib/device";
 
 type Go = (to: string, state?: unknown) => void;
 const TransitionCtx = createContext<Go>(() => {});
@@ -19,7 +19,6 @@ const TransitionCtx = createContext<Go>(() => {});
 export const usePageTransition = () => useContext(TransitionCtx);
 
 const EASE = "cubic-bezier(.76,0,.24,1)";
-const SHARDS = 7;
 
 /** Wipes an icy panel over the page, swaps the route underneath, then wipes it away. */
 export function TransitionProvider({ children }: { children: ReactNode }) {
@@ -27,6 +26,9 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const overlayRef = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
+  const quality = getQuality();
+  const shardCount = quality.shards;
+  const speed = quality.tier === "low" ? 0.7 : 1;
   const pathRef = useRef(location.pathname);
   pathRef.current = location.pathname;
 
@@ -42,7 +44,6 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         }
       }
       const el = overlayRef.current;
-      sound.blip("click");
       triggerPulse();
       if (!el || prefersReducedMotion() || typeof el.animate !== "function") {
         navigate(to, { state });
@@ -63,31 +64,31 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         deco.forEach((d) => d.animate([{ opacity: from }, { opacity: to }], { duration: 260, fill: "forwards" }));
       try {
         // Ice sheets slide up over the page…
-        await sweep("translateY(110%) skewY(-7deg)", "translateY(0) skewY(0deg)", 620);
+        await sweep("translateY(110%) skewY(-7deg)", "translateY(0) skewY(0deg)", 620 * speed);
         fade(0, 1);
         navigate(to, { state });
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         await new Promise((r) => setTimeout(r, 140));
         fade(1, 0);
         // …and carry on upwards to reveal the new route
-        await sweep("translateY(0) skewY(0deg)", "translateY(-110%) skewY(7deg)", 720);
+        await sweep("translateY(0) skewY(0deg)", "translateY(-110%) skewY(7deg)", 720 * speed);
       } finally {
         el.style.visibility = "hidden";
         busy.current = false;
       }
     },
-    [navigate]
+    [navigate, speed]
   );
 
   return (
     <TransitionCtx.Provider value={go}>
       {children}
       <div ref={overlayRef} className="page-wipe" aria-hidden="true">
-        {Array.from({ length: SHARDS }, (_, i) => (
+        {Array.from({ length: shardCount }, (_, i) => (
           <div
             key={i}
             className="page-wipe__shard"
-            style={{ left: `${(i * 100) / SHARDS}%`, width: `${100 / SHARDS + 0.5}%` }}
+            style={{ left: `${(i * 100) / shardCount}%`, width: `${100 / shardCount + 0.5}%` }}
           />
         ))}
         <div className="page-wipe__grid" />

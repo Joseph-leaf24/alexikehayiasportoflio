@@ -55,9 +55,9 @@ export default function Skills() {
   }, []);
 
   return (
-    <section id="toolbox" className="section section--toolbox" data-scene="helix" data-section="02|Toolbox">
+    <section id="toolbox" className="section section--toolbox" data-scene="network" data-section="03|Toolbox">
       <div className="container-x">
-        <SectionHead index="02" label="Toolbox" />
+        <SectionHead index="03" label="Toolbox" />
         <div className="toolbox-head">
           <h2 className="display-2">
             <ScrambleText text={profile.toolbox.title} />

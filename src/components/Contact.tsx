@@ -1,57 +1,27 @@
-import { useEffect, useState } from "react";
-import { ArrowUp, ArrowUpRight, Check, Copy } from "lucide-react";
-import { sound } from "@/lib/sound";
+import { ArrowUp, ArrowUpRight } from "lucide-react";
 import { profile } from "@/data/profile";
 import { scrollToTarget } from "@/lib/smoothScroll";
 import SectionHead from "@/components/fx/SectionHead";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
+import QualityReport from "@/components/QualityReport";
 
 const LINKS = [
-  { key: "Contact Me", value: profile.email, href: `mailto:${profile.email}`, cursor: "EMAIL" },
   { key: "LinkedIn", value: "in/alexi-kehayias", href: profile.linkedin, external: true, cursor: "OPEN" },
   { key: "GitHub", value: "@Joseph-leaf24", href: profile.github, external: true, cursor: "OPEN" },
   { key: "Download CV", value: "PDF", href: profile.cv, download: true, cursor: "PDF" },
 ];
 
-function CopyEmail() {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const t = window.setTimeout(() => setCopied(false), 2200);
-    return () => window.clearTimeout(t);
-  }, [copied]);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(profile.email);
-      setCopied(true);
-      sound.blip("click");
-    } catch {
-      window.location.href = `mailto:${profile.email}`;
-    }
-  };
-  return (
-    <button type="button" className="btn-ice btn-ice--sm" onClick={copy} data-cursor={copied ? "DONE" : "COPY"}>
-      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-      <ScrambleText key={copied ? "y" : "n"} text={copied ? "Email copied" : "Copy email"} trigger="mount" duration={420} />
-      <span className="sr-only" aria-live="polite">
-        {copied ? "Email address copied to clipboard" : ""}
-      </span>
-    </button>
-  );
-}
-
 export default function Contact() {
   return (
-    <section id="contact" className="section section--contact" data-scene="villageTop" data-section="04|Contact">
+    <section id="contact" className="section section--contact" data-scene="villageTop" data-section="05|Contact">
       <div className="container-x">
-        <SectionHead index="04" label="Contact" />
+        <SectionHead index="05" label="Contact" />
         <h2 className="display-xl">
           <ScrambleText text={profile.contact.title} duration={1200} />
         </h2>
         <Reveal className="contact__intro" delay={150}>
           <p className="contact__text">{profile.contact.text}</p>
-          <CopyEmail />
         </Reveal>
 
         <ul className="contact-list">
@@ -73,6 +43,8 @@ export default function Contact() {
             </Reveal>
           ))}
         </ul>
+
+        <QualityReport />
       </div>
 
       <footer className="site-footer container-x">

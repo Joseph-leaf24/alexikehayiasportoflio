@@ -113,6 +113,23 @@ The site is live again within a minute or two.
 ## Day to day
 - Edit the site, then `git push`. It deploys automatically.
 - Changed project files? Run `bash scripts/publish-project-files.sh`.
+- Tests: `npm test` (run once), `npm run test:watch` (while coding), `npm run test:coverage`
+  (with the coverage table). Every deploy runs `npm run test:report`: the deploy fails if
+  any test fails or coverage drops below 80%, and the results shown at the bottom of the
+  home page are refreshed.
+- Try other quality tiers locally with `?quality=low`, `?quality=mid` or `?quality=high` in the URL.
+
+## Checks on every commit
+`.github/workflows/quality.yml` runs on every push to any branch and on pull requests:
+
+| Job | What it checks | Run it locally |
+| --- | --- | --- |
+| Website | ESLint, TypeScript type-check, unit tests with ≥ 80% coverage | `npm run lint`, `npx tsc -p tsconfig.app.json --noEmit`, `npm run test:coverage` |
+| Python | PEP 8 compliance of the code in `Projects/` (flake8, settings in `.flake8`) | `pip install flake8` then `npm run lint:python` |
+| Secrets | API keys, tokens or hard-coded passwords in the code | `npm run scan:secrets` |
+
+Never commit credentials: use environment variables or GitHub repository secrets. The
+secrets scan fails the build if a key, token or hard-coded password slips in.
 
 ## Alternative: GitHub Pro (free for students)
 The [GitHub Student Developer Pack](https://education.github.com/pack) includes

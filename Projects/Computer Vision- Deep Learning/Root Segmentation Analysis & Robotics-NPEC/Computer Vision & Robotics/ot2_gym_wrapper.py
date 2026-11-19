@@ -3,6 +3,7 @@ from gymnasium import spaces
 import numpy as np
 from sim_class import Simulation
 
+
 class OT2Env(gym.Env):
     def __init__(self, render=False, max_steps=1000, stagnation_threshold=50, goals=None):
         super(OT2Env, self).__init__()
@@ -30,7 +31,7 @@ class OT2Env(gym.Env):
         self.observation_space = spaces.Box(
             low=np.concatenate([position_bounds[::2], position_bounds[::2]]),
             high=np.concatenate([position_bounds[1::2], position_bounds[1::2]]),
-            dtype=np.float32
+            dtype=np.float32,
         )
 
         self.steps = 0
@@ -40,7 +41,7 @@ class OT2Env(gym.Env):
         self.prev_distance_to_goal = None
         self.prev_pipette_position = None
         self.stagnation_steps = 0
-        
+
     def get_plate_image(self):
         """
         Retrieves the current plate image path from the simulation.
@@ -49,7 +50,7 @@ class OT2Env(gym.Env):
             str: Path to the current plate image.
         """
         return self.sim.get_plate_image()
-    
+
     def set_goal(self, goal):
         """
         Set a fixed goal for the environment.
@@ -67,16 +68,21 @@ class OT2Env(gym.Env):
             np.random.seed(seed)
 
         observation = self.sim.reset(num_agents=1)
-        robot_key = next((key for key in observation if "pipette_position" in observation[key]), None)
+        robot_key = next(
+            (key for key in observation if "pipette_position" in observation[key]), None
+        )
         if robot_key is None:
             raise KeyError(f"No valid robot ID key found in observation. Got: {observation}")
 
         pipette_position = np.array(observation[robot_key]["pipette_position"])
-        pipette_position = np.clip(pipette_position, self.position_bounds[:, 0], self.position_bounds[:, 1])
+        pipette_position = np.clip(
+            pipette_position, self.position_bounds[:, 0], self.position_bounds[:, 1]
+        )
 
         # Use predefined goal
         if self.goals and self.goal_index < len(self.goals):
-            self.goal_position = np.array(self.goals[self.goal_index]["tip"])  # Ensure goal_position is a numerical array
+            # Ensure goal_position is a numerical array
+            self.goal_position = np.array(self.goals[self.goal_index]["tip"])
             self.goal_index = (self.goal_index + 1) % len(self.goals)  # Cycle through goals
         else:
             raise ValueError("No predefined goals available.")
@@ -99,7 +105,8 @@ class OT2Env(gym.Env):
 
     def step(self, action):
         # Restrict the action values to the permitted boundaries
-        action_with_drop = list(action) + [0]  # Append a placeholder for a hypothetical 'drop' action
+        # Append a placeholder for a hypothetical 'drop' action
+        action_with_drop = list(action) + [0]
 
         # Execute the simulation with the provided action and retrieve the output
         simulation_output = self.sim.run([action_with_drop])
@@ -111,13 +118,20 @@ class OT2Env(gym.Env):
             observation = simulation_output
 
         # Identify the key in the observation dictionary corresponding to the robot's state
-        robot_key = next((key for key in observation if "pipette_position" in observation[key]), None)
+        robot_key = next(
+            (key for key in observation if "pipette_position" in observation[key]), None
+        )
         if robot_key is None:
-            raise KeyError(f"No valid robot-related key found in the observation data. Received: {observation}")
+            raise KeyError(
+                "No valid robot-related key found in the observation data. "
+                f"Received: {observation}"
+            )
 
         # Extract the pipette's position and ensure it stays within the specified bounds
         pipette_position = np.array(observation[robot_key]["pipette_position"])
-        pipette_position = np.clip(pipette_position, self.position_bounds[:, 0], self.position_bounds[:, 1])
+        pipette_position = np.clip(
+            pipette_position, self.position_bounds[:, 0], self.position_bounds[:, 1]
+        )
 
         # Combine the pipette's position and the goal position into a single observation array
         obs = np.concatenate((pipette_position, self.goal_position)).astype(np.float32)
@@ -149,7 +163,8 @@ class OT2Env(gym.Env):
             self.goal_reached_counter = 0  # Reset counter if not near goal
 
         # Provide a large reward if the robot has stayed close to the goal for multiple steps
-        if self.goal_reached_counter > 10:  # Adjust this value as necessary (e.g., 10 steps near goal)
+        # Adjust this value as necessary (e.g., 10 steps near goal)
+        if self.goal_reached_counter > 10:
             reward += 50  # Large reward for staying near the goal for several steps
             print("Goal reached successfully!")
 
@@ -173,9 +188,6 @@ class OT2Env(gym.Env):
 
         # Return the updated observation, computed reward, and termination status
         return obs, reward, terminated, truncated, info
-
-
-
 
     def render(self, mode="human"):
         pass

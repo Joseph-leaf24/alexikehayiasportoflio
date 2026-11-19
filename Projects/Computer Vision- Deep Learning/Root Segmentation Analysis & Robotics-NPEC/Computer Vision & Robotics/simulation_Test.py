@@ -6,10 +6,13 @@ import time  # Import the time module
 import numpy as np  # Import numpy for array manipulation
 
 # Set a fixed goal position
-fixed_goal = np.array([0.13105202, 0.08436922, 0.1691 ]) 
+fixed_goal = np.array([0.13105202, 0.08436922, 0.1691])
 
 # Path to the locally stored model file
-model_path = "C:/Users/User/Desktop/2024-25b-fai2-adsai-AlexiKehayias232230/datalab_tasks/task11/Local Runs/Iteration 4- Gamma-0.80/models/8xtnar2d/best_model.zip"
+model_path = (
+    "C:/Users/User/Desktop/2024-25b-fai2-adsai-AlexiKehayias232230/datalab_tasks/task11/"
+    "Local Runs/Iteration 4- Gamma-0.80/models/8xtnar2d/best_model.zip"
+)
 
 # Load the model artifact locally
 run = wandb.init(mode="disabled")  # Disable wandb since we're loading locally
@@ -40,25 +43,31 @@ n = 100000  # Replace with your desired number of steps
 for i in range(n):
     # Predict the action using the model
     action, _states = model.predict(obs)
-    
+
     # Take a step in the environment
     obs, r, term, trunc, info = env.step(action)
-    
+
     # Accumulate rewards, distances, and actions
     episode_rewards += r
     distance = info.get('distance_to_goal', None)
     distance_history.append(distance)
     actions_history.append(action)
-    
+
     # Log step information
-    print(f"Step {i + 1}: Action = {action}, Reward = {r}, Distance = {distance}, Term = {term}, Trunc = {trunc}")
-    
+    print(
+        f"Step {i + 1}: Action = {action}, Reward = {r}, Distance = {distance}, "
+        f"Term = {term}, Trunc = {trunc}"
+    )
+
     # Add a delay to slow down the simulation
     time.sleep(0.1)
-    
+
     # If term or trunc occurs, log the results and stop further processing
     if term or trunc:
-        print(f"Terminating at step {i + 1}: Final Reward = {episode_rewards}, Final Distance = {distance}")
+        print(
+            f"Terminating at step {i + 1}: Final Reward = {episode_rewards}, "
+            f"Final Distance = {distance}"
+        )
         reward_history.append(episode_rewards)
         break  # Stop processing when the goal is achieved or episode ends
 

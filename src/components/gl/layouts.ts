@@ -30,6 +30,8 @@ export interface Layout {
   ice: number;
   /** Windmill rotors turn (only while the village is assembled). */
   rotors: boolean;
+  /** Points of interest the UI can highlight (e.g. the four domain clusters). */
+  anchors?: THREE.Vector3[];
 }
 
 export interface Windmill {
@@ -137,11 +139,11 @@ export const SEA_LEVEL = -0.15;
  * where depth is the distance from the cube's top to the top of its column.
  * Columns only go as deep as needed to close the gap to the lowest neighbour.
  */
-export function buildTerrain() {
-  const x0 = -28;
-  const z0 = -30;
-  const nx = Math.round(56 / CELL) + 1;
-  const nz = Math.round(35 / CELL) + 1;
+export function buildTerrain(ext: { xMin: number; xMax: number; zMin: number } = { xMin: -28, xMax: 28, zMin: -30 }) {
+  const x0 = ext.xMin;
+  const z0 = ext.zMin;
+  const nx = Math.round((ext.xMax - ext.xMin) / CELL) + 1;
+  const nz = Math.round((5 - ext.zMin) / CELL) + 1;
   const tops = new Float32Array(nx * nz);
   for (let ix = 0; ix < nx; ix++)
     for (let iz = 0; iz < nz; iz++) tops[ix * nz + iz] = voxelTop(x0 + ix * CELL, z0 + iz * CELL);
@@ -512,22 +514,85 @@ export function buildLayouts(): LayoutSet {
     return { pos, quat };
   };
 
-  /* Data helix + orbiting ring -------------------------------------- */
-  const helixPos: THREE.Vector3[] = [];
-  const helixQuat: THREE.Quaternion[] = [];
-  const K = Math.ceil(P / 2);
-  for (let i = 0; i < P; i++) {
-    const strand = i % 2;
-    const t = K > 1 ? Math.floor(i / 2) / (K - 1) : 0;
-    const a = t * Math.PI * 2 * 2.6 + strand * Math.PI;
-    helixPos.push(fv(1.9 * Math.cos(a), 2.6 + (t - 0.5) * 9.0, 1.9 * Math.sin(a)));
-    const radial = v(Math.cos(a), 0, Math.sin(a));
-    const up = v(0, 1, 0);
-    helixQuat.push(basis(radial, up, new THREE.Vector3().crossVectors(radial, up)));
+  /* 3D bar chart + a scatter plot floating above it (Work) --------- */
+  const barsCenter = fv(0, 1.6, 0);
+  const barsPos: THREE.Vector3[] = [];
+  const barsQuat: THREE.Quaternion[] = [];
+  const barsScale: THREE.Vector3[] = [];
+  {
+    const GX = 9;
+    const GZ = 6;
+    const raw: number[] = [];
+    for (let i = 0; i < GX; i++)
+      for (let j = 0; j < GZ; j++) {
+        const u = i / (GX - 1);
+        const w = j / (GZ - 1);
+        raw.push(
+          0.6 +
+            3.2 * Math.exp(-((u - 0.68) ** 2 + (w - 0.35) ** 2) / 0.05) +
+            2.2 * Math.exp(-((u - 0.22) ** 2 + (w - 0.72) ** 2) / 0.035) +
+            0.5 * (Math.sin(u * 9) * 0.5 + 0.5)
+        );
+      }
+    // Scale the bar heights so they use exactly P pieces
+    const total = raw.reduce((x, y) => x + y, 0);
+    const heights = raw.map((h) => Math.max(1, Math.round((h / total) * P)));
+    let diff = P - heights.reduce((x, y) => x + y, 0);
+    const order = heights.map((_, k) => k).sort((x, y) => heights[y] - heights[x]);
+    for (let k = 0; diff !== 0; k = (k + 1) % order.length) {
+      const idx = order[k];
+      if (diff > 0) {
+        heights[idx]++;
+        diff--;
+      } else if (heights[idx] > 1) {
+        heights[idx]--;
+        diff++;
+      }
+    }
+    heights.forEach((h, k) => {
+      const i = Math.floor(k / GZ);
+      const j = k % GZ;
+      for (let l = 0; l < h; l++) {
+        barsPos.push(fv((i - (GX - 1) / 2) * 0.78, -0.6 + l * 0.24, (j - (GZ - 1) / 2) * 0.78));
+        barsQuat.push(new THREE.Quaternion());
+      }
+    });
+    for (let i = 0; i < P; i++) barsScale.push(kinds[i] === KIND_DOME ? v(0.2, 0.2, 0.2) : v(0.56, 0.2, 0.56));
+    // Windmill pieces become a scatter plot with a rising trend
+    for (let j = 0; j < S; j++) {
+      const x = (rnd() - 0.5) * 6.4;
+      const z = (rnd() - 0.5) * 4;
+      const noise = (rnd() + rnd() + rnd() - 1.5) * 0.55;
+      barsPos.push(fv(x, 3.9 + 0.35 * x + noise, z));
+      barsQuat.push(randomQuat(rnd));
+      barsScale.push(v(0.15, 0.15, 0.15));
+    }
   }
-  const helixRing = ring(fv(0, 2.6, 0), 3.4, 5.2, 0.32);
-  helixPos.push(...helixRing.pos);
-  helixQuat.push(...helixRing.quat);
+
+  /* Four domain clusters joined by a lifecycle ring (Domains) ------- */
+  const clusterCenter = fv(0, 2.4, 0);
+  const anchors = [0, 1, 2, 3].map((k) => {
+    const a = Math.PI * 0.75 - (k * Math.PI) / 2; // lifecycle order, clockwise from top-left
+    return clusterCenter.clone().add(v(Math.cos(a) * 3.2, Math.sin(k * 1.7) * 0.5, Math.sin(a) * 3.2));
+  });
+  const clusterPos: THREE.Vector3[] = [];
+  const clusterQuat: THREE.Quaternion[] = [];
+  for (let i = 0; i < P; i++) {
+    const c = i % 4;
+    const k = Math.floor(i / 4);
+    const n = Math.ceil(P / 4);
+    const y = 1 - (2 * (k + 0.5)) / n;
+    const r = Math.sqrt(1 - y * y);
+    const th = k * 2.39996323;
+    const R = 1.05 + rnd() * 0.12;
+    clusterPos.push(anchors[c].clone().add(v(Math.cos(th) * r * R, y * R, Math.sin(th) * r * R)));
+    clusterQuat.push(randomQuat(rnd));
+  }
+  for (let j = 0; j < S; j++) {
+    const a = (j / S) * Math.PI * 2;
+    clusterPos.push(clusterCenter.clone().add(v(Math.cos(a) * 3.2, (rnd() - 0.5) * 0.25, Math.sin(a) * 3.2)).add(v(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(0.25)));
+    clusterQuat.push(randomQuat(rnd));
+  }
 
   /* Neural network + outer constellation ---------------------------- */
   const weights = [0.09, 0.18, 0.225, 0.225, 0.18, 0.1];
@@ -588,13 +653,18 @@ export function buildLayouts(): LayoutSet {
       pos: shatterPos, quat: shatterQuat, scale: shatterScale, spin: 0.05, center: sc, bob: 0.18,
       camPos: fv(2.2, 3.6, 10.5), camTarget: fv(-2.2, 2.5, 0), land: 0.35, lines: 0, exposure: 0.9, push: 1.3, ice: 1, rotors: false,
     },
-    helix: {
-      pos: helixPos, quat: helixQuat, scale: scaledMix(0.72, 0.34), spin: 0.28, center: fv(0, 2.6, 0), bob: 0.04,
-      camPos: fv(0, 2.6, 11.5), camTarget: fv(0, 2.6, 0), land: 0.12, lines: 0, exposure: 0.85, push: 0.9, ice: 1, rotors: false,
+    bars: {
+      pos: barsPos, quat: barsQuat, scale: barsScale, spin: 0.08, center: barsCenter, bob: 0.02,
+      camPos: fv(-5.4, 6.4, 8.6), camTarget: fv(0.4, 1.6, 0), land: 0.08, lines: 0, exposure: 0.66, push: 0.8, ice: 1, rotors: false,
+    },
+    clusters: {
+      pos: clusterPos, quat: clusterQuat, scale: scaledMix(0.48, 0.26), spin: 0.12, center: clusterCenter, bob: 0.06,
+      camPos: fv(0.5, 5.2, 11.5), camTarget: fv(0.5, 2.2, 0), land: 0.2, lines: 0, exposure: 0.72, push: 1, ice: 1, rotors: false,
+      anchors,
     },
     network: {
       pos: netPos, quat: netQuat, scale: scaledMix(0.5, 0.3), spin: 0.07, center: netCenter, bob: 0.05,
-      camPos: fv(-6.8, 4.2, 8.2), camTarget: fv(0.4, 2.4, 0), land: 0, lines: 1, exposure: 0.62, push: 0.7, ice: 1, rotors: false,
+      camPos: fv(-7.6, 3.4, 9.6), camTarget: fv(0.6, 2.4, 0), land: 0, lines: 1, exposure: 0.7, push: 0.7, ice: 1, rotors: false,
     },
     villageTop: {
       pos: pieces.map((p) => p.pos), quat: pieces.map((p) => p.quat), scale: villageScale, spin: 0, center: zero, bob: 0,

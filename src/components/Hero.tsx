@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { profile } from "@/data/profile";
 import { sceneState } from "@/lib/store";
 import { gsap, prefersReducedMotion, scrollToTarget } from "@/lib/smoothScroll";
-import { sound } from "@/lib/sound";
+import { getQuality } from "@/lib/device";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 
@@ -17,11 +17,10 @@ const Hero = () => {
     if (!el) return;
     let start: { x: number; y: number } | null = null;
     const down = (e: PointerEvent) => {
-      if ((e.target as HTMLElement).closest("a,button")) return;
+      if (e.target instanceof Element && e.target.closest("a,button")) return;
       start = { x: e.clientX, y: e.clientY };
       sceneState.press = true;
       el.classList.add("is-pressing");
-      sound.blip("click");
     };
     const move = (e: PointerEvent) => {
       if (start && e.pointerType !== "mouse" && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) up();
@@ -49,7 +48,7 @@ const Hero = () => {
   // Giant name: each letter leans away from the cursor like it's being pushed through ice
   useEffect(() => {
     const title = ref.current?.querySelector<HTMLElement>(".hero__title");
-    if (!title || coarse || prefersReducedMotion()) return;
+    if (!title || coarse || prefersReducedMotion() || getQuality().tier === "low") return;
     let raf = 0;
     let px = -9999;
     let py = -9999;

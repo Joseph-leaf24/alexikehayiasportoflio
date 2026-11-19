@@ -6,6 +6,7 @@ from data_preprocessing import DataPreprocessor
 
 print("Running test_preprocessor.py")
 
+
 class TestDataPreprocessor(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -15,7 +16,7 @@ class TestDataPreprocessor(unittest.TestCase):
             'port': 'test_port',
             'database': 'test_db',
             'user': 'test_user',
-            'password': 'test_password'
+            'password': 'test_password',
         }
         cls.default_timestamp = pd.Timestamp('1970-01-01', tz='UTC')
         cls.landmark_coords = (51.5890, 4.7745)
@@ -39,18 +40,30 @@ class TestDataPreprocessor(unittest.TestCase):
                 ('road_name', 'VARCHAR'),
                 ('place_name', 'VARCHAR'),
                 ('municipality_name', 'VARCHAR'),
-                ('road_manager_name', 'VARCHAR')
+                ('road_manager_name', 'VARCHAR'),
             ]
         }
-        cls.preprocessor = DataPreprocessor(cls.db_params, cls.default_timestamp, cls.landmark_coords, cls.columns_info)
+        cls.preprocessor = DataPreprocessor(
+            cls.db_params, cls.default_timestamp, cls.landmark_coords, cls.columns_info
+        )
 
     def test_fetch_and_preprocess_data(self):
         print("Running test_fetch_and_preprocess_data")
         with patch.object(self.preprocessor, 'read_table', return_value=pd.DataFrame()):
-            with patch.object(self.preprocessor, 'clean_dataframe', side_effect=lambda df, name: df):
-                with patch.object(self.preprocessor, 'preprocess_dataframe', side_effect=lambda df, name: df):
-                    safe_driving_df, breda_road_df, precipitation_df, temperature_df, greenery_df = self.preprocessor.fetch_and_preprocess_data()
-                    
+            with patch.object(
+                self.preprocessor, 'clean_dataframe', side_effect=lambda df, name: df
+            ):
+                with patch.object(
+                    self.preprocessor, 'preprocess_dataframe', side_effect=lambda df, name: df
+                ):
+                    (
+                        safe_driving_df,
+                        breda_road_df,
+                        precipitation_df,
+                        temperature_df,
+                        greenery_df,
+                    ) = self.preprocessor.fetch_and_preprocess_data()
+
                     self.assertIsInstance(safe_driving_df, pd.DataFrame)
                     self.assertIsInstance(breda_road_df, pd.DataFrame)
                     self.assertIsInstance(precipitation_df, pd.DataFrame)
@@ -77,7 +90,9 @@ class TestDataPreprocessor(unittest.TestCase):
         print("Running test_read_table")
         mock_conn = MagicMock()
         mock_connect.return_value = mock_conn
-        mock_df = pd.DataFrame({'eventid': [1, 2], 'event_start': [self.default_timestamp, self.default_timestamp]})
+        mock_df = pd.DataFrame(
+            {'eventid': [1, 2], 'event_start': [self.default_timestamp, self.default_timestamp]}
+        )
         with patch('pandas.read_sql_query', return_value=mock_df):
             query = "SELECT * FROM safe_driving"
             df = self.preprocessor.read_table(query)
@@ -97,11 +112,11 @@ class TestDataPreprocessor(unittest.TestCase):
             'latitude': [51.6, 51.7, 51.8],
             'longitude': [4.7, 4.8, 4.9],
             'speed_kmh': [80, np.nan, 100],
-            'category': [None, 'A', 'B']
+            'category': [None, 'A', 'B'],
         }
         df = pd.DataFrame(raw_data)
         cleaned_df = self.preprocessor.clean_dataframe(df, 'safe_driving')
-    
+
         self.assertEqual(cleaned_df['eventid'].isnull().sum(), 0)
         self.assertEqual(cleaned_df['event_start'].isnull().sum(), 0)
         self.assertEqual(cleaned_df['latitude'].isnull().sum(), 0)
@@ -110,7 +125,6 @@ class TestDataPreprocessor(unittest.TestCase):
         self.assertEqual(cleaned_df['category'].isnull().sum(), 0)
         self.assertIn('distance_to_landmark', cleaned_df.columns)  # Check if the column exists
         self.assertIn('time_of_day', cleaned_df.columns)
-    
 
     def test_normalize_dataframe(self):
         print("Running test_normalize_dataframe")
@@ -118,7 +132,7 @@ class TestDataPreprocessor(unittest.TestCase):
             'latitude': [51.5, 51.6, 51.7],
             'longitude': [4.7, 4.8, 4.9],
             'speed_kmh': [50, 60, 70],
-            'duration_seconds': [30, 45, 60]
+            'duration_seconds': [30, 45, 60],
         }
         df = pd.DataFrame(raw_data)
 
@@ -139,6 +153,7 @@ class TestDataPreprocessor(unittest.TestCase):
         self.assertAlmostEqual(normalized_df['longitude'].median(), 0.0, places=5)
         self.assertAlmostEqual(normalized_df['speed_kmh'].median(), 0.0, places=5)
         self.assertAlmostEqual(normalized_df['duration_seconds'].median(), 0.0, places=5)
+
 
 if __name__ == '__main__':
     unittest.main()

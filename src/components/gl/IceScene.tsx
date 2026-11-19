@@ -7,6 +7,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { sceneState, ui, type LayoutKey } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
+import { getQuality, rememberDowngrade } from "@/lib/device";
 import { buildFloes, buildLayouts, buildMoon, buildTerrain, CELL, KIND_DOME, SEA_LEVEL, type Layout } from "./layouts";
 import {
   FinalShader,
@@ -76,9 +77,11 @@ export default function IceScene() {
 
     const reduced = prefersReducedMotion();
     const coarse = window.matchMedia("(pointer: coarse)").matches;
-    const small = window.innerWidth < 768;
     const motion = reduced ? 0.25 : 1;
-    let dpr = Math.min(window.devicePixelRatio || 1, small ? 1.25 : 1.6);
+    // Rendering budget for this device (low-end phone … high-end PC)
+    const q = getQuality();
+    let dpr = Math.min(window.devicePixelRatio || 1, q.dprCap);
+    const minFrameMs = q.fpsCap ? 1000 / q.fpsCap - 2 : 0;
 
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     renderer.toneMapping = THREE.NoToneMapping;
@@ -127,6 +130,11 @@ export default function IceScene() {
       uExposure: { value: 1 },
       uFog: { value: fog },
       uDome: { value: dome ? 1 : 0 },
+      uNet: { value: 0 },
+      uNetC: { value: L.network.center.clone() },
+      uNetRot: { value: 0 },
+      uHi: { value: 0 },
+      uHiC: { value: new THREE.Vector3() },
     });
     const houseMat = keep(new THREE.ShaderMaterial({ vertexShader: pieceVertex, fragmentShader: pieceFragment, uniforms: pieceUniforms(false) }));
     const domeMat = keep(
@@ -158,7 +166,7 @@ export default function IceScene() {
     };
 
     // Hills: one instance per cube, so the whole landscape can break apart
-    const terrain = buildTerrain();
+    const terrain = buildTerrain(q.terrain);
     const voxGeo = keep(new THREE.BoxGeometry(1, 1, 1));
     const voxRand = new Float32Array(terrain.count);
     const voxDepth = new Float32Array(terrain.count);
@@ -202,7 +210,7 @@ export default function IceScene() {
     scene.add(new THREE.Mesh(seaGeo, seaMat));
 
     // Moon: a shell of glowing cubes far behind the village
-    const moonData = buildMoon();
+    const moonData = buildMoon(7, q.moonCube);
     const moonGeo = keep(new THREE.BoxGeometry(moonData.cube * 0.94, moonData.cube * 0.94, moonData.cube * 0.94));
     const moonRand = new Float32Array(moonData.count);
     for (let i = 0; i < moonData.count; i++) moonRand[i] = Math.random();
@@ -232,7 +240,7 @@ export default function IceScene() {
     scene.add(moon);
 
     // Ice floes bobbing at the foot of the cliff (same material as the pieces, fully iced)
-    const floes = buildFloes(small ? 40 : 70);
+    const floes = buildFloes(q.floes);
     const floeGeo = keep(new RoundedBoxGeometry(1, 1, 1, 2, 0.08));
     floeGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(Float32Array.from(floes.map((f) => f.rand)), 1));
     floeGeo.setAttribute("aMix", new THREE.InstancedBufferAttribute(new Float32Array(floes.length).fill(1), 1));
@@ -264,7 +272,7 @@ export default function IceScene() {
     scene.add(sky);
 
     /* ---------------- Drifting particles ---------------- */
-    const SNOW = small ? 700 : 1800;
+    const SNOW = q.particles;
     const snowPos = new Float32Array(SNOW * 3);
     const snowRand = new Float32Array(SNOW);
     const snowSize = new Float32Array(SNOW);
@@ -311,7 +319,7 @@ export default function IceScene() {
       new THREE.ShaderMaterial({
         vertexShader: lineVertex,
         fragmentShader: lineFragment,
-        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 }, uNetC: { value: L.network.center.clone() }, uNetRot: { value: 0 } },
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -323,7 +331,7 @@ export default function IceScene() {
     scene.add(lines);
 
     /* ---------------- Cursor ice-dust trail ---------------- */
-    const DUST = coarse ? 0 : 480;
+    const DUST = q.dust;
     const dustCap = Math.max(1, DUST);
     const dustPos = new Float32Array(dustCap * 3).fill(999);
     const dustVel = new Float32Array(dustCap * 3);
@@ -376,12 +384,14 @@ export default function IceScene() {
     };
 
     /* ---------------- Post-processing ---------------- */
-    const rt = keep(new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: small ? 0 : 4 }));
+    const rt = keep(new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: q.msaa }));
     const composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), small ? 0.45 : 0.6, 0.55, 0.72);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), q.bloomStrength, 0.55, 0.72);
+    bloom.enabled = q.bloom;
     composer.addPass(bloom);
     const finalPass = new ShaderPass(FinalShader);
+    finalPass.enabled = q.postFx;
     composer.addPass(finalPass);
 
     const resize = () => {
@@ -462,26 +472,49 @@ export default function IceScene() {
     let last = performance.now();
     let raf = 0;
     let running = true;
-    let slowFrames = 0;
+    let frameSum = 0;
+    let frameCount = 0;
+    let slowWindows = 0;
+    let degraded = false;
+    const budget = q.fpsCap ? 1 / (q.fpsCap - 4) : 1 / 45;
     let firstFrame = true;
     let revealAt = -1;
     let wasPressed = false;
+    let hiAmt = 0;
+    const hiC = new THREE.Vector3();
 
     const tick = () => {
       raf = requestAnimationFrame(tick);
       if (!running) return;
       const nowMs = performance.now();
+      // Low-end devices render at a steady 30 fps instead of a stuttering 40-50
+      if (minFrameMs && nowMs - last < minFrameMs) return;
       const dt = Math.min((nowMs - last) / 1000, 0.1);
       last = nowMs;
       const time = nowMs / 1000 - start;
 
-      // Adaptive resolution: drop DPR if we're consistently slow
-      if (time > 3 && dpr > 0.75) {
-        slowFrames = dt > 1 / 38 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
-        if (slowFrames > 90) {
-          dpr = Math.max(0.75, dpr - 0.25);
-          slowFrames = 0;
-          resize();
+      // Performance governor: if frames are consistently over budget, step quality
+      // down — resolution first, then bloom, then post-processing.
+      frameSum += dt;
+      frameCount++;
+      if (frameSum > 2) {
+        const avg = frameSum / frameCount;
+        frameSum = 0;
+        frameCount = 0;
+        slowWindows = time > 4 && avg > budget ? slowWindows + 1 : 0;
+        if (slowWindows >= 2) {
+          slowWindows = 0;
+          if (dpr > q.dprFloor + 0.01) {
+            dpr = Math.max(q.dprFloor, dpr - 0.2);
+            resize();
+          } else if (bloom.enabled) {
+            bloom.enabled = false;
+          } else if (finalPass.enabled) {
+            finalPass.enabled = false;
+          } else if (!degraded) {
+            degraded = true;
+            rememberDowngrade(q.tier);
+          }
         }
       }
 
@@ -671,8 +704,25 @@ export default function IceScene() {
 
       /* Uniforms */
       const pulseT = sceneState.pulse - start;
+      // Neural-net activations are visible while the network formation is on screen
+      const netW = (a === "network" ? 1 - camT : 0) + (b === "network" && a !== b ? camT : 0);
+      const netRot = L.network.spin * time * motion;
+      lineMat.uniforms.uNetRot.value = netRot;
+      // Hovering a domain card lights up its cluster (follows the formation's spin)
+      const clW = (a === "clusters" ? 1 - camT : 0) + (b === "clusters" && a !== b ? camT : 0);
+      const hi = sceneState.highlight;
+      const anchors = L.clusters.anchors;
+      if (hi >= 0 && anchors && anchors[hi]) {
+        qSpin.setFromAxisAngle(yAxis, L.clusters.spin * time * motion);
+        hiC.copy(anchors[hi]).sub(L.clusters.center).applyQuaternion(qSpin).add(L.clusters.center);
+      }
+      hiAmt += ((hi >= 0 ? clW : 0) - hiAmt) * damp(dt, 6);
       for (const m of pieceMats) {
         const u = m.uniforms;
+        u.uHi.value = hiAmt;
+        u.uHiC.value.copy(hiC);
+        u.uNet.value = netW;
+        u.uNetRot.value = netRot;
         u.uTime.value = time;
         u.uCam.value.copy(camera.position);
         u.uMouse.value.copy(mouseW);

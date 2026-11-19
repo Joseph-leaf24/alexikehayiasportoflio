@@ -1,0 +1,120 @@
+name: Code quality
+
+# Runs on every push to any branch and on pull requests:
+#   • Website  — ESLint, TypeScript type-check, unit tests with ≥ 80% coverage
+#   • Python   — PEP 8 compliance (flake8) for the project code in Projects/
+#   • Secrets  — fails if API keys, tokens or hard-coded passwords are committed
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  website:
+    name: Website · lint, types, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (website source only)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            src
+            public
+            scripts
+            .github
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript type-check
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Unit tests + coverage (fails below 80%)
+        run: npm run test:coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          node -e "
+            const fs = require('fs');
+            if (!fs.existsSync('coverage/coverage-summary.json')) process.exit(0);
+            const t = require('./coverage/coverage-summary.json').total;
+            const row = ['statements', 'branches', 'functions', 'lines'].map((k) => t[k].pct + '%').join(' | ');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              '### Unit test coverage\n| Statements | Branches | Functions | Lines |\n|---|---|---|---|\n| ' + row + ' |\n');
+          "
+
+  python:
+    name: Python · PEP 8 (flake8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (Python files only)
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.flake8
+            **/*.py
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: PEP 8 compliance
+        run: flake8 . --count --show-source --statistics
+
+  secrets:
+    name: Secrets scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (text files only)
+        uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/
+            **/*.py
+            **/*.ipynb
+            **/*.ts
+            **/*.tsx
+            **/*.js
+            **/*.mjs
+            **/*.json
+            **/*.md
+            **/*.yml
+            **/*.yaml
+            **/*.env
+            **/*.cfg
+            **/*.toml
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Scan for committed credentials
+        run: node scripts/scan-secrets.mjs .

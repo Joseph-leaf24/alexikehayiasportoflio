@@ -24,3 +24,12 @@ dist-ssr
 *.sw?
 
 .secrets.baseline
+# Test coverage output
+coverage
+
+# Jupyter autosaves
+.ipynb_checkpoints/
+
+# Python bytecode
+__pycache__/
+*.pyc

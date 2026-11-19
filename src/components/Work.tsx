@@ -3,7 +3,6 @@ import { projectData } from "@/data/projects";
 import { profile, specializations } from "@/data/profile";
 import { triggerPulse } from "@/lib/store";
 import { scrollToTarget } from "@/lib/smoothScroll";
-import { sound } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import SectionHead from "@/components/fx/SectionHead";
 import ScrambleText from "@/components/fx/ScrambleText";
@@ -28,7 +27,6 @@ export default function Work({ active, setActive }: WorkProps) {
     if (focus) tabRefs.current[i]?.focus();
     if (i === active) return;
     setActive(i);
-    sound.blip("click");
     triggerPulse();
     // Bring the project list into view once it has rendered (only if it's mostly off-screen)
     requestAnimationFrame(() => {
@@ -54,9 +52,9 @@ export default function Work({ active, setActive }: WorkProps) {
   };
 
   return (
-    <section id="projects" className="section section--work" data-scene="network" data-section="03|Work">
+    <section id="projects" className="section section--work" data-scene="bars" data-section="04|Work">
       <div className="container-x">
-        <SectionHead index="03" label="Selected Work" />
+        <SectionHead index="04" label="Selected Work" />
         <div className="work-head">
           <h2 className="display-2">
             <ScrambleText text={profile.work.title} />

@@ -14,7 +14,6 @@ export const profile = {
   location: "Breda, NL",
   coords: "51.5719° N · 4.7683° E",
   timezone: "Europe/Amsterdam",
-  email: "kehayiasjalexi@gmail.com",
   linkedin: "https://www.linkedin.com/in/alexi-kehayias/",
   github: "https://github.com/Joseph-leaf24",
   cv: `${import.meta.env.BASE_URL}Alexi_Kehayias_CV.pdf`,

@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import { sceneState, ui, useStore, type LayoutKey } from "@/lib/store";
 import { scrollToTarget, setScrollLocked } from "@/lib/smoothScroll";
-import { sound } from "@/lib/sound";
 import { profile } from "@/data/profile";
 import { cn } from "@/lib/utils";
 import ScrambleText from "@/components/fx/ScrambleText";
@@ -11,32 +10,11 @@ import { usePageTransition } from "./Transition";
 
 const NAV = [
   { id: "about", label: "About" },
+  { id: "domains", label: "Domains" },
   { id: "toolbox", label: "Toolbox" },
   { id: "projects", label: "Work" },
   { id: "contact", label: "Contact" },
 ];
-
-function SoundToggle() {
-  const on = useStore(ui, (s) => s.soundOn);
-  return (
-    <button
-      type="button"
-      className={cn("sound-toggle", on && "is-on")}
-      onClick={() => sound.toggle()}
-      aria-pressed={on}
-      aria-label={on ? "Mute ambient sound" : "Play ambient sound"}
-      data-cursor={on ? "MUTE" : "SOUND"}
-    >
-      <span className="sound-toggle__bars" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-        <i />
-      </span>
-      <span className="sound-toggle__lbl">{on ? "Sound on" : "Sound off"}</span>
-    </button>
-  );
-}
 
 function Clock() {
   const ref = useRef<HTMLSpanElement>(null);
@@ -61,8 +39,9 @@ function Clock() {
 const FORMATIONS: Record<LayoutKey, string> = {
   village: "Cycladic village",
   shatter: "Fracture",
-  helix: "Data helix",
+  clusters: "Domain clusters",
   network: "Neural net",
+  bars: "Data bars",
   villageTop: "Village · aerial",
   cube: "Voxel cube",
   lost: "Drift",
@@ -213,7 +192,6 @@ export default function Hud() {
               </a>
             ))}
           </nav>
-          <SoundToggle />
           <button
             type="button"
             className={cn("hud-burger", menuOpen && "is-open")}
@@ -259,9 +237,6 @@ export default function Hud() {
           ))}
         </nav>
         <div className="mobile-menu__foot">
-          <a href={`mailto:${profile.email}`} tabIndex={menuOpen ? 0 : -1}>
-            {profile.email} <ArrowUpRight className="h-3.5 w-3.5" />
-          </a>
           <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" tabIndex={menuOpen ? 0 : -1}>
             LinkedIn <ArrowUpRight className="h-3.5 w-3.5" />
           </a>

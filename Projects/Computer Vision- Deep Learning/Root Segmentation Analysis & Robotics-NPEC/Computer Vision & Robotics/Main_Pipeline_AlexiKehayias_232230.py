@@ -1,16 +1,11 @@
 import os
 import cv2
 import numpy as np
-from PIL import Image
-import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize, remove_small_objects
 import tensorflow.keras.backend as K
 from tensorflow.keras.models import load_model
 from ot2_gym_wrapper import OT2Env  # Assuming this is where the OT2Env is defined
 from scipy.spatial.distance import euclidean
-from skimage.graph import route_through_array
-import pandas as pd
-import re
 import time
 from stable_baselines3 import PPO
 
@@ -18,19 +13,20 @@ from stable_baselines3 import PPO
 # ----------------------- Old + New CV Pipeline -------------------------
 # -------------------------------------------------------------------
 
+
 def f1_score(y_true, y_pred):
     def recall_m(y_true, y_pred):
         TP = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         Positives = K.sum(K.round(K.clip(y_true, 0, 1)))
         recall = TP / (Positives + K.epsilon())
         return recall
-    
+
     def precision_m(y_true, y_pred):
         TP = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         Pred_Positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
         precision = TP / (Pred_Positives + K.epsilon())
         return precision
-    
+
     precision_val, recall_val = precision_m(y_true, y_pred), recall_m(y_true, y_pred)
     return 2 * ((precision_val * recall_val) / (precision_val + recall_val + K.epsilon()))
 
@@ -46,11 +42,7 @@ def padder(image, divisor, padding_value=(0, 0, 0)):
     right_pad = pad_width - left_pad
 
     padded_image = cv2.copyMakeBorder(
-        image,
-        top_pad, bottom_pad,
-        left_pad, right_pad,
-        cv2.BORDER_CONSTANT,
-        value=padding_value
+        image, top_pad, bottom_pad, left_pad, right_pad, cv2.BORDER_CONSTANT, value=padding_value
     )
     return padded_image
 
@@ -69,22 +61,22 @@ def morphological_petri_dish_crop(image):
     )
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    
+
     contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     largest_contour = max(contours, key=cv2.contourArea)
-    
+
     x, y, w, h = cv2.boundingRect(largest_contour)
     size = int(max(w, h) * 0.98)
     cx, cy = x + w // 2, y + h // 2
-    
+
     x1 = max(0, cx - size // 2)
     y1 = max(0, cy - size // 2)
     x2 = min(image.shape[1], cx + size // 2)
     y2 = min(image.shape[0], cy + size // 2)
-    
+
     cropped_img = image[y1:y2, x1:x2].astype(np.float32) / 255.0
     cropped_img = cv2.resize(cropped_img, (size, size), interpolation=cv2.INTER_AREA)
-    
+
     bbox = (x1, y1, x2, y2)
     return cropped_img, bbox
 
@@ -99,15 +91,19 @@ def padder_with_overlap(image, divisor, padding_value=(0, 0, 0)):
     left_overlap = (original_width - new_width) // 2
     right_overlap = (original_width - new_width) - left_overlap
 
-    cropped_image = image[top_overlap:original_height-bottom_overlap, 
-                          left_overlap:original_width-right_overlap]
+    cropped_image = image[
+        top_overlap : original_height - bottom_overlap,
+        left_overlap : original_width - right_overlap,
+    ]
 
     padded_image = cv2.copyMakeBorder(
         cropped_image,
-        top_overlap, bottom_overlap,
-        left_overlap, right_overlap,
+        top_overlap,
+        bottom_overlap,
+        left_overlap,
+        right_overlap,
         cv2.BORDER_CONSTANT,
-        value=padding_value
+        value=padding_value,
     )
     return padded_image, (new_height, new_width)
 
@@ -117,7 +113,7 @@ def patch_image(image, patch_size=256, stride=128):
     positions = []
     for i in range(0, image.shape[0] - patch_size + 1, stride):
         for j in range(0, image.shape[1] - patch_size + 1, stride):
-            patch = image[i:i + patch_size, j:j + patch_size]
+            patch = image[i : i + patch_size, j : j + patch_size]
             patches.append(patch)
             positions.append((i, j))
     return np.array(patches), positions
@@ -138,8 +134,8 @@ def unpatch_image(patches, positions, image_shape, patch_size=256):
     for patch, (i, j) in zip(patches, positions):
         if patch.ndim == 2:
             patch = patch[..., np.newaxis]
-        reconstructed[i:i + patch_size, j:j + patch_size, :] += patch
-        patch_count[i:i + patch_size, j:j + patch_size, :] += 1
+        reconstructed[i : i + patch_size, j : j + patch_size, :] += patch
+        patch_count[i : i + patch_size, j : j + patch_size, :] += 1
 
     reconstructed /= np.maximum(patch_count, 1)
     return np.squeeze(reconstructed)
@@ -148,7 +144,7 @@ def unpatch_image(patches, positions, image_shape, patch_size=256):
 def reverse_padding_and_cropping(reconstructed, original_shape, bbox):
     final_mask = np.zeros(original_shape, dtype=reconstructed.dtype)
     x1, y1, x2, y2 = bbox
-    final_mask[y1:y2, x1:x2] = reconstructed[:y2 - y1, :x2 - x1]
+    final_mask[y1:y2, x1:x2] = reconstructed[: y2 - y1, : x2 - x1]
     return final_mask
 
 
@@ -183,11 +179,11 @@ def skeletonize_mask_skimage(processed_mask, min_size):
 def create_overlay(image, mask, alpha=0.5):
     image = cv2.normalize(image, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_32F)
     mask = cv2.normalize(mask, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-    
-    image_rgb = np.stack([image]*3, axis=-1)
+
+    image_rgb = np.stack([image] * 3, axis=-1)
     mask_rgb = np.zeros_like(image_rgb)
     mask_rgb[..., 0] = mask
-    
+
     overlay_image = cv2.addWeighted(image_rgb, 1 - alpha, mask_rgb, alpha, 0)
     return overlay_image
 
@@ -197,7 +193,7 @@ def find_endpoints(skeleton):
     endpoints = []
     for coord in skeleton_coords:
         x, y = coord
-        neighborhood = skeleton[max(0, x - 1):x + 2, max(0, y - 1):y + 2]
+        neighborhood = skeleton[max(0, x - 1) : x + 2, max(0, y - 1) : y + 2]
         if np.sum(neighborhood) == 2:
             endpoints.append((x, y))
     return endpoints
@@ -235,14 +231,12 @@ def is_moderately_vertical(skeleton_coords, max_horizontal_to_vertical_ratio=0.5
 
 
 def isolate_and_measure_roots_by_plant(
-    image_path, 
-    min_area=80, 
-    max_horizontal_to_vertical_ratio=0.5, 
-    min_length=10, 
-    dish_bbox=None
+    image_path, min_area=80, max_horizontal_to_vertical_ratio=0.5, min_length=10, dish_bbox=None
 ):
     if dish_bbox is None or len(dish_bbox) != 4:
-        raise ValueError("A valid dish_bbox (dish_x1, dish_y1, dish_x2, dish_y2) must be provided.")
+        raise ValueError(
+            "A valid dish_bbox (dish_x1, dish_y1, dish_x2, dish_y2) must be provided."
+        )
 
     gray = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if gray is None:
@@ -258,22 +252,28 @@ def isolate_and_measure_roots_by_plant(
                 stats[plant_label, cv2.CC_STAT_LEFT],
                 stats[plant_label, cv2.CC_STAT_TOP],
                 stats[plant_label, cv2.CC_STAT_WIDTH],
-                stats[plant_label, cv2.CC_STAT_HEIGHT]
+                stats[plant_label, cv2.CC_STAT_HEIGHT],
             )
 
             plant_mask = (labels == plant_label).astype(np.uint8)
-            plant_image = plant_mask[y:y+h, x:x+w]
+            plant_image = plant_mask[y : y + h, x : x + w]
 
-            retval_roots, root_labels, root_stats, _ = cv2.connectedComponentsWithStats(plant_image)
+            retval_roots, root_labels, root_stats, _ = cv2.connectedComponentsWithStats(
+                plant_image
+            )
 
             plant_roots = []
             for root_label in range(1, retval_roots):  # skip background
                 root_area = root_stats[root_label, cv2.CC_STAT_AREA]
                 if root_area >= min_area:
                     try:
-                        length, start, tip, skeleton = measure_root_from_component(root_labels, root_label)
+                        length, start, tip, skeleton = measure_root_from_component(
+                            root_labels, root_label
+                        )
                         skeleton_coords = np.column_stack(np.where(skeleton > 0))
-                        if length >= min_length and is_moderately_vertical(skeleton_coords, max_horizontal_to_vertical_ratio):
+                        if length >= min_length and is_moderately_vertical(
+                            skeleton_coords, max_horizontal_to_vertical_ratio
+                        ):
                             root_x_rel = root_stats[root_label, cv2.CC_STAT_LEFT]
                             root_y_rel = root_stats[root_label, cv2.CC_STAT_TOP]
                             root_w = root_stats[root_label, cv2.CC_STAT_WIDTH]
@@ -283,25 +283,29 @@ def isolate_and_measure_roots_by_plant(
                             root_y = y + root_y_rel
 
                             global_start = (start[0] + y, start[1] + x)
-                            global_tip   = (tip[0] + y,   tip[1] + x)
+                            global_tip = (tip[0] + y, tip[1] + x)
 
-                            plant_roots.append({
-                                "root_label": root_label,
-                                "length": length,
-                                "start": global_start,
-                                "tip": global_tip,
-                                "skeleton": skeleton,
-                                "bounding_box": (root_x, root_y, root_w, root_h)
-                            })
+                            plant_roots.append(
+                                {
+                                    "root_label": root_label,
+                                    "length": length,
+                                    "start": global_start,
+                                    "tip": global_tip,
+                                    "skeleton": skeleton,
+                                    "bounding_box": (root_x, root_y, root_w, root_h),
+                                }
+                            )
                     except ValueError:
                         pass  # Not enough endpoints
 
-            results_by_plant.append({
-                "plant_label": plant_label,
-                "plant_area": plant_area,
-                "roots": plant_roots,
-                "bounding_box": (x, y, w, h)
-            })
+            results_by_plant.append(
+                {
+                    "plant_label": plant_label,
+                    "plant_area": plant_area,
+                    "roots": plant_roots,
+                    "bounding_box": (x, y, w, h),
+                }
+            )
 
     # Flatten all roots
     all_roots = [root for plant in results_by_plant for root in plant["roots"]]
@@ -318,7 +322,7 @@ def isolate_and_measure_roots_by_plant(
     # Sort by x-coord of start => col = 1
     all_roots = sorted(all_roots, key=lambda root: root["start"][1])
 
-    final_results = [{"plant_id": i+1, "length": 0.0, "roots": []} for i in range(5)]
+    final_results = [{"plant_id": i + 1, "length": 0.0, "roots": []} for i in range(5)]
     for root in all_roots:
         start_x = root["start"][1]
         for i, (left_bound, right_bound) in enumerate(plant_bins):
@@ -351,7 +355,7 @@ def display_and_save_roots_by_plant(results_by_plant, output_directory, image_ba
 
             blank_canvas = np.zeros((h, w, 3), dtype=np.uint8)
             skeleton_overlay = (skeleton_mask * 255).astype(np.uint8)
-            blank_canvas[:skeleton_mask.shape[0], :skeleton_mask.shape[1], 2] = skeleton_overlay
+            blank_canvas[: skeleton_mask.shape[0], : skeleton_mask.shape[1], 2] = skeleton_overlay
 
             output_path = os.path.join(output_directory, root_filename)
             cv2.imwrite(output_path, blank_canvas)
@@ -375,19 +379,16 @@ def extract_root_coordinates(final_results):
         plant_id = plant_data["plant_id"]
         plant_key = f"plant_{plant_id}"
         coords_dict[plant_key] = []
-        
+
         for root in plant_data["roots"]:
             root_id = root.get("root_id", "unknown_root")
             start_pt = root["start"]
-            tip_pt   = root["tip"]
-            length   = root["length"]
+            tip_pt = root["tip"]
+            length = root["length"]
 
-            coords_dict[plant_key].append({
-                "root_id": root_id,
-                "start": start_pt,
-                "tip": tip_pt,
-                "length": length
-            })
+            coords_dict[plant_key].append(
+                {"root_id": root_id, "start": start_pt, "tip": tip_pt, "length": length}
+            )
     return coords_dict
 
 
@@ -403,8 +404,15 @@ def plot_tips_on_original_image(original_image_path, final_results, output_path)
             tip_y = tip[0]
             cv2.circle(original_img, (tip_x, tip_y), radius=6, color=(0, 0, 255), thickness=-1)
             root_id = root.get("root_id", "UnknownRoot")
-            cv2.putText(original_img, root_id, (tip_x+8, tip_y),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(
+                original_img,
+                root_id,
+                (tip_x + 8, tip_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (255, 255, 255),
+                1,
+            )
 
     cv2.imwrite(output_path, original_img)
 
@@ -455,7 +463,7 @@ def main_pipeline_example(env):
     base_name = "plate_image"
 
     final_mask_path = os.path.join(output_dir, f"{base_name}_mask.png")
-    overlay_path    = os.path.join(output_dir, f"{base_name}_overlay.png")
+    overlay_path = os.path.join(output_dir, f"{base_name}_overlay.png")
 
     cv2.imwrite(final_mask_path, (final_mask * 255).astype(np.uint8))
     overlay_bgr = cv2.cvtColor((overlay * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
@@ -470,7 +478,7 @@ def main_pipeline_example(env):
         min_area=500,
         max_horizontal_to_vertical_ratio=0.5,
         min_length=10,
-        dish_bbox=petri_dish_bbox
+        dish_bbox=petri_dish_bbox,
     )
 
     # 14) Save skeleton overlays
@@ -491,13 +499,20 @@ def main_pipeline_example(env):
 # ----------------------- Bigger Pipeline ---------------------------
 # -------------------------------------------------------------------
 
+
 def is_within_bounds(robot_coords, env):
     x, y, z = robot_coords
     x_bounds, y_bounds, z_bounds = env.envelope["position_bounds"]
-    return x_bounds[0] <= x <= x_bounds[1] and y_bounds[0] <= y <= y_bounds[1] and z_bounds[0] <= z <= z_bounds[1]
+    return (
+        x_bounds[0] <= x <= x_bounds[1]
+        and y_bounds[0] <= y <= y_bounds[1]
+        and z_bounds[0] <= z <= z_bounds[1]
+    )
 
 
-def convert_to_robot_coords(pixel_coords, plate_size_mm, plate_size_pixels, plate_position_robot, bbox_origin_pixels=(0, 0)):
+def convert_to_robot_coords(
+    pixel_coords, plate_size_mm, plate_size_pixels, plate_position_robot, bbox_origin_pixels=(0, 0)
+):
     # plate_size_pixels might be int or tuple
     if isinstance(plate_size_pixels, tuple):
         assert plate_size_pixels[0] == plate_size_pixels[1], "Non-square plate image detected."
@@ -529,12 +544,12 @@ def normalize_within_envelope(goal_coords, envelope_bounds):
 
 
 def integrate_endpoints_into_robot_space(
-    all_endpoints, 
-    plate_size_mm, 
-    plate_size_pixels, 
-    plate_position_robot, 
-    bbox_origin_pixels=(0, 0), 
-    envelope_bounds=None
+    all_endpoints,
+    plate_size_mm,
+    plate_size_pixels,
+    plate_position_robot,
+    bbox_origin_pixels=(0, 0),
+    envelope_bounds=None,
 ):
     """
     all_endpoints = coords_dict from main pipeline (already filtered so only -1 roots)
@@ -558,33 +573,35 @@ def integrate_endpoints_into_robot_space(
             root_label = root_data.get("root_id", "NoLabel")
 
             start_pixel = root_data["start"]  # (row, col)
-            tip_pixel   = root_data["tip"]    # (row, col)
+            tip_pixel = root_data["tip"]  # (row, col)
 
             start_robot_coords = convert_to_robot_coords(
-                start_pixel, 
-                plate_size_mm, 
-                plate_size_pixels, 
-                plate_position_robot, 
-                bbox_origin_pixels
+                start_pixel,
+                plate_size_mm,
+                plate_size_pixels,
+                plate_position_robot,
+                bbox_origin_pixels,
             )
-            tip_robot_coords   = convert_to_robot_coords(
-                tip_pixel, 
-                plate_size_mm, 
-                plate_size_pixels, 
-                plate_position_robot, 
-                bbox_origin_pixels
+            tip_robot_coords = convert_to_robot_coords(
+                tip_pixel,
+                plate_size_mm,
+                plate_size_pixels,
+                plate_position_robot,
+                bbox_origin_pixels,
             )
 
             if envelope_bounds:
                 start_robot_coords = normalize_within_envelope(start_robot_coords, envelope_bounds)
-                tip_robot_coords   = normalize_within_envelope(tip_robot_coords,   envelope_bounds)
+                tip_robot_coords = normalize_within_envelope(tip_robot_coords, envelope_bounds)
 
-            goal_positions.append({
-                "plant_id": plant_id,    # e.g. 'plant_1'
-                "root_label": root_label,
-                "start": start_robot_coords,
-                "tip": tip_robot_coords
-            })
+            goal_positions.append(
+                {
+                    "plant_id": plant_id,  # e.g. 'plant_1'
+                    "root_label": root_label,
+                    "start": start_robot_coords,
+                    "tip": tip_robot_coords,
+                }
+            )
 
     return goal_positions
 
@@ -592,7 +609,7 @@ def integrate_endpoints_into_robot_space(
 def run_entire_process():
     # 1) Create the environment once with render=True
     env = OT2Env(render=True)
-    
+
     # 2) Run the old+new pipeline -> coords_dict
     coords_dict, petri_dish_bbox, original_image_path = main_pipeline_example(env)
 
@@ -614,7 +631,7 @@ def run_entire_process():
 
     # 3) BBox origin
     bbox_origin_pixels = (petri_dish_bbox[0], petri_dish_bbox[1])
-    plate_size_pixels  = petri_dish_bbox[2] - petri_dish_bbox[0]  # width in pixels
+    plate_size_pixels = petri_dish_bbox[2] - petri_dish_bbox[0]  # width in pixels
 
     # 4) Plate size: 0.15 (i.e. 150 mm).
     plate_size_mm = 0.15
@@ -625,11 +642,7 @@ def run_entire_process():
     plate_position_robot = (0.10775, 0.088 - 0.026, 0.057)
 
     # 5) Envelope bounds in meters
-    envelope_bounds = {
-        "x": [-0.1872, 0.2531],
-        "y": [-0.1711, 0.2201],
-        "z": [0.1691,  0.2896]
-    }
+    envelope_bounds = {"x": [-0.1872, 0.2531], "y": [-0.1711, 0.2201], "z": [0.1691, 0.2896]}
 
     # 6) Convert the filtered endpoints (only -1 roots) to robot coordinates
     goal_positions = integrate_endpoints_into_robot_space(
@@ -638,7 +651,7 @@ def run_entire_process():
         plate_size_pixels,
         plate_position_robot,
         bbox_origin_pixels,
-        envelope_bounds
+        envelope_bounds,
     )
 
     print("\n--- Goal positions in robot space (only '-1' roots, left to right) ---")
@@ -664,7 +677,7 @@ def run_entire_process():
         if is_within_bounds(root_pos_robot, env):
             env.goal_position = root_pos_robot
             print(f"Moving to {root_pos_robot} ...")
-            
+
             obs, info = env.reset()
             while True:
                 action, _states = model.predict(obs, deterministic=False)
@@ -678,10 +691,10 @@ def run_entire_process():
 
                 if error < 0.001:  # ~1 mm threshold
                     # Drop inoculum (example action)
-                    action = np.array([0, 0, 0, 1])  # "drop" 
+                    action = np.array([0, 0, 0, 1])  # "drop"
                     obs, rewards, terminated, truncated, info = env.step(action)
                     print(f"Inoculum dropped at: {root_pos_robot}")
-                  
+
                     break
                 time.sleep(0.1)
                 if terminated:

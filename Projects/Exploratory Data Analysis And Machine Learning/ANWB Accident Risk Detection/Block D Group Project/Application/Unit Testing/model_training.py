@@ -7,7 +7,7 @@ from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from keras.regularizers import l2
-from keras.utils import to_categorical
+
 
 class Model2BTrainer:
     def __init__(self, X_train, y_train, X_val, y_val, X_test, y_test, learning_rate=0.001):
@@ -38,8 +38,12 @@ class Model2BTrainer:
         """
         Compute class weights to handle class imbalance in the training data.
         """
-        y_train_classes = np.argmax(self.y_train, axis=1)  # Convert one-hot encoded labels to class indices
-        class_weights = compute_class_weight('balanced', classes=np.unique(y_train_classes), y=y_train_classes)
+        y_train_classes = np.argmax(
+            self.y_train, axis=1
+        )  # Convert one-hot encoded labels to class indices
+        class_weights = compute_class_weight(
+            'balanced', classes=np.unique(y_train_classes), y=y_train_classes
+        )
         class_weights_dict = dict(enumerate(class_weights))
         return class_weights_dict
 
@@ -48,14 +52,21 @@ class Model2BTrainer:
         Build and compile the neural network model.
         """
         model = Sequential()
-        model.add(Dense(128, activation='relu', input_shape=(self.X_train.shape[1],), kernel_regularizer=l2(0.01)))
+        model.add(
+            Dense(
+                128,
+                activation='relu',
+                input_shape=(self.X_train.shape[1],),
+                kernel_regularizer=l2(0.01),
+            )
+        )
         model.add(Dropout(0.5))
         model.add(Dense(64, activation='relu', kernel_regularizer=l2(0.01)))
         model.add(Dropout(0.5))
         model.add(Dense(32, activation='relu', kernel_regularizer=l2(0.01)))
         model.add(Dropout(0.5))
         model.add(Dense(self.y_train.shape[1], activation='softmax'))
-        
+
         optimizer = Adam(learning_rate=self.learning_rate)
         model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
         self.model = model
@@ -70,19 +81,20 @@ class Model2BTrainer:
         """
         if self.model is None:
             self.build_model()
-        
+
         callbacks = [
             EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
-            ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6)
+            ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6),
         ]
-        
+
         self.history = self.model.fit(
-            self.X_train, self.y_train,
+            self.X_train,
+            self.y_train,
             epochs=epochs,
             batch_size=batch_size,
             validation_data=(self.X_val, self.y_val),
             class_weight=self.class_weights,
-            callbacks=callbacks
+            callbacks=callbacks,
         )
 
     def evaluate_model(self):
@@ -135,7 +147,8 @@ class Model2BTrainer:
         """
         y_pred = self.model.predict(self.X_test)
         y_pred_classes = np.argmax(y_pred, axis=1)  # Convert predictions to class labels
-        y_test_classes = np.argmax(self.y_test, axis=1)  # Convert one-hot encoded labels to class indices
+        # Convert one-hot encoded labels to class indices
+        y_test_classes = np.argmax(self.y_test, axis=1)
 
         cm = confusion_matrix(y_test_classes, y_pred_classes)
 

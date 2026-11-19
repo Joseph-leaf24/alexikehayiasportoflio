@@ -7,6 +7,8 @@ import { TLink } from "@/components/chrome/Transition";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
+import DepthImage from "@/components/fx/DepthImage";
+import { domainsFor } from "@/data/domains";
 
 interface ProjectCardProps {
   project: Project;
@@ -54,13 +56,14 @@ const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
       >
         <Corners />
         <div className="project-card__media">
-          <img src={image} alt="" loading="lazy" decoding="async" />
+          <DepthImage src={image} alt="" />
           <span className="project-card__tint" aria-hidden="true" />
           <span className="project-card__idx">P/{pad(index + 1)}</span>
           {powerBiUrl ? <span className="project-card__flag">Live dashboard</span> : null}
         </div>
 
         <div className="project-card__body">
+          <span className="project-card__domains">{domainsFor(category, index).map((d) => d.title).join(" · ")}</span>
           <h4 className="project-card__title">
             <ScrambleText text={title} hover trigger="none" />
           </h4>

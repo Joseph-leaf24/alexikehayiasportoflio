@@ -10,12 +10,10 @@ import Loader from "./components/chrome/Loader";
 import { TransitionProvider } from "./components/chrome/Transition";
 import { initSmoothScroll } from "./lib/smoothScroll";
 import { sceneState } from "./lib/store";
-import { sound } from "./lib/sound";
 
 function Shell() {
   useEffect(() => {
     const stopScroll = initSmoothScroll();
-    sound.restorePreference();
 
     const onPointer = (e: PointerEvent) => {
       sceneState.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -33,8 +31,7 @@ function Shell() {
     console.log(
       "%c❄ Alexi Kehayias%c\n© " +
         new Date().getFullYear() +
-        " Alexi Kehayias. All rights reserved.\nThe design, code and 3D work on this site are proprietary — please don't copy or redistribute them.\nWant to talk about it? " +
-        "kehayiasjalexi@gmail.com",
+        " Alexi Kehayias. All rights reserved.\nThe design, code and 3D work on this site are proprietary — please don't copy or redistribute them.",
       "font: 600 16px/1.6 system-ui; color: #7fd4ff",
       "font: 12px/1.6 ui-monospace, monospace; color: #8e98aa"
     );

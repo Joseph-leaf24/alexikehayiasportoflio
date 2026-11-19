@@ -2,7 +2,6 @@ import { createElement, Fragment, useCallback, useEffect, useMemo, useRef, type 
 import { cn } from "@/lib/utils";
 import { onAppReady } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { sound } from "@/lib/sound";
 
 const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&*+=<>/\\|[]{}_-~^$@!?";
 const randGlyph = () => GLYPHS[(Math.random() * GLYPHS.length) | 0];
@@ -122,7 +121,6 @@ export default function ScrambleText({
     if (!el || !hover || prefersReducedMotion()) return;
     const host = (el.closest("a,button,[data-scramble-host]") as HTMLElement | null) ?? el;
     const onEnter = () => {
-      sound.blip("hover");
       run({ fromHidden: false, dur: Math.min(520, 160 + text.length * 18), delay: 0 });
     };
     host.addEventListener("mouseenter", onEnter);

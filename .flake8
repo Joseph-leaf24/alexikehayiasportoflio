@@ -1,0 +1,16 @@
+[flake8]
+# PEP 8 compliance for the Python code in Projects/.
+# 99 characters is the limit PEP 8 explicitly allows teams to agree on.
+max-line-length = 99
+# E203 / W503 conflict with PEP 8's own guidance on slices and line breaks
+# around binary operators (and with the black formatter).
+extend-ignore = E203, W503
+exclude =
+    .git,
+    node_modules,
+    dist,
+    coverage,
+    .ipynb_checkpoints
+per-file-ignores =
+    # Unit-test modules import fixtures/mocks for their side effects
+    */test_*.py: F401

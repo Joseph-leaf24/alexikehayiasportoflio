@@ -1,13 +1,13 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, BatchNormalization, Dropout
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler
 import time
+
 
 class DrivingRiskApp:
     def __init__(self):
@@ -18,7 +18,7 @@ class DrivingRiskApp:
             0: 'Low risk',
             1: 'Minor accident risk',
             2: 'Moderate accident risk',
-            3: 'Severe accident risk'
+            3: 'Severe accident risk',
         }
         self.setup_streamlit()
 
@@ -35,50 +35,53 @@ class DrivingRiskApp:
     def set_bg_hack_url(self):
         """Set background image and custom CSS styles."""
         st.markdown(
-            f"""
+            """
             <style>
-            .stApp {{
-                background: url("https://img.freepik.com/free-photo/background-gradient-lights_23-2149304985.jpg?w=740&t=st=1718106053~exp=1718106653~hmac=4cc993d19378248f35268f89f719fce68151997fa41c36b3a25c6425ac7187e5");
+            .stApp {
+                background:
+                url("https://img.freepik.com/free-photo/background-gradient-lights_23-2149304985.jpg?w=740&t=st=1718106053~exp=1718106653~hmac=4cc993d19378248f35268f89f719fce68151997fa41c36b3a25c6425ac7187e5");
                 background-size: cover;
-            }}
-            .center-text {{
+            }
+            .center-text {
                 text-align: center;
-            }}
-            .center-button {{
+            }
+            .center-button {
                 display: flex;
                 justify-content: center;
-            }}
-            .large-text {{
+            }
+            .large-text {
                 font-size: 1.5em;
                 font-weight: bold;
-            }}
-            .value-text {{
+            }
+            .value-text {
                 font-size: 2em;
                 font-weight: bold;
-            }}
-            .value-text-small {{
+            }
+            .value-text-small {
                 font-size: 2em;
                 font-weight: bold;
-            }}
+            }
             </style>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     def load_pretrained_model(self):
         """Load the pretrained model with specified architecture and weights."""
-        model = Sequential([
-            Dense(128, input_dim=5, activation='relu', kernel_regularizer=l2(0.01)),
-            BatchNormalization(),
-            Dropout(0.5),
-            Dense(64, activation='relu', kernel_regularizer=l2(0.01)),
-            BatchNormalization(),
-            Dropout(0.5),
-            Dense(32, activation='relu', kernel_regularizer=l2(0.01)),
-            BatchNormalization(),
-            Dropout(0.5),
-            Dense(4, activation='softmax')
-        ])
+        model = Sequential(
+            [
+                Dense(128, input_dim=5, activation='relu', kernel_regularizer=l2(0.01)),
+                BatchNormalization(),
+                Dropout(0.5),
+                Dense(64, activation='relu', kernel_regularizer=l2(0.01)),
+                BatchNormalization(),
+                Dropout(0.5),
+                Dense(32, activation='relu', kernel_regularizer=l2(0.01)),
+                BatchNormalization(),
+                Dropout(0.5),
+                Dense(4, activation='softmax'),
+            ]
+        )
         model.load_weights('Improved_MLP_Model_2B.h5')
         optimizer = Adam(learning_rate=0.0001)
         model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
@@ -88,7 +91,13 @@ class DrivingRiskApp:
         """Generate and return a DataFrame of dummy data."""
         data = [
             # Example dummy data
-            {'latitude': 51.57965, 'longitude': 4.803370, 'speed_kmh': 63.997307, 'maxwaarde': 71.150510, 'accident_count': 0},
+            {
+                'latitude': 51.57965,
+                'longitude': 4.803370,
+                'speed_kmh': 63.997307,
+                'maxwaarde': 71.150510,
+                'accident_count': 0,
+            },
             # Add more rows as needed
         ]
         return pd.DataFrame(data)
@@ -102,8 +111,10 @@ class DrivingRiskApp:
 
     def run(self):
         """Main function to run the Streamlit app."""
-        st.markdown('<h1 class="center-text">🚗 Driving Risk Prediction 🚗</h1>', unsafe_allow_html=True)
-        
+        st.markdown(
+            '<h1 class="center-text">🚗 Driving Risk Prediction 🚗</h1>', unsafe_allow_html=True
+        )
+
         if 'logged_in' not in st.session_state:
             st.session_state['logged_in'] = False
 
@@ -115,8 +126,8 @@ class DrivingRiskApp:
     def login_page(self):
         """Display the login page."""
         st.header("Login")
-        username = st.text_input("Username", placeholder="Enter your username")
-        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        st.text_input("Username", placeholder="Enter your username")
+        st.text_input("Password", type="password", placeholder="Enter your password")
 
         col11, col12, col13, col14, col15 = st.columns(5)
         with col13:
@@ -143,8 +154,11 @@ class DrivingRiskApp:
     def home_page(self):
         """Display the home page."""
         st.header("Welcome to the Driving Risk Prediction App!")
-        st.write("This app analyzes driving behavior data to predict the risk level of an accident. Click the 'Analyze' button to start the analysis.")
-        
+        st.write(
+            "This app analyzes driving behavior data to predict the risk level of an accident. "
+            "Click the 'Analyze' button to start the analysis."
+        )
+
         col1, col2, col3, col4, col5 = st.columns(5)
         with col3:
             if st.button("Analyze"):
@@ -160,13 +174,15 @@ class DrivingRiskApp:
             interval = st.selectbox(
                 "Select interval (seconds)",
                 options=[30, 60, 120],
-                index=[30, 60, 120].index(st.session_state['interval'])
+                index=[30, 60, 120].index(st.session_state['interval']),
             )
             st.session_state['interval'] = interval
 
     def analyzing_page(self):
         """Display the analyzing page."""
-        st.markdown('<h2 class="center-text">Retrieving your vehicle data...</h2>', unsafe_allow_html=True)
+        st.markdown(
+            '<h2 class="center-text">Retrieving your vehicle data...</h2>', unsafe_allow_html=True
+        )
         col16, col17, col18, col19, col20 = st.columns(5)
         with col18:
             with st.spinner("Analyzing..."):
@@ -179,7 +195,7 @@ class DrivingRiskApp:
         """Display the results page."""
         if not self.model:
             self.load_pretrained_model()
-        
+
         if 'dummy_data' not in st.session_state:
             st.session_state['dummy_data'] = self.get_provided_dummy_data()
 
@@ -208,7 +224,7 @@ class DrivingRiskApp:
             (col2_value, col2_header),
             (col3_value, col3_header),
             (col4_value, col4_header),
-            (col5_value, col5_header)
+            (col5_value, col5_header),
         ]
 
         display_columns = {
@@ -216,22 +232,30 @@ class DrivingRiskApp:
             'longitude': 'Longitude',
             'speed_kmh': 'Speed (km/h)',
             'maxwaarde': 'Max Value',
-            'accident_count': 'Accident Count'
+            'accident_count': 'Accident Count',
         }
 
         columns = self.features
         increments = [dummy_data[col].values[0] / 100 for col in columns]
 
         for i, col in enumerate(columns):
-            progress_placeholders[i][1].markdown(f"<h3 class='center-text'>{display_columns[col]}</h3>", unsafe_allow_html=True)
+            progress_placeholders[i][1].markdown(
+                f"<h3 class='center-text'>{display_columns[col]}</h3>", unsafe_allow_html=True
+            )
 
         for step in range(101):
             for i, col in enumerate(columns):
                 value = step * increments[i]
                 if col == 'speed_kmh' and value >= 100:
-                    progress_placeholders[i][0].markdown(f"<h1 class='center-text value-text-small'>{value:.2f}</h1>", unsafe_allow_html=True)
+                    progress_placeholders[i][0].markdown(
+                        f"<h1 class='center-text value-text-small'>{value:.2f}</h1>",
+                        unsafe_allow_html=True,
+                    )
                 else:
-                    progress_placeholders[i][0].markdown(f"<h1 class='center-text value-text'>{value:.2f}</h1>", unsafe_allow_html=True)
+                    progress_placeholders[i][0].markdown(
+                        f"<h1 class='center-text value-text'>{value:.2f}</h1>",
+                        unsafe_allow_html=True,
+                    )
             time.sleep(0.05)
 
         prediction, risk_level = self.predict_risk(dummy_data[self.features])
@@ -245,6 +269,7 @@ class DrivingRiskApp:
         time.sleep(st.session_state['interval'])
         st.session_state['page'] = 'analyzing'
         st.experimental_rerun()
+
 
 if __name__ == "__main__":
     app = DrivingRiskApp()

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-const MAGNETIC = ".btn-ice, .hud-nav a, .sound-toggle, .back-link, .site-footer__top, .hud-burger, .hud-brand, [data-magnetic]";
+/** The element an event happened on (events can also target window or text nodes). */
+const elementOf = (t: EventTarget | null) => (t instanceof Element ? t : null);
+
+const MAGNETIC = ".btn-ice, .hud-nav a, .back-link, .site-footer__top, .hud-burger, .hud-brand, [data-magnetic]";
 
 /** Dot + lagging ring cursor with contextual labels (`data-cursor="OPEN"`). Mouse only. */
 export default function Cursor() {
@@ -38,7 +41,7 @@ export default function Cursor() {
         ring.y = pos.y;
         root.classList.add("is-visible");
       }
-      const next = (e.target as HTMLElement | null)?.closest<HTMLElement>(MAGNETIC) ?? null;
+      const next = elementOf(e.target)?.closest<HTMLElement>(MAGNETIC) ?? null;
       if (next !== magnet) {
         if (magnet) release(magnet);
         magnet = next;
@@ -56,7 +59,7 @@ export default function Cursor() {
       }
     };
     const onOver = (e: MouseEvent) => {
-      const t = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-cursor], a, button, [role='tab'], label");
+      const t = elementOf(e.target)?.closest<HTMLElement>("[data-cursor], a, button, [role='tab'], label");
       root.classList.toggle("is-hover", !!t);
       const label = t?.dataset.cursor ?? "";
       if (labelRef.current && labelRef.current.textContent !== label) labelRef.current.textContent = label;

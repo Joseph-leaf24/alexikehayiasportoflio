@@ -9,6 +9,8 @@ import { TLink } from "@/components/chrome/Transition";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
+import DepthImage from "@/components/fx/DepthImage";
+import { domainsFor } from "@/data/domains";
 import Lightbox from "@/components/Lightbox";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -50,7 +52,7 @@ const ProjectDetails = () => {
   useEffect(() => {
     const el = coverRef.current;
     if (!el || prefersReducedMotion()) return;
-    const img = el.querySelector("img");
+    const img = el.querySelector(".depth");
     const tween = gsap.fromTo(
       img,
       { yPercent: -7 },
@@ -97,6 +99,13 @@ const ProjectDetails = () => {
           [ {pad(idx + 1)} ] — {categoryData.title}
           {spec && spec.title !== categoryData.title ? ` · ${spec.title}` : ""}
         </Reveal>
+        <Reveal variant="fade" className="detail__domains" delay={80}>
+          <ul className="chips chips--accent" aria-label="Domains">
+            {domainsFor(category ?? "", idx).map((d) => (
+              <li key={d.id}>{d.title}</li>
+            ))}
+          </ul>
+        </Reveal>
         <h1 className="detail__title">
           <ScrambleText text={project.title} trigger="mount" duration={1100} />
         </h1>
@@ -128,7 +137,7 @@ const ProjectDetails = () => {
 
       <Reveal variant="clip" className="detail__cover">
         <div ref={coverRef} className="detail__cover-frame">
-          <img src={project.image} alt={`${project.title} — cover`} decoding="async" />
+          <DepthImage src={project.image} alt={`${project.title} — cover`} eager />
         </div>
         <Corners />
         <span className="detail__cover-tag">Fig. 01 — {categoryData.title}</span>
@@ -189,7 +198,7 @@ const ProjectDetails = () => {
             {images.map((src, i) => (
               <Reveal key={src + i} variant="clip" delay={(i % 3) * 90}>
                 <button type="button" className="gallery__item hc" onClick={() => setLightbox(i)} data-cursor="EXPAND" aria-label={`Open image ${i + 1} of ${images.length}`}>
-                  <img src={src} alt={`${project.title} - Image ${i + 1}`} loading="lazy" decoding="async" />
+                  <DepthImage src={src} alt={`${project.title} - Image ${i + 1}`} fit="contain" />
                   <Corners />
                   <span className="gallery__idx">IMG/{pad(i + 1)}</span>
                 </button>
