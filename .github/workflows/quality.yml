@@ -6,11 +6,15 @@ name: Code quality
 #   • Browser   — the built site in a real browser: Playwright smoke + axe
 #                 accessibility tests (desktop + phone) and Lighthouse CI
 #   • Workflows — actionlint (correctness) and zizmor (security) for .github/
+#   • Docker    — hadolint, then the local container image builds, starts and serves
+#                 the site (the image is for running locally; Pages doesn't use it)
 #   • Python    — PEP 8 compliance (flake8) for the project code in Projects/
 #   • Secrets   — fails if API keys, tokens or hard-coded passwords are committed
 #
 # Actions are pinned to full commit SHAs (the comment gives the version);
-# Dependabot keeps them up to date (.github/dependabot.yml).
+# Dependabot keeps them up to date (.github/dependabot.yml). When called from
+# deploy.yml, the test, coverage, audit and Lighthouse numbers are passed back as
+# outputs and published as the README badges (scripts/badges.mjs).
 
 on:
   push:
@@ -18,6 +22,22 @@ on:
     branches-ignore: [main, "dependabot/**"]
   pull_request:
   workflow_call:
+    outputs:
+      passed:
+        description: Unit tests passed
+        value: ${{ jobs.website.outputs.passed }}
+      failed:
+        description: Unit tests failed
+        value: ${{ jobs.website.outputs.failed }}
+      coverage:
+        description: Statement coverage (%)
+        value: ${{ jobs.website.outputs.coverage }}
+      vulnerabilities:
+        description: Known vulnerabilities in shipped dependencies
+        value: ${{ jobs.website.outputs.vulnerabilities }}
+      lighthouse:
+        description: Lowest Lighthouse score per category (JSON)
+        value: ${{ jobs.browser.outputs.lighthouse }}
   workflow_dispatch:
 
 permissions:
@@ -32,6 +52,11 @@ jobs:
     name: Website · lint, types, unit tests, dependencies
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      passed: ${{ steps.results.outputs.passed }}
+      failed: ${{ steps.results.outputs.failed }}
+      coverage: ${{ steps.results.outputs.coverage }}
+      vulnerabilities: ${{ steps.results.outputs.vulnerabilities }}
     steps:
       - name: Checkout (website source only)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -62,13 +87,17 @@ jobs:
           npx tsc -p tsconfig.node.json --noEmit
 
       - name: Unit tests + coverage (fails below 80%)
-        run: npm run test:coverage
+        run: npm run test:coverage -- --reporter=default --reporter=json --outputFile.json=coverage/test-results.json
 
       - name: Known vulnerabilities in shipped dependencies (fails on high / critical)
         run: npm audit --omit=dev --audit-level=high
 
       - name: Known vulnerabilities in build tooling (report only)
         run: npm audit --audit-level=high || echo "::warning title=npm audit::Build-tool dependencies have high-severity advisories; merge Dependabot's update PRs"
+
+      - name: Record the results for the README badges
+        id: results
+        run: node scripts/badges.mjs collect >> "$GITHUB_OUTPUT"
 
       - name: Coverage summary
         if: always()
@@ -86,6 +115,8 @@ jobs:
     name: Browser · e2e, accessibility, Lighthouse
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    outputs:
+      lighthouse: ${{ steps.scores.outputs.lighthouse }}
     steps:
       - name: Checkout (website source only)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -131,6 +162,51 @@ jobs:
           configPath: ./lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: false
+
+      - name: Record the Lighthouse scores for the README badges
+        id: scores
+        run: node scripts/badges.mjs lighthouse .lighthouseci >> "$GITHUB_OUTPUT"
+
+  docker:
+    name: Docker · hadolint, image builds and serves
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (website source only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src
+            public
+            docker
+
+      - name: hadolint (Dockerfile best practices)
+        run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
+
+      - name: Build the image
+        run: docker build -t alexi-portfolio:ci .
+
+      - name: Start it the way compose.yaml does and check it serves the site
+        run: |
+          set -euo pipefail
+          docker run -d --name site -p 8080:8080 --read-only --tmpfs /tmp --cap-drop ALL \
+            --security-opt no-new-privileges:true alexi-portfolio:ci
+          status=starting
+          for _ in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' site)
+            [ "$status" = healthy ] && break
+            sleep 2
+          done
+          [ "$status" = healthy ] || { docker logs site; echo "::error::container never became healthy"; exit 1; }
+          base=http://localhost:8080/alexikehayiasportoflio/
+          html=$(curl -fsS "$base")
+          bundle=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' <<<"$html" | head -1)
+          curl -fsS -o /dev/null "$base$bundle"
+          curl -fsS -o /dev/null "${base}Alexi_Kehayias_CV.pdf"
+          headers=$(curl -fsSI "$base")
+          grep -qi '^x-content-type-options: nosniff' <<<"$headers"
+          echo "Container is healthy and serves the site ($bundle)" >> "$GITHUB_STEP_SUMMARY"
 
   workflows:
     name: Workflows · actionlint, zizmor

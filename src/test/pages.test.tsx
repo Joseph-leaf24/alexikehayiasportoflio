@@ -123,6 +123,19 @@ describe("project page", () => {
     expect(screen.getByText(allProjects[idx + 1].project.title, { selector: ".sr-only" })).toBeInTheDocument();
   });
 
+  it("keeps the highlights in a drop-down that starts closed", () => {
+    const project = projectData.nlp.projects[1];
+    renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: "/project/nlp/1" });
+    const details = document.querySelector("details.highlights") as HTMLDetailsElement;
+    expect(details).toBeInTheDocument();
+    expect(details.open).toBe(false);
+    const summary = within(details).getByText("Highlights");
+    expect(details.querySelector("summary")).toHaveTextContent(`Highlights 0${project.highlights!.length}`);
+    fireEvent.click(summary);
+    expect(details.open).toBe(true);
+    for (const h of project.highlights!) expect(within(details).getByText(h)).toBeInTheDocument();
+  });
+
   it("embeds the Power BI dashboard for analytics projects", () => {
     renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: "/project/dataAnalytics/1" });
     expect(screen.getByTitle(projectData.dataAnalytics.projects[1].title)).toHaveAttribute("src", projectData.dataAnalytics.projects[1].powerBiUrl);

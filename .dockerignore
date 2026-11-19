@@ -1,0 +1,16 @@
+# Only what the Dockerfile copies is needed; keep the build context small
+# (the Projects/ folder alone is large) and never send secrets or local output.
+**
+!package.json
+!package-lock.json
+!index.html
+!vite.config.ts
+!tailwind.config.ts
+!postcss.config.js
+!tsconfig.json
+!tsconfig.app.json
+!tsconfig.node.json
+!public/
+!src/
+!docker/
+src/test/

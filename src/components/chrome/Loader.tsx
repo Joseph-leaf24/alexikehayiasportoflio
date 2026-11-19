@@ -114,8 +114,8 @@ export default function Loader() {
           </ul>
         </div>
         <div className="loader__row">
-          <span>{profile.location}</span>
-          <span>{profile.coords}</span>
+          <span>{profile.focus.join(" · ")}</span>
+          <span>{new Date().getFullYear()}</span>
         </div>
       </div>
     </div>

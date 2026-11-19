@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "vite build && playwright test",
-    "test:report": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=coverage/test-results.json && node scripts/test-report.mjs",
+    "docker": "docker compose up --build",
     "scan:secrets": "node scripts/scan-secrets.mjs .",
     "lint:python": "flake8 ."
   },

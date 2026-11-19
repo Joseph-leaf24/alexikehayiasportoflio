@@ -8,7 +8,6 @@ import Work from "@/components/Work";
 import Contact from "@/components/Contact";
 import Lightbox from "@/components/Lightbox";
 import ProjectCard from "@/components/ProjectCard";
-import QualityReport, { type TestReport } from "@/components/QualityReport";
 import { projectData } from "@/data/projects";
 import { profile, specializations } from "@/data/profile";
 import { sceneState } from "@/lib/store";
@@ -178,15 +177,15 @@ describe("ProjectCard", () => {
 });
 
 describe("Contact", () => {
-  it("offers LinkedIn, GitHub and the CV — no email anywhere", () => {
+  it("offers LinkedIn and the CV — no GitHub, email or test report", () => {
     const { container } = renderRoute(<Contact />);
     expect(screen.getByRole("link", { name: /linkedin/i })).toHaveAttribute("href", profile.linkedin);
-    expect(screen.getByRole("link", { name: /github/i })).toHaveAttribute("href", profile.github);
     expect(screen.getByRole("link", { name: /download cv/i })).toHaveAttribute("download");
-    expect(container.innerHTML).not.toMatch(/mailto:|@gmail/);
+    expect(screen.queryByRole("link", { name: /github/i })).toBeNull();
+    expect(container.innerHTML).not.toMatch(/mailto:|@gmail|github\.com/);
+    expect(screen.queryByRole("region", { name: "Automated test results" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /back to top/i }));
     expect(window.scrollTo).toHaveBeenCalled();
-    expect(screen.getByRole("region", { name: "Automated test results" })).toBeInTheDocument();
   });
 });
 
@@ -241,35 +240,5 @@ describe("Lightbox", () => {
     expect(onIndex).not.toHaveBeenCalled();
     unmount();
     expect(document.documentElement).not.toHaveClass("scroll-locked");
-  });
-});
-
-describe("QualityReport", () => {
-  const passing: TestReport = {
-    generatedAt: "2026-11-19T10:00:00.000Z",
-    threshold: 80,
-    tests: { total: 120, passed: 120, failed: 0, files: 10 },
-    coverage: { statements: 91.2, branches: 84.5, functions: 88.8, lines: 92.1 },
-  };
-
-  it("shows passing tests and coverage meters", () => {
-    render(<QualityReport data={passing} />);
-    expect(screen.getByText("All checks passing")).toBeInTheDocument();
-    expect(screen.getByText("120/120")).toBeInTheDocument();
-    expect(screen.getByRole("meter", { name: "Branches coverage" })).toHaveAttribute("aria-valuenow", "84.5");
-    expect(screen.getByText(/verified 19 Nov 2026/)).toBeInTheDocument();
-  });
-
-  it("flags failures and low coverage", () => {
-    render(<QualityReport data={{ ...passing, generatedAt: "nope", tests: { ...passing.tests, failed: 2 }, coverage: { ...passing.coverage, branches: 61 } }} />);
-    expect(screen.getByText("Checks failing")).toBeInTheDocument();
-    expect(screen.getByText("61.0%")).toHaveClass("is-low");
-    expect(screen.getByText(/verified —/)).toBeInTheDocument();
-  });
-
-  it("renders the generated report by default", () => {
-    markReady();
-    render(<QualityReport />);
-    expect(screen.getByRole("region", { name: "Automated test results" })).toBeInTheDocument();
   });
 });

@@ -4,15 +4,13 @@ import { scrollToTarget } from "@/lib/smoothScroll";
 import SectionHead from "@/components/fx/SectionHead";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
-import QualityReport from "@/components/QualityReport";
 
 const LINKS = [
   { key: "LinkedIn", value: "in/alexi-kehayias", href: profile.linkedin, external: true, cursor: "OPEN" },
-  { key: "GitHub", value: "@Joseph-leaf24", href: profile.github, external: true, cursor: "OPEN" },
   { key: "Download CV", value: "PDF", href: profile.cv, download: true, cursor: "PDF" },
 ];
 
-/** Contact section (LinkedIn, GitHub, CV download), the test-quality report and the site footer. */
+/** Contact section (LinkedIn, CV download) and the site footer. */
 export default function Contact() {
   return (
     <section id="contact" className="section section--contact" data-scene="villageTop" data-section="05|Contact">
@@ -44,8 +42,6 @@ export default function Contact() {
             </Reveal>
           ))}
         </ul>
-
-        <QualityReport />
       </div>
 
       <footer className="site-footer container-x">
@@ -53,9 +49,6 @@ export default function Contact() {
           © {new Date().getFullYear()} {profile.name}
         </span>
         <span className="hidden sm:inline">Data Science &amp; AI Portfolio</span>
-        <span className="hidden md:inline">
-          {profile.location} · {profile.coords}
-        </span>
         <button type="button" onClick={() => scrollToTarget(0)} className="site-footer__top">
           Back to top <ArrowUp className="h-3.5 w-3.5" />
         </button>

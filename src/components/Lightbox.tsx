@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { setScrollLocked } from "@/lib/smoothScroll";
+import { trapTab } from "@/lib/keys";
 
 interface Props {
   images: string[];
@@ -40,18 +41,8 @@ export default function Lightbox({ images, index, title, onClose, onIndex }: Pro
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowRight" && count > 1) onIndex((index + 1) % count);
       else if (e.key === "ArrowLeft" && count > 1) onIndex((index - 1 + count) % count);
-      else if (e.key === "Tab") {
-        // aria-modal: Tab / Shift+Tab cycle through the dialog's buttons only
-        const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button") ?? []);
-        if (!buttons.length) return;
-        const first = buttons[0];
-        const last = buttons[buttons.length - 1];
-        const at = buttons.indexOf(document.activeElement as HTMLElement);
-        if (at === -1 || (e.shiftKey && at === 0) || (!e.shiftKey && at === buttons.length - 1)) {
-          e.preventDefault();
-          (e.shiftKey ? last : first).focus();
-        }
-      }
+      // aria-modal: Tab / Shift+Tab stay inside the dialog
+      else trapTab(e, dialogRef.current);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

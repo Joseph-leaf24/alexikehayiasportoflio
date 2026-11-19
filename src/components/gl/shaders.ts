@@ -1,8 +1,13 @@
 /**
- * GLSL for every material in the 3D scene (village pieces, voxel terrain, sea, voxel
- * moon, sky, snow, cursor dust, network edges) plus the final composite pass. All
- * colours are authored directly in display space (no tone mapping).
+ * GLSL for every material in the 3D scene (village pieces, voxel terrain, sea and water
+ * blocks, voxel moon and sun, sky, snow, cursor dust, network edges) plus the final
+ * composite pass. All colours are authored directly in display space (no tone mapping).
+ *
+ * Day and night: the scene sets uDay / uGolden / uSunDir and the key light (uLightDir,
+ * uLightCol, uAmbient) from the real time in Amsterdam (src/lib/sun.ts). At full night
+ * those uniforms equal the original constants, so the night look is unchanged.
  */
+import { WAVE_AMP } from "./layouts";
 
 /** Hash, value-noise and fBm helpers shared by several shaders. */
 const NOISE = /* glsl */ `
@@ -32,9 +37,23 @@ const NOISE = /* glsl */ `
   }
 `;
 
-/** Cheap procedural environment (night-sky gradient, horizon glow, two highlights) for reflections and refraction. */
+/** Time of day + key light, written by the scene every frame (see the header comment). */
+const DAY = /* glsl */ `
+  uniform float uDay;
+  uniform float uGolden;
+  uniform vec3 uSunDir;
+  uniform vec3 uLightDir;
+  uniform vec3 uLightCol;
+  uniform vec3 uAmbient;
+`;
+
+/**
+ * Cheap procedural environment for reflections and refraction: a night sky (gradient,
+ * horizon glow, two highlights) blended into an Aegean day sky with the sun, plus a warm
+ * horizon toward the sun at sunrise / sunset. Needs DAY.
+ */
 const ENV = /* glsl */ `
-  vec3 envColor(vec3 d) {
+  vec3 envNight(vec3 d) {
     float y = d.y * 0.5 + 0.5;
     vec3 c = mix(vec3(0.015, 0.025, 0.045), vec3(0.30, 0.44, 0.60), smoothstep(0.25, 1.0, y));
     c += vec3(0.55, 0.78, 1.0) * pow(1.0 - abs(d.y), 8.0) * 0.45;
@@ -43,6 +62,76 @@ const ENV = /* glsl */ `
     vec3 L2 = normalize(vec3(0.7, 0.2, -0.6));
     c += vec3(0.35, 0.75, 1.0) * pow(max(dot(d, L2), 0.0), 10.0) * 0.6;
     return c;
+  }
+  vec3 envDay(vec3 d) {
+    vec3 c = mix(vec3(0.42, 0.56, 0.66), vec3(0.14, 0.32, 0.62), smoothstep(0.0, 0.8, d.y));
+    c = mix(vec3(0.04, 0.14, 0.2), c, smoothstep(-0.25, 0.02, d.y));
+    c += vec3(1.0, 0.93, 0.78) * pow(max(dot(d, uSunDir), 0.0), 48.0) * 1.3;
+    return c;
+  }
+  vec3 envColor(vec3 d) {
+    vec3 c = mix(envNight(d), envDay(d), uDay);
+    vec3 sunH = normalize(vec3(uSunDir.x, 0.08, uSunDir.z));
+    c += vec3(1.0, 0.5, 0.28) * uGolden * pow(max(dot(d, sunH), 0.0), 5.0) * 0.55;
+    return c;
+  }
+`;
+
+/**
+ * Sea surface colour at w with normal N and view V: deep water, the sky reflected by
+ * Fresnel, and a glittering path toward the moon at night or the sun by day. Shared by the
+ * flat distant sea and the water blocks so they always match. Needs DAY + NOISE.
+ */
+const SEA = /* glsl */ `
+  uniform vec3 uMoonDir;
+  vec3 seaColor(vec3 w, vec3 N, vec3 V, float t) {
+    vec3 R = reflect(-V, N);
+    float fres = 0.03 + 0.97 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
+    vec3 skyNight = mix(vec3(0.015, 0.025, 0.045), vec3(0.12, 0.18, 0.26), smoothstep(-0.1, 0.5, R.y));
+    vec3 skyDay = mix(vec3(0.3, 0.42, 0.52), vec3(0.1, 0.24, 0.46), smoothstep(0.0, 0.6, R.y));
+    vec3 skyR = mix(skyNight, skyDay, uDay);
+    float n = vnoise(vec3(w.xz * 7.0, t * 3.0));
+    float md = max(dot(R, uMoonDir), 0.0);
+    vec3 glint = vec3(0.85, 0.92, 1.0) * (pow(md, 400.0) * 2.4 * step(0.62, n) + pow(md, 50.0) * 0.14) * (1.0 - uDay);
+    // The sun's glitter path: a narrow, sparser band than the moon's, so the water stays blue
+    float sd = max(dot(R, uSunDir), 0.0);
+    vec3 sunCol = mix(vec3(1.0, 0.95, 0.84), vec3(1.0, 0.62, 0.34), uGolden);
+    glint += sunCol * (pow(sd, 700.0) * 2.0 * step(0.7, n) + pow(sd, 90.0) * 0.12) * max(uDay, uGolden) * step(0.0, uSunDir.y);
+    vec3 base = mix(vec3(0.006, 0.014, 0.026), vec3(0.012, 0.13, 0.25), uDay);
+    base *= mix(1.0, 0.75 + 0.5 * max(dot(N, uLightDir), 0.0), uDay);
+    base = mix(base, base * vec3(1.35, 1.0, 0.8), uGolden * 0.6);
+    return base + skyR * fres * 0.8 + glint;
+  }
+`;
+
+/**
+ * Hold-to-shatter for instanced cubes (terrain, water blocks): each cube tears loose and
+ * flies outward and up in a wave spreading from uBreakC, far enough (uBreakDist) to leave
+ * the screen, tumbling as it goes; uBreak eases it out on press and back on release.
+ */
+const BREAK = /* glsl */ `
+  uniform float uBreak;
+  uniform float uBreakDist;
+  uniform vec3 uBreakC;
+  mat3 rotAxis(vec3 a, float ang) {
+    a = normalize(a);
+    float s = sin(ang);
+    float c = cos(ang);
+    float oc = 1.0 - c;
+    return mat3(oc * a.x * a.x + c, oc * a.x * a.y + a.z * s, oc * a.z * a.x - a.y * s,
+                oc * a.x * a.y - a.z * s, oc * a.y * a.y + c, oc * a.y * a.z + a.x * s,
+                oc * a.z * a.x + a.y * s, oc * a.y * a.z - a.x * s, oc * a.z * a.z + c);
+  }
+  vec3 shatter(vec3 c, float rnd, float depth, out mat3 R, out float e) {
+    vec3 rel = c - uBreakC;
+    float rb = length(rel.xz);
+    e = smoothstep(rb * 0.012, rb * 0.012 + 0.55, uBreak);
+    // Outward + up, leaning away from the camera so the cubes leave the frame
+    vec3 dir = normalize(vec3(rel.x, 0.0, rel.z) * (0.6 / max(rb, 1.0)) + vec3(rnd - 0.5, 0.8 + rnd * 0.7, fract(rnd * 7.13) - 0.75));
+    vec3 axis = vec3(fract(rnd * 3.1) - 0.5, fract(rnd * 5.7) - 0.5, fract(rnd * 9.3) - 0.5) + 0.001;
+    R = rotAxis(axis, e * (2.0 + rnd * 8.0));
+    // Far cubes fly further, so they too clear the top of the frame
+    return dir * e * uBreakDist * (0.55 + rnd * 0.6) * (1.0 + depth * 0.15) * (1.0 + rb * 0.035);
   }
 `;
 
@@ -99,13 +188,14 @@ export const pieceFragment = /* glsl */ `
   varying float vR;
   varying float vMix;
   varying vec4 vTint;
+  ${DAY}
   ${NOISE}
   ${ENV}
   void main() {
     vec3 N = normalize(vN);
     if (!gl_FrontFacing) N = -N;
     vec3 V = normalize(uCam - vW);
-    vec3 L = normalize(vec3(-0.8, 0.5, 0.33));
+    vec3 L = uLightDir;
     float ndl = max(dot(N, L), 0.0);
     float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
 
@@ -119,18 +209,18 @@ export const pieceFragment = /* glsl */ `
     vec3 village = vec3(0.0);
     if (vMix < 0.99) {
       if (uDome > 0.5) {
-        vec3 blue = vec3(0.04, 0.2, 0.6);
-        village = blue * (0.22 + 0.8 * ndl) + envColor(reflect(-V, N)) * (0.12 + fres * 0.55);
+        vec3 blue = mix(vec3(0.04, 0.2, 0.6), vec3(0.05, 0.26, 0.72), uDay);
+        village = blue * (0.22 * uAmbient + 0.8 * ndl * uLightCol) + envColor(reflect(-V, N)) * (0.12 + fres * 0.55);
         village += pow(max(dot(N, normalize(L + V)), 0.0), 70.0) * 0.7;
         village += vec3(0.35, 0.75, 1.0) * fres * 0.3;
       } else {
         vec3 albedo = vTint.rgb - vnoise(vW * 11.0) * 0.07;
-        village = albedo * (0.08 + 0.7 * ndl + 0.16 * (0.5 + 0.5 * N.y) + 0.16 * step(0.5, vLN.y));
+        village = albedo * (uAmbient * (0.08 + 0.16 * (0.5 + 0.5 * N.y) + 0.16 * step(0.5, vLN.y)) + uLightCol * 0.7 * ndl);
         village *= mix(0.5, 1.0, smoothstep(0.25, 1.0, (vL.y + 0.5) * vS.y));
-        village += vec3(0.55, 0.8, 1.0) * edgeW * 0.2;
+        village += vec3(0.55, 0.8, 1.0) * edgeW * 0.2 * (1.0 - 0.7 * uDay);
         vec3 an = abs(vLN);
         if (an.y < 0.5 && vTint.w > 0.5) {
-          // Windows with blue shutters on the walls; some are lit
+          // Windows with blue shutters on the walls; some are lit at night
           vec3 lp = vL * vS;
           bool xf = an.x > 0.5;
           float u = xf ? lp.z : lp.x;
@@ -149,7 +239,9 @@ export const pieceFragment = /* glsl */ `
           vec3 glow = mix(vec3(0.5, 0.82, 1.0), vec3(1.0, 0.7, 0.4), warm) * (1.15 + 0.15 * sin(uTime * 0.8 + h * 40.0));
           vec3 shutter = vec3(0.06, 0.2, 0.52) * (0.55 + 0.65 * ndl);
           village = mix(village, shutter, has * frame * (1.0 - glass));
-          village = mix(village, mix(vec3(0.015, 0.03, 0.06), glow, lit), has * glass);
+          // By day the glass is dark and reflects the sky instead of glowing
+          vec3 pane = mix(vec3(0.015, 0.03, 0.06), vec3(0.05, 0.1, 0.17) + envColor(reflect(-V, N)) * 0.18, uDay);
+          village = mix(village, mix(pane, glow, lit * (1.0 - uDay)), has * glass);
         }
       }
     }
@@ -217,8 +309,6 @@ export const terrainVertex = /* glsl */ `
   uniform float uMouseOn;
   uniform float uShockT;
   uniform float uPulseT;
-  uniform float uBreak;
-  uniform vec3 uBreakC;
   varying vec3 vW;
   varying vec3 vL;
   varying vec3 vLN;
@@ -228,15 +318,7 @@ export const terrainVertex = /* glsl */ `
   varying float vDepth;
   varying float vSize;
   ${NOISE}
-  mat3 rotAxis(vec3 a, float ang) {
-    a = normalize(a);
-    float s = sin(ang);
-    float c = cos(ang);
-    float oc = 1.0 - c;
-    return mat3(oc * a.x * a.x + c, oc * a.x * a.y + a.z * s, oc * a.z * a.x - a.y * s,
-                oc * a.x * a.y - a.z * s, oc * a.y * a.y + c, oc * a.y * a.z + a.x * s,
-                oc * a.z * a.x + a.y * s, oc * a.y * a.z - a.x * s, oc * a.z * a.z + c);
-  }
+  ${BREAK}
   void main() {
     vL = position;
     vLN = normal;
@@ -257,14 +339,11 @@ export const terrainVertex = /* glsl */ `
     float grow = smoothstep(r * 0.025, r * 0.025 + 0.45, uGrow);
     lift -= (1.0 - grow) * (c.y + 3.0);
 
-    // Hold-to-shatter: every cube tears loose and tumbles, in a wave spreading out from the village
-    vec3 rel = c - uBreakC;
-    float rb = length(rel.xz);
-    float e = smoothstep(rb * 0.02, rb * 0.02 + 0.5, uBreak) * smoothstep(42.0, 6.0, rb);
-    vec3 dir = normalize(vec3(rel.x * 0.08, 0.0, rel.z * 0.08) + vec3(aRand - 0.5, 1.0 + aRand, fract(aRand * 7.13) - 0.5));
-    vec3 axis = vec3(fract(aRand * 3.1) - 0.5, fract(aRand * 5.7) - 0.5, fract(aRand * 9.3) - 0.5) + 0.001;
-    mat3 R = rotAxis(axis, e * (1.5 + aRand * 5.0));
-    vec3 w = c + R * (position * size * (1.0 - e * 0.25)) + dir * e * (1.5 + aRand * 6.5) * (1.0 + aDepth * 0.15);
+    // Hold-to-shatter: every cube flies off screen (see BREAK)
+    mat3 R;
+    float e;
+    vec3 fly = shatter(c, aRand, aDepth, R, e);
+    vec3 w = c + R * (position * size * (1.0 - e * 0.25)) + fly;
     w.y += lift;
 
     vW = w;
@@ -291,12 +370,13 @@ export const terrainFragment = /* glsl */ `
   varying float vLift;
   varying float vDepth;
   varying float vSize;
+  ${DAY}
   ${NOISE}
   ${ENV}
   void main() {
     vec3 N = normalize(vN);
     vec3 V = normalize(uCam - vW);
-    vec3 L = normalize(vec3(-0.8, 0.5, 0.33));
+    vec3 L = uLightDir;
     float ndl = max(dot(N, L), 0.0);
     float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
 
@@ -309,11 +389,11 @@ export const terrainFragment = /* glsl */ `
     float topF = step(0.5, vLN.y);
     float h = hash12(vec2(vR * 97.0, vDepth));
 
-    // Moonlit: dark glacial ice cubes with frosted tops
-    vec3 deep = mix(vec3(0.03, 0.05, 0.08), vec3(0.06, 0.09, 0.13), h);
-    vec3 real = deep * (0.55 + 1.2 * ndl) + envColor(reflect(-V, N)) * (0.05 + fres * 0.32);
-    real += vec3(0.16, 0.2, 0.26) * topF * (0.35 + 0.65 * ndl) * (0.6 + 0.4 * vnoise(vW * 5.0));
-    real += vec3(0.55, 0.8, 1.0) * edge * (0.12 + 0.22 * fres);
+    // Glacial ice cubes with frosted tops: dark and moonlit at night, pale blue-grey by day
+    vec3 deep = mix(mix(vec3(0.03, 0.05, 0.08), vec3(0.06, 0.09, 0.13), h), mix(vec3(0.11, 0.15, 0.2), vec3(0.16, 0.2, 0.25), h), uDay);
+    vec3 real = deep * (0.55 * uAmbient + 1.2 * ndl * uLightCol) + envColor(reflect(-V, N)) * (0.05 + fres * 0.32);
+    real += mix(vec3(0.16, 0.2, 0.26), vec3(0.34, 0.39, 0.45), uDay) * topF * (0.35 + 0.65 * ndl) * (0.6 + 0.4 * vnoise(vW * 5.0));
+    real += vec3(0.55, 0.8, 1.0) * edge * (0.12 + 0.22 * fres) * (1.0 - 0.6 * uDay);
     real *= mix(0.4, 1.0, exp(-depth * 0.55));
 
     // Holographic equaliser
@@ -329,7 +409,7 @@ export const terrainFragment = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Aegean sea with a moon path                                         */
+/* Distant Aegean sea (flat) with a moon / sun path                    */
 /* ------------------------------------------------------------------ */
 export const seaVertex = /* glsl */ `
   varying vec3 vW;
@@ -346,28 +426,95 @@ export const seaFragment = /* glsl */ `
   uniform float uExposure;
   uniform vec3 uCam;
   uniform vec3 uFog;
-  uniform vec3 uMoonDir;
+  uniform float uShockT;
   varying vec3 vW;
+  ${DAY}
   ${NOISE}
+  ${SEA}
   ${LINES}
   void main() {
     vec2 p = vW.xz;
     float t = uTime * 0.35;
     vec2 wv = vec2(vnoise(vec3(p * 0.6, t)) - 0.5, vnoise(vec3(p * 0.6 + 11.0, t)) - 0.5) * 0.35
             + vec2(sin(p.x * 1.7 + t * 3.0), cos(p.y * 2.3 - t * 2.4)) * 0.05;
+    // Hold-to-shatter: a ripple ring runs out across the sea from the village
+    vec2 rel = p - vec2(0.0, -4.0);
+    float rr = length(rel);
+    float st = uTime - uShockT;
+    wv += rel / max(rr, 1e-3) * sin(rr * 2.2 - st * 12.0) * exp(-pow(rr - st * 9.0, 2.0) * 0.05) * smoothstep(4.0, 0.0, st) * 0.3;
     vec3 N = normalize(vec3(wv.x, 1.0, wv.y));
     vec3 V = normalize(uCam - vW);
-    vec3 R = reflect(-V, N);
-    float fres = 0.03 + 0.97 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
-    vec3 skyR = mix(vec3(0.015, 0.025, 0.045), vec3(0.12, 0.18, 0.26), smoothstep(-0.1, 0.5, R.y));
-    float md = max(dot(R, uMoonDir), 0.0);
-    vec3 moon = vec3(0.85, 0.92, 1.0) * (pow(md, 400.0) * 2.4 * step(0.62, vnoise(vec3(p * 7.0, t * 3.0))) + pow(md, 50.0) * 0.14);
     float dist = distance(vW, uCam);
-    vec3 real = vec3(0.006, 0.014, 0.026) + skyR * fres * 0.8 + moon;
+    vec3 real = seaColor(vW, N, V, t);
     float grid = max(gridLine(p.x * 0.5, 1.0), gridLine(p.y * 0.5, 1.0)) * smoothstep(60.0, 10.0, dist);
-    vec3 holo = vec3(0.004, 0.008, 0.014) + vec3(0.3, 0.7, 1.0) * grid * 0.12 + moon * 0.4;
+    vec3 holo = vec3(0.004, 0.008, 0.014) + vec3(0.3, 0.7, 1.0) * grid * 0.12;
     vec3 col = mix(holo, real, uLand);
     col = mix(col, uFog, smoothstep(30.0, 120.0, dist));
+    gl_FragColor = vec4(col * uExposure, 1.0);
+  }
+`;
+
+/* ------------------------------------------------------------------ */
+/* Near sea: water blocks riding the swell                             */
+/* ------------------------------------------------------------------ */
+export const waterVertex = /* glsl */ `
+  attribute float aRand;
+  uniform float uTime;
+  uniform float uLand;
+  varying vec3 vW;
+  varying vec3 vN;
+  varying vec3 vL;
+  varying float vR;
+  ${BREAK}
+  // GLSL twin of waveHeight() in layouts.ts
+  float waveHeight(vec2 p, float t) {
+    return ${WAVE_AMP.toFixed(3)} * (0.5 * sin(0.55 * p.x + 0.9 * t) + 0.3 * sin(0.8 * p.y - 1.3 * t + 1.7) + 0.2 * sin(0.35 * (p.x + p.y) + 0.6 * t));
+  }
+  void main() {
+    vec3 c = instanceMatrix[3].xyz;
+    // The block's top sits on the swell; in the holographic formations the blocks sink under the flat sea
+    c.y += waveHeight(c.xz, uTime) - 0.15 - (1.0 - uLand) * 0.9;
+    mat3 R;
+    float e;
+    vec3 fly = shatter(c, aRand, 0.0, R, e);
+    vec3 w = c + R * position + fly;
+    vW = w;
+    vN = normalize(R * normal);
+    vL = position;
+    vR = aRand;
+    gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
+  }
+`;
+
+export const waterFragment = /* glsl */ `
+  uniform float uTime;
+  uniform float uExposure;
+  uniform vec3 uCam;
+  uniform vec3 uFog;
+  uniform vec3 uHalf;
+  varying vec3 vW;
+  varying vec3 vN;
+  varying vec3 vL;
+  varying float vR;
+  ${DAY}
+  ${NOISE}
+  ${SEA}
+  void main() {
+    vec3 N = normalize(vN);
+    vec3 V = normalize(uCam - vW);
+    float t = uTime * 0.35;
+    // Tops get a small surface ripple; the sides stay flat and a little darker
+    float top = step(0.5, N.y);
+    vec2 wv = vec2(vnoise(vec3(vW.xz * 0.9, t)) - 0.5, vnoise(vec3(vW.xz * 0.9 + 11.0, t)) - 0.5) * 0.22;
+    N = normalize(N + vec3(wv.x, 0.0, wv.y) * top);
+    vec3 col = seaColor(vW, N, V, t) * mix(0.7, 1.0, top);
+    // Thin bright block edges (the voxel look)
+    vec3 a = abs(vL) / uHalf;
+    float mx = max(a.x, max(a.y, a.z));
+    float mn = min(a.x, min(a.y, a.z));
+    float edge = smoothstep(0.86, 0.98, a.x + a.y + a.z - mx - mn);
+    col += vec3(0.55, 0.82, 1.0) * edge * mix(0.22, 0.12, uDay);
+    col = mix(col, uFog, smoothstep(30.0, 120.0, distance(vW, uCam)));
     gl_FragColor = vec4(col * uExposure, 1.0);
   }
 `;
@@ -434,7 +581,47 @@ export const moonFragment = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Sky dome with aurora + stars                                        */
+/* Voxel sun: a glowing shell of cubes along the real sun direction     */
+/* ------------------------------------------------------------------ */
+export const sunVertex = /* glsl */ `
+  attribute float aRand;
+  uniform vec3 uCenter;
+  uniform float uTime;
+  varying vec3 vL;
+  varying float vR;
+  mat3 rotY(float a) { float c = cos(a); float s = sin(a); return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c); }
+  void main() {
+    vec3 o = rotY(uTime * 0.03) * instanceMatrix[3].xyz;
+    // Cubes breathe in and out a little, like a boiling surface
+    o *= 1.0 + 0.04 * sin(uTime * 1.3 + aRand * 40.0);
+    vL = position;
+    vR = aRand;
+    gl_Position = projectionMatrix * viewMatrix * vec4(uCenter + o + position, 1.0);
+  }
+`;
+
+export const sunFragment = /* glsl */ `
+  uniform float uTime;
+  uniform float uExposure;
+  uniform float uGolden;
+  uniform float uHalf;
+  varying vec3 vL;
+  varying float vR;
+  ${NOISE}
+  void main() {
+    vec3 a = abs(vL) / uHalf;
+    float mx = max(a.x, max(a.y, a.z));
+    float mn = min(a.x, min(a.y, a.z));
+    float edge = smoothstep(0.82, 0.97, a.x + a.y + a.z - mx - mn);
+    vec3 hot = mix(vec3(1.0, 0.86, 0.55), vec3(1.0, 0.58, 0.3), uGolden);
+    vec3 col = hot * (1.05 + 0.25 * hash13(vec3(vR * 91.0, 3.0, vR * 17.0))) + vec3(1.0, 0.95, 0.8) * edge * 0.5;
+    col *= 0.94 + 0.06 * sin(uTime * 2.4 + vR * 60.0);
+    gl_FragColor = vec4(col * uExposure, 1.0);
+  }
+`;
+
+/* ------------------------------------------------------------------ */
+/* Sky dome: night (aurora + stars) ↔ day (Aegean blue + sun glow)      */
 /* ------------------------------------------------------------------ */
 export const skyVertex = /* glsl */ `
   varying vec3 vDir;
@@ -449,26 +636,42 @@ export const skyFragment = /* glsl */ `
   uniform float uExposure;
   uniform vec3 uMoonDir;
   varying vec3 vDir;
+  ${DAY}
   ${NOISE}
   void main() {
     vec3 d = normalize(vDir);
     float y = d.y;
+
+    // Night: deep blue-black with a faint horizon glow, aurora and stars
     vec3 col = mix(vec3(0.01, 0.014, 0.022), vec3(0.028, 0.045, 0.075), smoothstep(-0.2, 0.7, y));
     col += vec3(0.07, 0.11, 0.16) * exp(-abs(y - 0.02) * 9.0);
-
     float a = fbm(vec3(d.x * 2.2 + uTime * 0.018, d.y * 5.0, d.z * 2.2 - uTime * 0.012));
     float band = smoothstep(0.5, 0.85, a) * smoothstep(0.05, 0.4, y) * (1.0 - smoothstep(0.65, 1.0, y));
     col += mix(vec3(0.1, 0.42, 0.5), vec3(0.25, 0.3, 0.7), d.x * 0.5 + 0.5) * band * 0.32;
-
     vec3 sp = d * 260.0;
     vec3 cell = floor(sp);
     float s = hash13(cell);
     float star = step(0.9965, s) * smoothstep(0.32, 0.0, length(fract(sp) - 0.5));
     col += star * smoothstep(0.0, 0.25, y) * (0.55 + 0.45 * sin(uTime * 2.0 + s * 60.0)) * 0.9;
-
     // Soft halo around the (voxel) moon
     float md = max(dot(d, uMoonDir), 0.0);
     col += vec3(0.3, 0.45, 0.68) * pow(md, 160.0) * 0.3 + vec3(0.08, 0.12, 0.2) * pow(md, 14.0) * 0.3;
+
+    // Day: Aegean blue overhead, hazy toward the horizon (deep enough for the white text on top)
+    vec3 day = mix(vec3(0.3, 0.42, 0.52), vec3(0.07, 0.19, 0.42), smoothstep(-0.02, 0.7, y));
+    col = mix(col, day, uDay);
+
+    // Sunrise / sunset: a warm band along the horizon, strongest toward the sun
+    vec3 hz = normalize(vec3(d.x, 0.0, d.z) + vec3(1e-4, 0.0, 0.0));
+    vec3 sunHz = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(1e-4, 0.0, 0.0));
+    float toward = pow(max(dot(hz, sunHz), 0.0), 3.0);
+    float horizon = exp(-max(y, 0.0) * 5.0) * smoothstep(-0.2, 0.0, y);
+    col = mix(col, mix(vec3(0.72, 0.36, 0.38), vec3(1.0, 0.56, 0.26), toward), uGolden * horizon * (0.35 + 0.55 * toward));
+
+    // Glow around the sun (the disc itself is the voxel sun)
+    float sd = max(dot(d, uSunDir), 0.0);
+    vec3 sunCol = mix(vec3(1.0, 0.94, 0.8), vec3(1.0, 0.62, 0.32), uGolden);
+    col += sunCol * (pow(sd, 60.0) * 0.35 + pow(sd, 8.0) * 0.1) * max(uDay, uGolden) * smoothstep(-0.1, 0.02, uSunDir.y);
 
     gl_FragColor = vec4(col * uExposure, 1.0);
   }

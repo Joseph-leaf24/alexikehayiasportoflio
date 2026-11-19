@@ -154,6 +154,40 @@ export const voxelTop = (x: number, z: number) => Math.floor(terrainHeight(x, z)
 export const SEA_LEVEL = -0.15;
 
 /**
+ * Swell amplitude. Water blocks rise and fall by at most this much around SEA_LEVEL, which
+ * keeps their tops below the lowest land (0) and above the bottom of the cliff columns (−0.5).
+ */
+export const WAVE_AMP = 0.12;
+
+/** Swell height at (x, z) at time t. GLSL twin: `waveHeight` in shaders.ts (floes ride this one). */
+export function waveHeight(x: number, z: number, t: number) {
+  return WAVE_AMP * (0.5 * Math.sin(0.55 * x + 0.9 * t) + 0.3 * Math.sin(0.8 * z - 1.3 * t + 1.7) + 0.2 * Math.sin(0.35 * (x + z) + 0.6 * t));
+}
+
+/** The flat distant sea sits just under the lowest trough, so it never fights the water blocks. */
+export const SEA_PLANE_Y = SEA_LEVEL - WAVE_AMP - 0.03;
+
+/** How far toward (and past) the camera the water blocks reach. */
+const WATER_Z_MAX = 18;
+
+/**
+ * The near sea as a grid of water blocks, wherever there is no land: x, z and a random
+ * 0..1 per block. Same x extent as the terrain; `cell` sets the block size (per device tier).
+ */
+export function buildWater(ext: { xMin: number; xMax: number; cell: number } = { xMin: -28, xMax: 28, cell: 0.6 }) {
+  const rnd = mulberry32(4242);
+  const out: number[] = [];
+  const { xMin, xMax, cell } = ext;
+  for (let x = xMin; x <= xMax + 1e-6; x += cell) {
+    for (let z = -10; z <= WATER_Z_MAX + 1e-6; z += cell) {
+      if (voxelTop(x, z) >= 0) continue; // land or cliff here
+      out.push(x, z, rnd());
+    }
+  }
+  return { data: Float32Array.from(out), count: out.length / 3 };
+}
+
+/**
  * The hills as individual cubes (so they can break apart). Each cube: x, y, z, depth,
  * where depth is the distance from the cube's top to the top of its column.
  * Columns only go as deep as needed to close the gap to the lowest neighbour.
@@ -504,9 +538,11 @@ export function buildLayouts(): LayoutSet {
     // The village lifts off in a wave sweeping across the cliff
     delay[i] = THREE.MathUtils.clamp(((pieces[i].pos.x + 14) / 28) * 0.22 + rnd() * 0.13, 0, 0.35);
     lambda[i] = 3.2 + rnd() * 3.5;
-    burstDir.push(
-      pieces[i].pos.clone().sub(villageCenter).normalize().add(new THREE.Vector3(rnd() - 0.5, 0.6 + rnd() * 0.4, rnd() - 0.2)).normalize()
-    );
+    // Hold-to-shatter flight: outward from the village and up, leaning away from the camera
+    // so the pieces leave the frame (same three draws as before, so later layouts don't shift)
+    const out = pieces[i].pos.clone().sub(villageCenter).setY(0);
+    if (out.lengthSq() < 1e-6) out.set(1, 0, 0);
+    burstDir.push(out.normalize().add(new THREE.Vector3((rnd() - 0.5) * 0.8, 0.9 + rnd() * 0.7, (rnd() - 0.5) * 0.8 - 0.35)).normalize());
     tumbleAxis.push(new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize());
   }
 

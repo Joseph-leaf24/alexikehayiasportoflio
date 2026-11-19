@@ -14,6 +14,21 @@ let problems: string[] = [];
 
 test.beforeEach(async ({ page }) => {
   problems = [];
+  // Count every Web Audio context the page creates: the site must stay silent
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown> & { __audioContexts: number };
+    w.__audioContexts = 0;
+    for (const name of ["AudioContext", "webkitAudioContext"]) {
+      const Original = w[name] as (new (...args: unknown[]) => object) | undefined;
+      if (!Original) continue;
+      w[name] = class extends Original {
+        constructor(...args: unknown[]) {
+          super(...args);
+          w.__audioContexts++;
+        }
+      };
+    }
+  });
   page.on("pageerror", (e) => problems.push(`uncaught: ${e.message}`));
   page.on("console", (m) => {
     if (m.type() === "error") problems.push(`console: ${m.text()}`);
@@ -49,6 +64,24 @@ async function expectAccessible(page: Page) {
   expect(summary, "axe accessibility violations").toEqual([]);
 }
 
+/** No sound: no media elements and no Web Audio contexts. */
+async function expectSilent(page: Page) {
+  const audio = await page.evaluate(() => ({
+    media: document.querySelectorAll("audio, video").length,
+    contexts: (window as unknown as { __audioContexts: number }).__audioContexts,
+  }));
+  expect(audio, "audio on the page").toEqual({ media: 0, contexts: 0 });
+}
+
+/**
+ * No personal location (city, country code or map coordinates) in the visible text. The
+ * IKEA Breda dashboard keeps its client's name: that's the store, not where Alexi lives.
+ */
+async function expectNoLocation(page: Page) {
+  const text = await page.evaluate(() => document.body.innerText.replace(/IKEA Breda/g, "IKEA"));
+  expect(text).not.toMatch(/breda|\bNL\b|°\s*[NSEW]/i);
+}
+
 /** Nothing may be wider than the viewport (no sideways scrolling on phones). */
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -62,6 +95,8 @@ test("home page: every section renders, fits the screen and passes axe", async (
   await revealAll(page);
   await expect(page.getByRole("link", { name: /download cv/i })).toBeVisible();
   await expectNoHorizontalScroll(page);
+  await expectSilent(page);
+  await expectNoLocation(page);
   await expectAccessible(page);
 });
 
@@ -104,4 +139,30 @@ test("unknown routes show the 404 page with a way home, and it passes axe", asyn
   await expect(page.getByRole("link", { name: /return to home/i })).toBeVisible();
   await page.waitForTimeout(1500);
   await expectAccessible(page);
+});
+
+test("the scene follows the time of day (?time= pins it) and the link-preview image is served", async ({ page }) => {
+  await open(page, "?time=13:00#/");
+  await expect(page.locator("html")).toHaveAttribute("data-sky", "day");
+  await open(page, "?time=23:00#/");
+  await expect(page.locator("html")).toHaveAttribute("data-sky", "night");
+  const og = await page.request.get("og-image.jpg");
+  expect(og.status()).toBe(200);
+  expect(og.headers()["content-type"]).toBe("image/jpeg");
+});
+
+test("keyboard: ←/→ step through projects and ? opens the shortcuts help", async ({ page, isMobile }) => {
+  test.skip(isMobile, "keyboard shortcuts are for desktop");
+  await open(page, "#/project/nlp/1");
+  await page.keyboard.press("ArrowRight");
+  await expect(page).toHaveURL(/#\/project\/research\/0$/);
+  await page.keyboard.press("ArrowLeft");
+  await expect(page).toHaveURL(/#\/project\/nlp\/1$/);
+  await page.keyboard.press("?");
+  const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(help).toBeVisible();
+  await expect(help.getByRole("button", { name: "Close keyboard shortcuts" })).toBeFocused();
+  await expectAccessible(page);
+  await page.keyboard.press("Escape");
+  await expect(help).toHaveCount(0);
 });

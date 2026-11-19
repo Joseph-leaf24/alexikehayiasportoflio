@@ -76,10 +76,6 @@ export default function About() {
                 <dt>Status</dt>
                 <dd>{profile.role}</dd>
               </div>
-              <div>
-                <dt>Base</dt>
-                <dd>{profile.location}</dd>
-              </div>
             </dl>
           </Reveal>
 

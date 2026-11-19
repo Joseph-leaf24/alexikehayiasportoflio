@@ -22,6 +22,15 @@ updates:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
 
+  # Base images in the Dockerfile (pinned by digest)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

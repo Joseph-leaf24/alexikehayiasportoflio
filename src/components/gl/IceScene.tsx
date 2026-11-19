@@ -8,7 +8,21 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { sceneState, ui, type LayoutKey } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
 import { getQuality, rememberDowngrade } from "@/lib/device";
-import { buildFloes, buildLayouts, buildMoon, buildTerrain, CELL, KIND_DOME, SEA_LEVEL, type Layout } from "./layouts";
+import { dayCycle, parseTimeOverride, sceneSun, sunDirection, wallClockToday } from "@/lib/sun";
+import { profile } from "@/data/profile";
+import {
+  buildFloes,
+  buildLayouts,
+  buildMoon,
+  buildTerrain,
+  buildWater,
+  CELL,
+  KIND_DOME,
+  SEA_LEVEL,
+  SEA_PLANE_Y,
+  waveHeight,
+  type Layout,
+} from "./layouts";
 import {
   FinalShader,
   dustFragment,
@@ -25,16 +39,38 @@ import {
   skyVertex,
   snowFragment,
   snowVertex,
+  sunFragment,
+  sunVertex,
   terrainFragment,
   terrainVertex,
+  waterFragment,
+  waterVertex,
 } from "./shaders";
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 /** Frame-rate independent smoothing factor: `x += (target - x) * damp(dt, rate)` */
 const damp = (dt: number, lambda: number) => 1 - Math.exp(-dt * lambda);
-/** Where the moon hangs: places the voxel moon, the sky halo and the moon path on the sea */
+const DEG = Math.PI / 180;
+/** Where the moon hangs at night: places the voxel moon, the sky halo and the moon path on the sea */
 const MOON_DIR = new THREE.Vector3(0.62, 0.24, -1).normalize();
+/** How far the moon sinks (below the horizon) by full daylight */
+const MOON_SET = 20 * DEG;
+/** The moon and the sun hang this far out (inside the sky dome), around this point */
+const SKY_R = 118;
+const SKY_ORIGIN = new THREE.Vector3(0, 4, -4);
+/** Key light at night: the original moonlight. By day it turns toward the real sun. */
+const NIGHT_LIGHT = new THREE.Vector3(-0.8, 0.5, 0.33).normalize();
+/** Distance fog: night blue-black, day haze (matches the day sky's horizon) and a warm sunrise / sunset haze */
+const NIGHT_FOG = new THREE.Vector3(0.012, 0.018, 0.028);
+const DAY_FOG = new THREE.Vector3(0.27, 0.38, 0.48);
+const GOLD_FOG = new THREE.Vector3(0.5, 0.36, 0.34);
+/** Centre of the hold-to-shatter explosion (the village) */
+const BREAK_C = new THREE.Vector3(0, 2, -4);
 
 /**
  * Which two layouts we are between, and how far (0..1), for the current scroll. Each
@@ -66,11 +102,14 @@ function resolveBlend(scrollY: number, vh: number): { a: LayoutKey; b: LayoutKey
 
 /**
  * The fixed WebGL backdrop: a voxel Cycladic village on a caldera cliff (instanced
- * houses, domes and windmills over voxel hills, sea, a voxel moon, ice floes, snow and
- * cursor ice dust) that morphs between formations as the page scrolls (see layouts.ts).
- * Hold-to-shatter, the pointer, scroll velocity and UI pulses all feed in through
- * sceneState. Quality follows the device tier, and a runtime governor steps it down
- * when frames are slow. Without WebGL it adds `no-webgl` to <html> and draws nothing.
+ * houses, domes and windmills over voxel hills, a sea of water blocks, a voxel moon and
+ * sun, ice floes, snow and cursor ice dust) that morphs between formations as the page
+ * scrolls (see layouts.ts). The light follows the real time of day in Amsterdam (sun by
+ * day, moon by night; `?time=HH:MM` pins it for previews). Holding a click on the hero
+ * blows the land and sea blocks off screen, leaving the sky, until it's released.
+ * The pointer, scroll velocity and UI pulses feed in through sceneState. Quality follows
+ * the device tier, and a runtime governor steps it down when frames are slow. Without
+ * WebGL it adds `no-webgl` to <html> and draws nothing.
  */
 export default function IceScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -109,7 +148,22 @@ export default function IceScene() {
       disposables.push(x);
       return x;
     };
-    const fog = new THREE.Vector3(0.012, 0.018, 0.028);
+    const fog = NIGHT_FOG.clone();
+
+    /* Time of day: shared by every lit material (see shaders.ts) and updated by updateDaylight() */
+    const dayU = {
+      uDay: { value: 0 },
+      uGolden: { value: 0 },
+      uSunDir: { value: new THREE.Vector3(0, -1, 0) },
+      uLightDir: { value: NIGHT_LIGHT.clone() },
+      uLightCol: { value: new THREE.Vector3(1, 1, 1) },
+      uAmbient: { value: new THREE.Vector3(1, 1, 1) },
+    };
+    const moonDir = MOON_DIR.clone();
+    const moonDirU = { value: moonDir };
+    /* Hold-to-shatter, shared by the terrain and water blocks. With reduced motion the blocks only lift a little. */
+    const breakDist = reduced ? 6 : 56;
+    const breakU = { uBreak: { value: 0 }, uBreakDist: { value: breakDist }, uBreakC: { value: BREAK_C } };
 
     /* ---------------- Village pieces ---------------- */
     const set = buildLayouts();
@@ -149,6 +203,7 @@ export default function IceScene() {
       uNetRot: { value: 0 },
       uHi: { value: 0 },
       uHiC: { value: new THREE.Vector3() },
+      ...dayU,
     });
     const houseMat = keep(new THREE.ShaderMaterial({ vertexShader: pieceVertex, fragmentShader: pieceFragment, uniforms: pieceUniforms(false) }));
     const domeMat = keep(
@@ -168,15 +223,19 @@ export default function IceScene() {
     const curQ = L.village.quat.map((q) => q.clone());
     const curS = L.village.scale.map((s) => s.clone());
     const curMix = new Float32Array(N);
+    // Hold-to-shatter: pieces leave in a wave spreading out from the village, like the blocks below
+    const breakR = Float32Array.from(L.village.pos, (p) => Math.hypot(p.x - BREAK_C.x, p.z - BREAK_C.z));
 
-    /* ---------------- Landscape: voxel hills, sea, voxel moon, floes ---------------- */
+    /* ---------------- Landscape: voxel hills, water blocks, sea, voxel moon + sun, floes ---------------- */
     const landU = {
       uTime: { value: 0 },
       uLand: { value: 1 },
       uExposure: { value: 0 },
       uCam: { value: new THREE.Vector3() },
       uFog: { value: fog },
-      uMoonDir: { value: MOON_DIR },
+      uMoonDir: moonDirU,
+      uShockT: { value: -100 },
+      ...dayU,
     };
 
     // Hills: one instance per cube, so the whole landscape can break apart
@@ -192,15 +251,13 @@ export default function IceScene() {
     voxGeo.setAttribute("aDepth", new THREE.InstancedBufferAttribute(voxDepth, 1));
     const terrU = {
       ...landU,
+      ...breakU,
       uGrow: { value: 0 },
       uAmp: { value: 1 },
       uCenter: { value: new THREE.Vector3(0, 0, -4) },
       uMouse: { value: new THREE.Vector3(999, 999, 999) },
       uMouseOn: { value: 0 },
-      uShockT: { value: -100 },
       uPulseT: { value: -100 },
-      uBreak: { value: 0 },
-      uBreakC: { value: new THREE.Vector3(0, 2, -4) },
     };
     const terrMat = keep(new THREE.ShaderMaterial({ vertexShader: terrainVertex, fragmentShader: terrainFragment, uniforms: terrU }));
     const hills = new THREE.InstancedMesh(voxGeo, terrMat, terrain.count);
@@ -217,9 +274,32 @@ export default function IceScene() {
     hills.frustumCulled = false;
     scene.add(hills);
 
+    // Near sea: a field of water blocks riding the swell wherever there's no land (they break apart with the hills)
+    const water = buildWater({ xMin: q.terrain.xMin, xMax: q.terrain.xMax, cell: q.waterCell });
+    const waterGeo = keep(new THREE.BoxGeometry(q.waterCell * 0.96, 0.3, q.waterCell * 0.96));
+    const waterRand = new Float32Array(Math.max(1, water.count));
+    for (let i = 0; i < water.count; i++) waterRand[i] = water.data[i * 3 + 2];
+    waterGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(waterRand, 1));
+    const waterMat = keep(
+      new THREE.ShaderMaterial({
+        vertexShader: waterVertex,
+        fragmentShader: waterFragment,
+        uniforms: { ...landU, ...breakU, uHalf: { value: new THREE.Vector3(q.waterCell * 0.48, 0.15, q.waterCell * 0.48) } },
+      })
+    );
+    const waterMesh = new THREE.InstancedMesh(waterGeo, waterMat, Math.max(1, water.count));
+    {
+      const m = new THREE.Matrix4();
+      for (let i = 0; i < water.count; i++) waterMesh.setMatrixAt(i, m.makeTranslation(water.data[i * 3], SEA_LEVEL, water.data[i * 3 + 1]));
+    }
+    waterMesh.count = water.count;
+    waterMesh.frustumCulled = false;
+    scene.add(waterMesh);
+
+    // Distant sea: a flat plane just under the water blocks' lowest trough, out to the horizon
     const seaGeo = keep(new THREE.PlaneGeometry(420, 420));
     seaGeo.rotateX(-Math.PI / 2);
-    seaGeo.translate(0, SEA_LEVEL, 0);
+    seaGeo.translate(0, SEA_PLANE_Y, 0);
     const seaMat = keep(new THREE.ShaderMaterial({ vertexShader: seaVertex, fragmentShader: seaFragment, uniforms: landU }));
     scene.add(new THREE.Mesh(seaGeo, seaMat));
 
@@ -235,7 +315,7 @@ export default function IceScene() {
         vertexShader: moonVertex,
         fragmentShader: moonFragment,
         uniforms: {
-          uCenter: { value: MOON_DIR.clone().multiplyScalar(118).add(new THREE.Vector3(0, 4, -4)) },
+          uCenter: { value: MOON_DIR.clone().multiplyScalar(SKY_R).add(SKY_ORIGIN) },
           uTime: { value: 0 },
           uBurst: { value: 0 },
           uExposure: { value: 1 },
@@ -253,8 +333,34 @@ export default function IceScene() {
     moon.frustumCulled = false;
     scene.add(moon);
 
+    // Sun: a smaller shell of glowing cubes on its (framed) daytime path; it sinks into the sea at sunset
+    const sunData = buildMoon(5.5, q.moonCube);
+    const sunGeo = keep(new THREE.BoxGeometry(sunData.cube * 0.94, sunData.cube * 0.94, sunData.cube * 0.94));
+    sunGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(Float32Array.from({ length: sunData.count }, () => Math.random()), 1));
+    const sunMat = keep(
+      new THREE.ShaderMaterial({
+        vertexShader: sunVertex,
+        fragmentShader: sunFragment,
+        uniforms: { uCenter: { value: new THREE.Vector3() }, uTime: { value: 0 }, uExposure: { value: 1 }, uGolden: dayU.uGolden, uHalf: { value: sunData.cube * 0.47 } },
+      })
+    );
+    const sun = new THREE.InstancedMesh(sunGeo, sunMat, sunData.count);
+    {
+      const m = new THREE.Matrix4();
+      for (let i = 0; i < sunData.count; i++) sun.setMatrixAt(i, m.makeTranslation(sunData.offsets[i * 3], sunData.offsets[i * 3 + 1], sunData.offsets[i * 3 + 2]));
+    }
+    sun.frustumCulled = false;
+    sun.visible = false;
+    scene.add(sun);
+
     // Ice floes bobbing at the foot of the cliff (same material as the pieces, fully iced)
     const floes = buildFloes(q.floes);
+    // …and where each one flies on hold-to-shatter: outward from the village, up and away from the camera
+    const floeFly = floes.map((f) => {
+      const out = new THREE.Vector3(f.pos.x - BREAK_C.x, 0, f.pos.z - BREAK_C.z);
+      const r = out.length();
+      return { r, dir: out.multiplyScalar(0.6 / Math.max(r, 1)).add(new THREE.Vector3(f.rand - 0.5, 1 + f.rand * 0.6, -0.5)).normalize() };
+    });
     const floeGeo = keep(new RoundedBoxGeometry(1, 1, 1, 2, 0.08));
     floeGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(Float32Array.from(floes.map((f) => f.rand)), 1));
     floeGeo.setAttribute("aMix", new THREE.InstancedBufferAttribute(new Float32Array(floes.length).fill(1), 1));
@@ -268,14 +374,14 @@ export default function IceScene() {
     const rotorAngle = new Float32Array(set.windmills.length).map(() => Math.random() * Math.PI);
     const zAxis = new THREE.Vector3(0, 0, 1);
     const qRotor = new THREE.Quaternion();
-    sceneState.blocks = N + terrain.count + moonData.count + floes.length;
+    sceneState.blocks = N + terrain.count + water.count + moonData.count + sunData.count + floes.length;
 
     /* ---------------- Sky ---------------- */
     const skyMat = keep(
       new THREE.ShaderMaterial({
         vertexShader: skyVertex,
         fragmentShader: skyFragment,
-        uniforms: { uTime: { value: 0 }, uExposure: { value: 1 }, uMoonDir: { value: MOON_DIR } },
+        uniforms: { uTime: { value: 0 }, uExposure: { value: 1 }, uMoonDir: moonDirU, ...dayU },
         side: THREE.BackSide,
         depthWrite: false,
         depthTest: false,
@@ -411,6 +517,48 @@ export default function IceScene() {
     finalPass.enabled = q.postFx;
     composer.addPass(finalPass);
 
+    /* ---------------- Time of day ---------------- */
+    // Real time in Amsterdam, or a fixed wall-clock time from ?time=HH:MM (previews, screenshots, tests)
+    const fixedTime = parseTimeOverride(window.location.search);
+    const lightDay = new THREE.Vector3();
+    const moonFlat = new THREE.Vector3(MOON_DIR.x, 0, MOON_DIR.z).normalize();
+    const moonEl = Math.asin(MOON_DIR.y);
+    let daylightAt = 0;
+    const updateDaylight = () => {
+      daylightAt = performance.now();
+      const date = fixedTime ? wallClockToday(fixedTime[0], fixedTime[1], profile.timezone) : new Date();
+      const c = dayCycle(date);
+      const d = c.day;
+      const g = c.golden;
+      dayU.uDay.value = d;
+      dayU.uGolden.value = g;
+      // The visible sun runs across the frame. Portrait screens get a narrower, lower arc:
+      // there the hero labels span the full width just above where the sun would peak.
+      const halfFov = Math.atan(Math.tan((camera.fov * DEG) / 2) * camera.aspect);
+      const tall = camera.aspect < 1;
+      const shown = sceneSun(date, Math.min(26 * DEG, halfFov * 0.7), tall ? 9.5 * DEG : 12.5 * DEG, tall ? 6.5 * DEG : 7 * DEG);
+      dayU.uSunDir.value.set(...sunDirection(shown));
+      sunMat.uniforms.uCenter.value.copy(dayU.uSunDir.value).multiplyScalar(SKY_R).add(SKY_ORIGIN);
+      sun.visible = shown.elevation > -7 * DEG;
+      // Key light: moonlight at night, the real sun's direction by day (never from below the horizon)
+      lightDay.set(...sunDirection({ azimuth: c.azimuth, elevation: Math.max(c.elevation, 6 * DEG) }));
+      dayU.uLightDir.value.copy(NIGHT_LIGHT).lerp(lightDay, d).normalize();
+      // Light colours: neutral at night (the original look), warm sun + blue sky fill by day, orange at golden hour
+      dayU.uLightCol.value.set(1 + 0.3 * d + 0.2 * g, 1 + 0.24 * d - 0.12 * g, 1 + 0.12 * d - 0.38 * g);
+      dayU.uAmbient.value.set(1 + 1.3 * d + 0.25 * g, 1 + 1.45 * d + 0.05 * g, 1 + 1.7 * d - 0.1 * g);
+      // The moon has set by sunrise (day = 0.5) and rises again in the dusk after sunset
+      const el = moonEl - MOON_SET * smoothstep(0.05, 0.5, d);
+      moonDir.copy(moonFlat).multiplyScalar(Math.cos(el)).setY(Math.sin(el));
+      moonMat.uniforms.uCenter.value.copy(moonDir).multiplyScalar(SKY_R).add(SKY_ORIGIN);
+      moon.visible = d < 0.97;
+      fog.copy(NIGHT_FOG).lerp(DAY_FOG, d).lerp(GOLD_FOG, g * 0.55);
+      // Less bloom by day so the white houses don't wash out
+      bloom.strength = q.bloomStrength * (1 - 0.5 * d);
+      bloom.threshold = 0.72 + 0.2 * d;
+      // Lets the CSS give text over the bright daytime scene a stronger shadow
+      document.documentElement.dataset.sky = d > 0.5 ? "day" : "night";
+    };
+
     const resize = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -424,6 +572,7 @@ export default function IceScene() {
       finalPass.uniforms.uRes.value = [w * dpr, h * dpr];
       snowMat.uniforms.uPx.value = dpr;
       dustMat.uniforms.uPx.value = dpr;
+      updateDaylight();
     };
     resize();
     window.addEventListener("resize", resize);
@@ -542,6 +691,9 @@ export default function IceScene() {
         }
       }
 
+      // The sun moves ~0.25° a minute: refreshing every 10 s is plenty
+      if (nowMs - daylightAt > 10_000) updateDaylight();
+
       const vh = window.innerHeight;
       const { a, b, t } = resolveBlend(window.scrollY, vh);
       const A = L[a];
@@ -580,7 +732,8 @@ export default function IceScene() {
       lineOp += (mixS("lines") - lineOp) * damp(dt, 2.5);
       push += (mixS("push") - push) * damp(dt, 3);
       pressAmt += ((sceneState.press ? 1 : 0) - pressAmt) * damp(dt, sceneState.press ? 2.2 : 3.2);
-      if (sceneState.press && !wasPressed) terrU.uShockT.value = time;
+      // (on the land clock, like uTime, so the shock ring also runs with reduced motion)
+      if (sceneState.press && !wasPressed) landU.uShockT.value = time * motion;
       wasPressed = sceneState.press;
 
       /* Pointer → world point on a plane through the camera target */
@@ -649,12 +802,13 @@ export default function IceScene() {
         ts.lerpVectors(sA, sB, ti);
         const iceT = A.ice + (B.ice - A.ice) * ti;
 
-        // Flying arc + tumble mid-transition, and hold-to-shatter
+        // Flying arc + tumble mid-transition, and hold-to-shatter (off screen, in a wave from the village)
         const arc = moving ? Math.sin(Math.PI * ti) : 0;
-        const fling = arc * (0.6 + set.rand[i] * 1.6) + pressAmt * (1.2 + set.rand[i] * 4.2);
+        const blast = pressAmt > 0.001 ? smoothstep(breakR[i] * 0.012, breakR[i] * 0.012 + 0.55, pressAmt) : 0;
+        const fling = arc * (0.6 + set.rand[i] * 1.6) + blast * breakDist * (0.5 + set.rand[i] * 0.6);
         if (fling > 0.001) {
           tp.addScaledVector(set.burstDir[i], fling);
-          qTumble.setFromAxisAngle(set.tumbleAxis[i], fling * 0.9);
+          qTumble.setFromAxisAngle(set.tumbleAxis[i], arc * fling * 0.9 + blast * (2 + set.rand[i] * 7));
           tq.multiply(qTumble);
         }
 
@@ -714,12 +868,16 @@ export default function IceScene() {
       snowOffset += smoothVel * dt * 0.0022;
       for (let m = 0; m < rotorAngle.length; m++) rotorAngle[m] -= dt * (0.55 + Math.min(speed / 500, 6)) * motion;
 
-      // Floes bob on the swell; when the land goes holographic (or on hold-to-shatter) they lift into the air
+      // Floes ride the water blocks' swell; when the land goes holographic they lift into the air,
+      // and on hold-to-shatter they fly off with everything else
+      const landT = time * motion;
       for (let i = 0; i < floes.length; i++) {
         const f = floes[i];
+        const fly = pressAmt > 0.001 ? smoothstep(floeFly[i].r * 0.012, floeFly[i].r * 0.012 + 0.55, pressAmt) : 0;
         tp.copy(f.pos);
-        tp.y += Math.sin(time * 0.8 * motion + f.rand * 6.28) * 0.03 + Math.max(1 - landAmt, pressAmt) * (1.2 + f.rand * 3.5);
-        tq.setFromAxisAngle(yAxis, f.yaw + time * 0.05 * f.rand * motion + Math.max(1 - landAmt, pressAmt) * f.rand * 3);
+        tp.y += waveHeight(f.pos.x, f.pos.z, landT) + Math.sin(time * 0.8 * motion + f.rand * 6.28) * 0.02 + (1 - landAmt) * (1.2 + f.rand * 3.5);
+        tp.addScaledVector(floeFly[i].dir, fly * breakDist * (0.5 + f.rand * 0.6));
+        tq.setFromAxisAngle(yAxis, f.yaw + time * 0.05 * f.rand * motion + ((1 - landAmt) * 3 + fly * 9) * f.rand);
         floeMesh.setMatrixAt(i, mtx.compose(tp, tq, f.size));
       }
       floeMesh.instanceMatrix.needsUpdate = true;
@@ -768,16 +926,20 @@ export default function IceScene() {
       terrU.uCenter.value.copy(camTarget);
       terrU.uMouse.value.copy(mouseW);
       terrU.uMouseOn.value = mouseOn;
-      terrU.uPulseT.value = pulseT;
-      terrU.uBreak.value = pressAmt;
+      terrU.uPulseT.value = pulseT * motion;
+      breakU.uBreak.value = pressAmt;
+      // The moon bursts into a ring in the holographic formations, but stays whole through
+      // hold-to-shatter (the sky stays put while the land is blown away)
       moonMat.uniforms.uTime.value = time * motion;
-      moonMat.uniforms.uBurst.value = Math.max(clamp01((1 - landAmt) * 1.15), pressAmt);
+      moonMat.uniforms.uBurst.value = clamp01((1 - landAmt) * 1.15);
       moonMat.uniforms.uExposure.value = 0.75 + 0.25 * exposure;
+      sunMat.uniforms.uTime.value = time * motion;
+      sunMat.uniforms.uExposure.value = 0.85 + 0.15 * exposure;
       skyMat.uniforms.uTime.value = time * motion;
       skyMat.uniforms.uExposure.value = 0.6 + exposure * 0.4;
       snowMat.uniforms.uTime.value = time * motion;
       snowMat.uniforms.uOffset.value = snowOffset;
-      snowMat.uniforms.uOpacity.value = 0.6 * intro;
+      snowMat.uniforms.uOpacity.value = 0.6 * intro * (1 - 0.35 * dayU.uDay.value);
       lineMat.uniforms.uTime.value = time;
       lineMat.uniforms.uOpacity.value = lineOp * exposure;
       finalPass.uniforms.uTime.value = time;
@@ -826,6 +988,7 @@ export default function IceScene() {
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onLost);
       canvas.removeEventListener("webglcontextrestored", onRestored);
+      delete document.documentElement.dataset.sky;
       disposables.forEach((d) => d.dispose());
       bloom.dispose();
       composer.dispose();

@@ -10,6 +10,8 @@ export interface Project {
   tags: string[];
   /** AI / data-science concepts; the output layer of the project network */
   concepts: string[];
+  /** Secondary facts and results, shown in a collapsed "Highlights" drop-down */
+  highlights?: string[];
   /** Tools & languages; the input layer of the project network (tags stand in when absent) */
   tools?: string[];
   /** Live demo, linked from the project page */

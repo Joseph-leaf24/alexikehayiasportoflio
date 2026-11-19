@@ -48,6 +48,7 @@ export const projectData: ProjectData = {
         description: "This is an interactive Power BI dashboard made to support health decision-making by analyzing TB trends in Zimbabwe. It also features regional benchmarking against neighbouring countries and tracks progress toward SDG 3 goals.",
         image: sdgImg,
         tags: ["Power BI", "Public Health", "SDG Tracking"],
+        highlights: ["Interactive Power BI dashboard built to support health decision-making", "Benchmarks Zimbabwe against neighbouring countries by region", "Tracks progress toward the SDG 3 health goals"],
         concepts: ["Exploratory Data Analysis", "Data Visualization", "Time Series Analysis", "Regional Benchmarking"],
         tools: ["Microsoft Power BI", "Excel", "WHO Data APIs"],
         
@@ -58,6 +59,7 @@ export const projectData: ProjectData = {
         description: "This is a dashboard for monitoring payment terminal redeployment at IKEA Breda. It enables tracking of terminal movements, employee behavior analysis, and identification of security risk hotspots.",
         image: ikeaImg,
         tags: ["Power BI", "Security Analytics", "Retail"],
+        highlights: ["Tracks payment-terminal movements during redeployment", "Analyses employee behaviour around the terminals", "Pinpoints security risk hotspots in the store"],
         concepts: ["Security Risk Analytics", "Operational Intelligence", "Employee Behavior Analysis", "Compliance Monitoring"],
         tools: ["Microsoft Power BI", "SQL Server", "Excel"],
         powerBiUrl: "https://app.powerbi.com/view?r=eyJrIjoiMTMxMDM2MGItYzI3ZC00MzI3LTk2YjktMzg0ODE2YzhkM2E5IiwidCI6IjBhMzM1ODliLTAwMzYtNGZlOC1hODI5LTNlZDA5MjZhZjg4NiIsImMiOjl9"
@@ -80,6 +82,7 @@ export const projectData: ProjectData = {
           cv1_modelXAI
         ],
         tags: ["CNN", "Explainable AI", "Real-time Processing"],
+        highlights: ["CNN image classifier that detects whether a classroom is occupied", "Grad-CAM heat maps show what each prediction is based on", "Privacy-first design for university space optimisation"],
         concepts: ["Convolutional Neural Networks", "Grad-CAM Explainability", "Image Classification", "Responsible AI"],
         tools: ["Python", "TensorFlow/Keras", "OpenCV", "Matplotlib"],
       },
@@ -93,6 +96,7 @@ export const projectData: ProjectData = {
           computerVisionImg_root_3
         ],
         tags: ["Image Segmentation", "Agricultural AI", "Robotics Integration"],
+        highlights: ["Fully automated detection, segmentation and measurement of plant roots", "Robotic inoculation of root tips in a simulated OT2 environment"],
         concepts: ["Image Segmentation", "Skeletonization", "Feature Extraction", "Transfer Learning"],
         tools: ["Python", "TensorFlow/Keras", "OpenCV", "Stable-Baselines3"],
       }
@@ -114,6 +118,7 @@ export const projectData: ProjectData = {
 
         ],
         tags: ["Deep Learning", "CRISP-DM", "Risk Prediction"],
+        highlights: ["Built end to end with the CRISP-DM methodology", "SQL-based data pipeline feeding a deep learning risk classifier", "Interactive Streamlit app for exploring predictions"],
         concepts: ["CRISP-DM Lifecycle", "Deep Learning Classification", "Feature Engineering", "Real-time Prediction"],
         tools: ["Python", "TensorFlow/Keras", "SQL", "Streamlit"],
       }
@@ -134,6 +139,7 @@ export const projectData: ProjectData = {
 
         ],
         tags: ["Multilingual NLP", "Speech Recognition", "Emotion AI"],
+        highlights: ["Works on Greek and English YouTube videos", "Whisper speech-to-text, then Greek-to-English translation, then transformer emotion classification", "Scores emotion intensity, not just the emotion label"],
         concepts: ["Speech-to-Text", "Machine Translation", "Emotion Classification", "Pipeline Engineering"],
         tools: ["Python", "HuggingFace Transformers", "Whisper", "OpenAI API"],
       },
@@ -148,6 +154,7 @@ export const projectData: ProjectData = {
           coreImg_langsmith
         ],
         tags: ["Agentic AI", "LangGraph", "RAG", "Email Processing"],
+        highlights: ["Accuracy rose from 74% in iteration 1 to 98% by iteration 4", "276 emails processed, 74 conversations classified and 148 attachments handled", "About 1 minute average processing time per order", "LangSmith tracks the cost of every trace and of the whole system"],
         concepts: ["Agentic Pipelines", "Retrieval Augmented Generation", "Entity Extraction", "Fuzzy Matching", "Customer Data Enrichment", "LLM Observability"],
         tools: ["Python", "LangGraph", "LangSmith", "LangChain", "Snowflake", "FastAPI", "React"],
       }
@@ -168,6 +175,7 @@ export const projectData: ProjectData = {
 
         ],
         tags: ["Mixed Methods", "Business Research", "Statistical Analysis"],
+        highlights: ["Mixed methods: quantitative surveys plus qualitative interviews", "Compared chatbot performance with human support", "Practical recommendations on personalisation, accuracy and escalation to human agents"],
         concepts: ["Mixed-Methods Research", "Statistical Testing", "Thematic Analysis", "Stakeholder Mapping"],
         tools: ["Python", "SPSS", "Qualtrics", "Excel"],
       }
@@ -189,6 +197,7 @@ export const projectData: ProjectData = {
             mlopsImg_4
         ],
         tags: ["Docker", "Azure ML", "CI/CD"],
+        highlights: ["Deep learning pipelines deployed with Docker, Azure ML and Airflow", "FastAPI backend with a Gradio interface", "Full CI/CD integration"],
         concepts: ["MLOps Lifecycle", "Container Orchestration", "Cloud Deployment", "Workflow Automation"],
         tools: ["Docker", "Azure ML Studio", "Apache Airflow", "FastAPI", "GitHub Actions"],
       }

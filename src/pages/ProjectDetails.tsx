@@ -5,7 +5,8 @@ import { projectData } from "@/data/projects";
 import { allProjects, projectPath, specializations, type CategoryId } from "@/data/profile";
 import { sceneState, ui } from "@/lib/store";
 import { scrollToTarget } from "@/lib/smoothScroll";
-import { TLink } from "@/components/chrome/Transition";
+import { hasModifier, isModalOpen, isTypingTarget } from "@/lib/keys";
+import { TLink, usePageTransition } from "@/components/chrome/Transition";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
@@ -53,6 +54,21 @@ const ProjectDetails = () => {
   }, [project, spec, flatIndex]);
 
   const closeLightbox = useCallback(() => setLightbox(null), []);
+
+  // ← / → step through the projects (the image viewer uses the same keys while it's open)
+  const go = usePageTransition();
+  useEffect(() => {
+    if (!prev || !next) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key !== "ArrowLeft" && e.key !== "ArrowRight") || e.defaultPrevented || hasModifier(e) || e.shiftKey) return;
+      if (isTypingTarget(e.target) || isModalOpen() || ui.get().menuOpen) return;
+      e.preventDefault();
+      const to = e.key === "ArrowLeft" ? prev : next;
+      go(projectPath(to.category, to.index));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prev, next, go]);
 
   const backState = { scrollTo: "projects", category: category as CategoryId };
 
@@ -102,6 +118,21 @@ const ProjectDetails = () => {
         <Reveal delay={200}>
           <p className="detail__desc">{project.description}</p>
         </Reveal>
+        {project.highlights?.length ? (
+          // Secondary facts: closed by default, opened only by visitors who want them
+          <Reveal delay={260}>
+            <details className="highlights">
+              <summary className="mono-label">
+                Highlights <span className="highlights__count">{pad(project.highlights.length)}</span>
+              </summary>
+              <ul>
+                {project.highlights.map((h) => (
+                  <li key={h}>{h}</li>
+                ))}
+              </ul>
+            </details>
+          </Reveal>
+        ) : null}
         {project.demoUrl || project.powerBiUrl ? (
           <Reveal delay={320} className="detail__actions">
             {project.demoUrl ? (

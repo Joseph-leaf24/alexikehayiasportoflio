@@ -50,6 +50,11 @@ describe("portfolio content", () => {
       expect(project.image).not.toMatch(/(computer-vision|machine-learning|nlp|research)\.jpg$/);
       // No per-project source links
       expect(project).not.toHaveProperty("githubUrl");
+      // Highlights are optional, short and non-empty
+      for (const h of project.highlights ?? []) {
+        expect(h.trim().length).toBeGreaterThan(10);
+        expect(h.length).toBeLessThan(120);
+      }
     }
   });
 

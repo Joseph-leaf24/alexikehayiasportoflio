@@ -9,14 +9,11 @@ export const profile = {
   lastName: "Kehayias",
   role: "Data Science & AI Student",
   intro:
-    "Hi there! I'm Alexi, a student in Breda studying Data Science and AI with a focus on a number of areas such as Computer Vision, Natural Language processing as well as MLOps. I enjoy building innovative solutions that make a difference to companies and society. Explore my projects below to see what I've been working on!",
+    "Hi there! I'm Alexi, a student studying Data Science and AI with a focus on a number of areas such as Computer Vision, Natural Language processing as well as MLOps. I enjoy building innovative solutions that make a difference to companies and society. Explore my projects below to see what I've been working on!",
   statement: "I enjoy building innovative solutions that make a difference to companies and society.",
   focus: ["Data Science", "Data Engineering", "Data Analytics"],
-  location: "Breda, NL",
-  coords: "51.5719° N · 4.7683° E",
   timezone: "Europe/Amsterdam",
   linkedin: "https://www.linkedin.com/in/alexi-kehayias/",
-  github: "https://github.com/Joseph-leaf24",
   cv: `${import.meta.env.BASE_URL}Alexi_Kehayias_CV.pdf`,
   contact: {
     title: "Interested?",

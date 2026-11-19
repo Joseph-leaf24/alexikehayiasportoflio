@@ -864,6 +864,20 @@ html.no-webgl body {
   align-items: center;
   gap: 10px;
 }
+.hud-keys {
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+.hud-keys kbd {
+  font-family: inherit;
+  color: var(--ice);
+}
+@media (hover: hover) and (pointer: fine) {
+  .hud-keys {
+    display: inline-flex;
+  }
+}
 .hud-dot {
   width: 3px;
   height: 3px;
@@ -1085,6 +1099,18 @@ html.no-webgl body {
   text-transform: uppercase;
   color: var(--text);
   text-shadow: 0 0 40px rgba(5, 7, 10, 0.55);
+}
+/* By day the village behind the name is bright white: a denser shadow keeps it legible */
+html[data-sky="day"] .hero__title {
+  text-shadow: 0 0 36px rgba(5, 7, 10, 0.7), 0 2px 14px rgba(5, 7, 10, 0.45);
+}
+html[data-sky="day"] .hero__top,
+html[data-sky="day"] .hero__meta {
+  text-shadow: 0 0 14px rgba(5, 7, 10, 0.85);
+}
+/* The dim grey label is made for a night sky; brighten it in front of the day sky */
+html[data-sky="day"] .hero__top > .mono-label:not(.hero__role) {
+  color: var(--frost);
 }
 .hero__line {
   display: block;
@@ -1833,6 +1859,14 @@ html.no-webgl body {
   background: linear-gradient(90deg, rgba(5, 7, 10, 0.72), rgba(5, 7, 10, 0.35) 55%, rgba(5, 7, 10, 0.15));
   pointer-events: none;
 }
+/* By day the aerial village is bright white: a denser scrim and a shadow under the copy */
+html[data-sky="day"] .section--contact::before {
+  background: linear-gradient(90deg, rgba(5, 7, 10, 0.84), rgba(5, 7, 10, 0.55) 55%, rgba(5, 7, 10, 0.32));
+}
+html[data-sky="day"] .section--contact .display-xl,
+html[data-sky="day"] .contact__text {
+  text-shadow: 0 0 24px rgba(5, 7, 10, 0.8);
+}
 .section--contact > * {
   position: relative;
 }
@@ -1967,122 +2001,6 @@ html.no-webgl body {
 }
 
 /* ==================================================================== */
-/* QA panel — test + coverage results from the last deploy               */
-/* ==================================================================== */
-.qa {
-  margin-top: clamp(3.5rem, 8vw, 6rem);
-  padding: clamp(1rem, 2vw, 1.5rem);
-  border: 1px solid var(--line);
-  background: rgba(7, 10, 15, 0.78);
-}
-.qa__head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  padding-bottom: 1rem;
-  margin-bottom: 1.25rem;
-  border-bottom: 1px solid var(--line);
-}
-.qa__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ice);
-}
-.qa__status i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #6ee7a8;
-  box-shadow: 0 0 10px #6ee7a8;
-}
-.qa__status.is-fail i {
-  background: #ff7a7a;
-  box-shadow: 0 0 10px #ff7a7a;
-}
-.qa__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem 1.5rem;
-}
-@media (min-width: 900px) {
-  .qa__grid {
-    grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr));
-    align-items: end;
-  }
-}
-.qa__tests {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-@media (min-width: 900px) {
-  .qa__tests {
-    grid-column: auto;
-  }
-}
-.qa__big {
-  font-family: var(--font-mono);
-  font-weight: 300;
-  font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 0.9;
-  letter-spacing: -0.05em;
-  color: var(--ice);
-  font-variant-numeric: tabular-nums;
-}
-.qa__metric {
-  display: grid;
-  gap: 0.5rem;
-}
-.qa__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.qa__val {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  color: var(--ice);
-  font-variant-numeric: tabular-nums;
-}
-.qa__val.is-low {
-  color: #ff9a9a;
-}
-.qa__bar {
-  position: relative;
-  display: block;
-  height: 3px;
-  background: var(--line);
-  overflow: visible;
-}
-.qa__bar i {
-  position: absolute;
-  inset: 0;
-  background: var(--accent);
-  box-shadow: 0 0 10px rgba(127, 212, 255, 0.6);
-  transform-origin: left;
-}
-.qa__bar b {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 1px;
-  background: var(--frost);
-  opacity: 0.6;
-}
-.qa__foot {
-  margin: 1.25rem 0 0;
-  color: var(--dim);
-}
-
-/* ==================================================================== */
 /* Project detail                                                        */
 /* ==================================================================== */
 .detail {
@@ -2138,6 +2056,127 @@ html.no-webgl body {
   font-size: clamp(1.05rem, 1.35vw, 1.25rem);
   line-height: 1.65;
   color: var(--frost);
+}
+/* Keyboard-shortcuts help (the `?` key) */
+.shortcuts {
+  position: fixed;
+  inset: 0;
+  z-index: 280;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 5, 8, 0.88);
+  animation: lb-in 0.3s var(--ease-out);
+}
+.shortcuts__panel {
+  width: min(100%, 520px);
+  padding: 1.5rem;
+  border: 1px solid var(--line-2);
+  background: var(--panel-solid);
+}
+.shortcuts__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.shortcuts__head h2 {
+  margin: 0;
+  color: var(--ice);
+}
+.shortcuts__list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+.shortcuts__list div {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  align-items: center;
+  gap: 1rem;
+}
+.shortcuts__list dt {
+  display: flex;
+  gap: 6px;
+}
+.shortcuts__list dd {
+  margin: 0;
+  font-size: 14px;
+  color: var(--frost);
+}
+.shortcuts kbd {
+  min-width: 1.9rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+  color: var(--ice);
+}
+
+/* Collapsed "Highlights" drop-down under the project description */
+.highlights {
+  max-width: 68ch;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.highlights summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  color: var(--ice);
+  cursor: pointer;
+  list-style: none;
+}
+.highlights summary::-webkit-details-marker {
+  display: none;
+}
+/* Plus sign that turns into a cross when open */
+.highlights summary::before {
+  content: "+";
+  display: inline-grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1px solid var(--line-2);
+  font-size: 12px;
+  line-height: 1;
+  transition: transform 0.4s var(--ease-out);
+}
+.highlights[open] summary::before {
+  transform: rotate(45deg);
+}
+.highlights__count {
+  /* (--dim fails WCAG AA contrast at this size) */
+  color: var(--muted);
+}
+.highlights ul {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0 0 1rem;
+  list-style: none;
+}
+.highlights li {
+  position: relative;
+  padding-left: 1.4rem;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--frost);
+}
+.highlights li::before {
+  content: "";
+  position: absolute;
+  left: 0.2rem;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--accent);
+  transform: rotate(45deg);
 }
 .detail__actions {
   display: flex;

@@ -151,7 +151,7 @@ function ScrollMeter() {
 
 /**
  * Fixed chrome on every page: frame corners; a top bar with the brand, current section
- * and nav (a full-screen menu on small screens); and a bottom bar with location, clock,
+ * and nav (a full-screen menu on small screens); and a bottom bar with the clock,
  * scene telemetry and scroll progress. Off the home page, nav links go home first.
  */
 export default function Hud() {
@@ -241,11 +241,12 @@ export default function Hud() {
 
       <div className="hud-bottom" aria-hidden="true">
         <div className="hud-bottom__left">
-          <span>{profile.coords}</span>
-          <span className="hud-dot" />
-          <span>{profile.location}</span>
-          <span className="hud-dot" />
           <Clock />
+          {/* Keyboard users only (hidden on touch screens by CSS) */}
+          <span className="hud-keys">
+            <span className="hud-dot" />
+            Press <kbd>?</kbd> for shortcuts
+          </span>
         </div>
         <Telemetry />
         <ScrollMeter />

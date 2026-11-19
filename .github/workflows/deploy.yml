@@ -1,7 +1,9 @@
 name: Deploy to GitHub Pages
 
 # On every push to main: run all the quality checks (quality.yml), build, deploy,
-# then confirm the live site is serving the new build.
+# then confirm the live site is serving the new build. The deploy also publishes
+# the README badge data (test, coverage, audit and Lighthouse numbers from the
+# quality checks) as JSON under /badges/ on the site.
 #
 # Two deploy modes, chosen automatically:
 #
@@ -60,11 +62,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Unit tests + coverage and the on-page test report
-        run: npm run test:report
-
       - name: Build
         run: npm run build
+
+      - name: Badge data for the README (published under /badges/)
+        env:
+          BADGE_PASSED: ${{ needs.quality.outputs.passed }}
+          BADGE_FAILED: ${{ needs.quality.outputs.failed }}
+          BADGE_COVERAGE: ${{ needs.quality.outputs.coverage }}
+          BADGE_VULNERABILITIES: ${{ needs.quality.outputs.vulnerabilities }}
+          BADGE_LIGHTHOUSE: ${{ needs.quality.outputs.lighthouse }}
+        run: node scripts/badges.mjs write dist/badges
 
       - name: Record the app bundle name (used to verify the deploy)
         id: bundle
@@ -145,6 +153,7 @@ jobs:
             html=$(curl -fsSL "${url}?deploy=${GITHUB_SHA}" || true)
             if grep -qF "$BUNDLE" <<<"$html"; then
               curl -fsS -o /dev/null "${url}${BUNDLE}"
+              curl -fsS -o /dev/null "${url}badges/tests.json"
               grep -q 'Content-Security-Policy' <<<"$html"
               echo "Live after $attempt check(s): $url serves $BUNDLE" | tee -a "$GITHUB_STEP_SUMMARY"
               exit 0

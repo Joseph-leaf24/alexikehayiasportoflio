@@ -39,6 +39,8 @@ export interface Quality {
   postFx: boolean;
   /** Voxel terrain extents (x min/max, z min) — smaller = fewer cubes */
   terrain: { xMin: number; xMax: number; zMin: number };
+  /** Edge length of the near-sea water blocks (bigger = fewer blocks) */
+  waterCell: number;
   /** Drifting snow particles */
   particles: number;
   /** Ice-dust particles for the cursor trail and click bursts (0 = off) */
@@ -101,6 +103,7 @@ export function qualityFor(tier: Tier, coarse: boolean): Quality {
         bloomStrength: coarse ? 0.5 : 0.6,
         postFx: true,
         terrain: { xMin: -28, xMax: 28, zMin: -30 },
+        waterCell: 0.6,
         particles: coarse ? 1000 : 1800,
         dust: coarse ? 0 : 480,
         floes: 70,
@@ -118,6 +121,7 @@ export function qualityFor(tier: Tier, coarse: boolean): Quality {
         bloomStrength: 0.45,
         postFx: true,
         terrain: { xMin: -24, xMax: 26, zMin: -26 },
+        waterCell: 0.8,
         particles: coarse ? 600 : 1000,
         dust: coarse ? 0 : 240,
         floes: 45,
@@ -135,6 +139,7 @@ export function qualityFor(tier: Tier, coarse: boolean): Quality {
         bloomStrength: 0,
         postFx: false,
         terrain: { xMin: -18, xMax: 22, zMin: -20 },
+        waterCell: 1.2,
         particles: 300,
         dust: 0,
         floes: 18,

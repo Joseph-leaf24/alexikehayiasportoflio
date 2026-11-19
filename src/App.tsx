@@ -7,6 +7,7 @@ import IceScene from "./components/gl/IceScene";
 import Hud from "./components/chrome/Hud";
 import Cursor from "./components/chrome/Cursor";
 import Loader from "./components/chrome/Loader";
+import Shortcuts from "./components/chrome/Shortcuts";
 import { TransitionProvider } from "./components/chrome/Transition";
 import { initSmoothScroll } from "./lib/smoothScroll";
 import { sceneState } from "./lib/store";
@@ -67,6 +68,7 @@ function Shell() {
       </main>
       <Cursor />
       <Loader />
+      <Shortcuts />
     </>
   );
 }

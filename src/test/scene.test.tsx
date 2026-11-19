@@ -172,6 +172,30 @@ describe("IceScene", () => {
     unmount();
   });
 
+  it("lights the scene for the real time in Amsterdam, re-reads the clock, and obeys ?time=", () => {
+    window.history.replaceState({}, "", "/");
+    useAnimationTimers();
+    vi.setSystemTime(new Date("2026-06-21T11:00:00Z")); // 13:00 CEST
+    const first = render(<IceScene />);
+    advance(40);
+    expect(document.documentElement.dataset.sky).toBe("day");
+    // An evening later the next refresh (every 10 s) finds the sun down
+    vi.setSystemTime(new Date("2026-06-21T21:30:00Z")); // 23:30 CEST
+    advance(10_200);
+    expect(document.documentElement.dataset.sky).toBe("night");
+    first.unmount();
+    expect(document.documentElement.dataset.sky).toBeUndefined();
+
+    // ?time= pins the wall-clock time whatever the real one is
+    vi.setSystemTime(new Date("2026-06-21T11:00:00Z"));
+    window.history.replaceState({}, "", "/?time=23:00");
+    const pinned = render(<IceScene />);
+    advance(40);
+    expect(document.documentElement.dataset.sky).toBe("night");
+    pinned.unmount();
+    window.history.replaceState({}, "", "/");
+  });
+
   it("falls back to a CSS background when WebGL is unavailable", () => {
     gl.fail = true;
     render(<IceScene />);

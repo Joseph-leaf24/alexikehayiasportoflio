@@ -1,0 +1,17 @@
+# Run the portfolio locally in a container:
+#   docker compose up --build    then open http://localhost:8080/alexikehayiasportoflio/
+#   docker compose down          to stop it
+services:
+  web:
+    build: .
+    image: alexi-portfolio:local
+    ports:
+      - "8080:8080"
+    # Locked down: read-only filesystem (nginx only writes to /tmp), no extra privileges
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
