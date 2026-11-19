@@ -3,9 +3,9 @@
 An interactive portfolio built as a voxel Cycladic village. The village is made of
 WebGL cubes that break apart and re-form into new shapes as you scroll: clusters, a
 neural network, data bars. The light follows the real time of day in Amsterdam (sun by
-day, moon by night), and clicking and holding on the opening screen blows the land and
-sea apart. It presents my projects across data science, data engineering and data
-analytics.
+day, moon by night), and clicking and holding on the opening screen shatters the whole
+scene, sun and moon included. It presents my projects across data science, data
+engineering and data analytics.
 
 **Live site:** https://joseph-leaf24.github.io/alexikehayiasportoflio/
 

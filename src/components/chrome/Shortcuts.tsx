@@ -9,7 +9,7 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["←", "→"], label: "Previous / next image (in the image viewer)" },
   { keys: ["Esc"], label: "Close the image viewer, menu or this help" },
   { keys: ["?"], label: "Show or hide this help" },
-  { keys: ["Hold click"], label: "Blow the village apart (home page)" },
+  { keys: ["Hold click"], label: "Shatter the whole scene (home page)" },
 ];
 
 /** The "Keyboard shortcuts" dialog: focuses Close, traps Tab, Esc or the backdrop closes it. */

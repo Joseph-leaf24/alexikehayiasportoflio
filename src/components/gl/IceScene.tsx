@@ -107,10 +107,10 @@ function resolveBlend(scrollY: number, vh: number): { a: LayoutKey; b: LayoutKey
  * sun, ice floes, snow and cursor ice dust) that morphs between formations as the page
  * scrolls (see layouts.ts). The light follows the real time of day in Amsterdam (sun by
  * day, moon by night; `?time=HH:MM` pins it for previews). Holding a click on the hero
- * blows the land and sea blocks off screen, leaving the sky, until it's released.
- * The pointer, scroll velocity and UI pulses feed in through sceneState. Quality follows
- * the device tier, and a runtime governor steps it down when frames are slow. Without
- * WebGL it adds `no-webgl` to <html> and draws nothing.
+ * shatters everything (village, hills, water blocks, floes, sun and moon) until it's
+ * released. The pointer, scroll velocity and UI pulses feed in through sceneState.
+ * Quality is tuned live for a steady 60 fps (src/lib/adaptive.ts). Without WebGL it adds
+ * `no-webgl` to <html> and draws nothing.
  */
 export default function IceScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -169,9 +169,8 @@ export default function IceScene() {
     };
     const moonDir = MOON_DIR.clone();
     const moonDirU = { value: moonDir };
-    /* Hold-to-shatter, shared by the terrain and water blocks. With reduced motion the blocks only lift a little. */
-    const breakDist = reduced ? 6 : 56;
-    const breakU = { uBreak: { value: 0 }, uBreakDist: { value: breakDist }, uBreakC: { value: BREAK_C } };
+    /* Hold-to-shatter, shared by the terrain and water blocks */
+    const breakU = { uBreak: { value: 0 }, uBreakC: { value: BREAK_C } };
 
     /* ---------------- Village pieces ---------------- */
     const set = buildLayouts();
@@ -231,8 +230,6 @@ export default function IceScene() {
     const curQ = L.village.quat.map((q) => q.clone());
     const curS = L.village.scale.map((s) => s.clone());
     const curMix = new Float32Array(N);
-    // Hold-to-shatter: pieces leave in a wave spreading out from the village, like the blocks below
-    const breakR = Float32Array.from(L.village.pos, (p) => Math.hypot(p.x - BREAK_C.x, p.z - BREAK_C.z));
 
     /* ---------------- Landscape: voxel hills, water blocks, sea, voxel moon + sun, floes ---------------- */
     const landU = {
@@ -349,7 +346,14 @@ export default function IceScene() {
       new THREE.ShaderMaterial({
         vertexShader: sunVertex,
         fragmentShader: sunFragment,
-        uniforms: { uCenter: { value: new THREE.Vector3() }, uTime: { value: 0 }, uExposure: { value: 1 }, uGolden: dayU.uGolden, uHalf: { value: sunData.cube * 0.47 } },
+        uniforms: {
+          uCenter: { value: new THREE.Vector3() },
+          uTime: { value: 0 },
+          uBurst: { value: 0 },
+          uExposure: { value: 1 },
+          uGolden: dayU.uGolden,
+          uHalf: { value: sunData.cube * 0.47 },
+        },
       })
     );
     const sun = new THREE.InstancedMesh(sunGeo, sunMat, sunData.count);
@@ -363,12 +367,6 @@ export default function IceScene() {
 
     // Ice floes bobbing at the foot of the cliff (same material as the pieces, fully iced)
     const floes = buildFloes(q.floes);
-    // …and where each one flies on hold-to-shatter: outward from the village, up and away from the camera
-    const floeFly = floes.map((f) => {
-      const out = new THREE.Vector3(f.pos.x - BREAK_C.x, 0, f.pos.z - BREAK_C.z);
-      const r = out.length();
-      return { r, dir: out.multiplyScalar(0.6 / Math.max(r, 1)).add(new THREE.Vector3(f.rand - 0.5, 1 + f.rand * 0.6, -0.5)).normalize() };
-    });
     const floeGeo = keep(new RoundedBoxGeometry(1, 1, 1, 2, 0.08));
     floeGeo.setAttribute("aRand", new THREE.InstancedBufferAttribute(Float32Array.from(floes.map((f) => f.rand)), 1));
     floeGeo.setAttribute("aMix", new THREE.InstancedBufferAttribute(new Float32Array(floes.length).fill(1), 1));
@@ -823,13 +821,12 @@ export default function IceScene() {
         ts.lerpVectors(sA, sB, ti);
         const iceT = A.ice + (B.ice - A.ice) * ti;
 
-        // Flying arc + tumble mid-transition, and hold-to-shatter (off screen, in a wave from the village)
+        // Flying arc + tumble mid-transition, and hold-to-shatter
         const arc = moving ? Math.sin(Math.PI * ti) : 0;
-        const blast = pressAmt > 0.001 ? smoothstep(breakR[i] * 0.012, breakR[i] * 0.012 + 0.55, pressAmt) : 0;
-        const fling = arc * (0.6 + set.rand[i] * 1.6) + blast * breakDist * (0.5 + set.rand[i] * 0.6);
+        const fling = arc * (0.6 + set.rand[i] * 1.6) + pressAmt * (1.2 + set.rand[i] * 4.2);
         if (fling > 0.001) {
           tp.addScaledVector(set.burstDir[i], fling);
-          qTumble.setFromAxisAngle(set.tumbleAxis[i], arc * fling * 0.9 + blast * (2 + set.rand[i] * 7));
+          qTumble.setFromAxisAngle(set.tumbleAxis[i], fling * 0.9);
           tq.multiply(qTumble);
         }
 
@@ -889,16 +886,15 @@ export default function IceScene() {
       snowOffset += smoothVel * dt * 0.0022;
       for (let m = 0; m < rotorAngle.length; m++) rotorAngle[m] -= dt * (0.55 + Math.min(speed / 500, 6)) * motion;
 
-      // Floes ride the water blocks' swell; when the land goes holographic they lift into the air,
-      // and on hold-to-shatter they fly off with everything else
+      // Floes ride the water blocks' swell; when the land goes holographic (or on hold-to-shatter)
+      // they lift into the air
       const landT = time * motion;
+      const lift = Math.max(1 - landAmt, pressAmt);
       for (let i = 0; i < floes.length; i++) {
         const f = floes[i];
-        const fly = pressAmt > 0.001 ? smoothstep(floeFly[i].r * 0.012, floeFly[i].r * 0.012 + 0.55, pressAmt) : 0;
         tp.copy(f.pos);
-        tp.y += waveHeight(f.pos.x, f.pos.z, landT) + Math.sin(time * 0.8 * motion + f.rand * 6.28) * 0.02 + (1 - landAmt) * (1.2 + f.rand * 3.5);
-        tp.addScaledVector(floeFly[i].dir, fly * breakDist * (0.5 + f.rand * 0.6));
-        tq.setFromAxisAngle(yAxis, f.yaw + time * 0.05 * f.rand * motion + ((1 - landAmt) * 3 + fly * 9) * f.rand);
+        tp.y += waveHeight(f.pos.x, f.pos.z, landT) + Math.sin(time * 0.8 * motion + f.rand * 6.28) * 0.02 + lift * (1.2 + f.rand * 3.5);
+        tq.setFromAxisAngle(yAxis, f.yaw + time * 0.05 * f.rand * motion + lift * f.rand * 3);
         floeMesh.setMatrixAt(i, mtx.compose(tp, tq, f.size));
       }
       floeMesh.instanceMatrix.needsUpdate = true;
@@ -949,12 +945,13 @@ export default function IceScene() {
       terrU.uMouseOn.value = mouseOn;
       terrU.uPulseT.value = pulseT * motion;
       breakU.uBreak.value = pressAmt;
-      // The moon bursts into a ring in the holographic formations, but stays whole through
-      // hold-to-shatter (the sky stays put while the land is blown away)
+      // The moon and sun burst into rings in the holographic formations and on hold-to-shatter
+      const burst = Math.max(clamp01((1 - landAmt) * 1.15), pressAmt);
       moonMat.uniforms.uTime.value = time * motion;
-      moonMat.uniforms.uBurst.value = clamp01((1 - landAmt) * 1.15);
+      moonMat.uniforms.uBurst.value = burst;
       moonMat.uniforms.uExposure.value = 0.75 + 0.25 * exposure;
       sunMat.uniforms.uTime.value = time * motion;
+      sunMat.uniforms.uBurst.value = burst;
       sunMat.uniforms.uExposure.value = 0.85 + 0.15 * exposure;
       skyMat.uniforms.uTime.value = time * motion;
       skyMat.uniforms.uExposure.value = 0.6 + exposure * 0.4;

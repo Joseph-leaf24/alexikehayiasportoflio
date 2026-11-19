@@ -116,13 +116,12 @@ const SEA = /* glsl */ `
 `;
 
 /**
- * Hold-to-shatter for instanced cubes (terrain, water blocks): each cube tears loose and
- * flies outward and up in a wave spreading from uBreakC, far enough (uBreakDist) to leave
- * the screen, tumbling as it goes; uBreak eases it out on press and back on release.
+ * Hold-to-shatter for instanced cubes (terrain, water blocks): every cube tears loose and
+ * tumbles up and out, in a wave spreading from uBreakC (the village), less so far away;
+ * uBreak eases it out on press and back on release.
  */
 const BREAK = /* glsl */ `
   uniform float uBreak;
-  uniform float uBreakDist;
   uniform vec3 uBreakC;
   mat3 rotAxis(vec3 a, float ang) {
     a = normalize(a);
@@ -133,16 +132,15 @@ const BREAK = /* glsl */ `
                 oc * a.x * a.y - a.z * s, oc * a.y * a.y + c, oc * a.y * a.z + a.x * s,
                 oc * a.z * a.x + a.y * s, oc * a.y * a.z - a.x * s, oc * a.z * a.z + c);
   }
-  vec3 shatter(vec3 c, float rnd, float depth, out mat3 R, out float e) {
+  // amt scales the whole effect (1 for the hills; the water blocks only splash)
+  vec3 shatter(vec3 c, float rnd, float depth, float amt, out mat3 R, out float e) {
     vec3 rel = c - uBreakC;
     float rb = length(rel.xz);
-    e = smoothstep(rb * 0.012, rb * 0.012 + 0.55, uBreak);
-    // Outward + up, leaning away from the camera so the cubes leave the frame
-    vec3 dir = normalize(vec3(rel.x, 0.0, rel.z) * (0.6 / max(rb, 1.0)) + vec3(rnd - 0.5, 0.8 + rnd * 0.7, fract(rnd * 7.13) - 0.75));
+    e = smoothstep(rb * 0.02, rb * 0.02 + 0.5, uBreak) * smoothstep(42.0, 6.0, rb) * amt;
+    vec3 dir = normalize(vec3(rel.x * 0.08, 0.0, rel.z * 0.08) + vec3(rnd - 0.5, 1.0 + rnd, fract(rnd * 7.13) - 0.5));
     vec3 axis = vec3(fract(rnd * 3.1) - 0.5, fract(rnd * 5.7) - 0.5, fract(rnd * 9.3) - 0.5) + 0.001;
-    R = rotAxis(axis, e * (2.0 + rnd * 8.0));
-    // Far cubes fly further, so they too clear the top of the frame
-    return dir * e * uBreakDist * (0.55 + rnd * 0.6) * (1.0 + depth * 0.15) * (1.0 + rb * 0.035);
+    R = rotAxis(axis, e * (1.5 + rnd * 5.0));
+    return dir * e * (1.5 + rnd * 6.5) * (1.0 + depth * 0.15);
   }
 `;
 
@@ -350,10 +348,10 @@ export const terrainVertex = /* glsl */ `
     float grow = smoothstep(r * 0.025, r * 0.025 + 0.45, uGrow);
     lift -= (1.0 - grow) * (c.y + 3.0);
 
-    // Hold-to-shatter: every cube flies off screen (see BREAK)
+    // Hold-to-shatter: every cube tears loose and tumbles (see BREAK)
     mat3 R;
     float e;
-    vec3 fly = shatter(c, aRand, aDepth, R, e);
+    vec3 fly = shatter(c, aRand, aDepth, 1.0, R, e);
     vec3 w = c + R * (position * size * (1.0 - e * 0.25)) + fly;
     w.y += lift;
 
@@ -472,6 +470,7 @@ export const waterVertex = /* glsl */ `
   attribute float aRand;
   uniform float uTime;
   uniform float uLand;
+  uniform vec3 uCam;
   varying vec3 vW;
   varying vec3 vN;
   varying vec3 vL;
@@ -487,8 +486,11 @@ export const waterVertex = /* glsl */ `
     c.y += waveHeight(c.xz, uTime) - 0.15 - (1.0 - uLand) * 0.9;
     mat3 R;
     float e;
-    vec3 fly = shatter(c, aRand, 0.0, R, e);
-    vec3 w = c + R * position + fly;
+    // On hold-to-shatter the water splashes: blocks jump and roll near the surface rather
+    // than flying up and tumbling with the land, and stay down close to the camera (they'd
+    // fill the lens)
+    vec3 fly = shatter(c, aRand, 0.0, 0.45 * smoothstep(4.0, 14.0, length(c.xz - uCam.xz)), R, e) * 0.8;
+    vec3 w = c + R * (position * (1.0 - e * 0.25)) + fly;
     vW = w;
     vN = normalize(R * normal);
     vL = position;
@@ -592,22 +594,31 @@ export const moonFragment = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Voxel sun: a glowing shell of cubes along the real sun direction     */
+/* Voxel sun: a glowing shell of cubes that bursts into a ring (as the moon does) */
 /* ------------------------------------------------------------------ */
 export const sunVertex = /* glsl */ `
   attribute float aRand;
   uniform vec3 uCenter;
   uniform float uTime;
+  uniform float uBurst;
   varying vec3 vL;
   varying float vR;
   mat3 rotY(float a) { float c = cos(a); float s = sin(a); return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c); }
+  mat3 rotX(float a) { float c = cos(a); float s = sin(a); return mat3(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c); }
   void main() {
-    vec3 o = rotY(uTime * 0.03) * instanceMatrix[3].xyz;
+    vec3 o = instanceMatrix[3].xyz;
     // Cubes breathe in and out a little, like a boiling surface
     o *= 1.0 + 0.04 * sin(uTime * 1.3 + aRand * 40.0);
+    // Hold-to-shatter and the holographic formations: the shell flies apart into a tumbling ring
+    float e = smoothstep(aRand * 0.4, aRand * 0.4 + 0.6, uBurst);
+    float ang = atan(o.z, o.x) + uTime * (0.05 + aRand * 0.06) + e * 1.6;
+    float rr = 8.0 + aRand * 6.0;
+    vec3 ring = rotX(0.45) * vec3(cos(ang) * rr, (fract(aRand * 7.31) - 0.5) * 1.4, sin(ang) * rr);
+    vec3 pos = rotY(uTime * 0.03) * mix(o, ring, e);
+    mat3 tumble = rotY(e * aRand * 7.0) * rotX(e * fract(aRand * 3.7) * 5.0);
     vL = position;
     vR = aRand;
-    gl_Position = projectionMatrix * viewMatrix * vec4(uCenter + o + position, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * vec4(uCenter + pos + tumble * position * mix(1.0, 0.6, e), 1.0);
   }
 `;
 

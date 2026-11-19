@@ -206,7 +206,6 @@ export default function Hud() {
         >
           <span className="hud-brand__mark" aria-hidden="true" />
           <ScrambleText text="Alexi Kehayias" trigger="mount" hover className="hud-brand__name" />
-          <span className="hud-brand__tag">[ DS &amp; AI ]</span>
           {/* The name stays the visible text plus "home" (WCAG 2.5.3 label in name) */}
           <span className="sr-only"> — home</span>
         </a>

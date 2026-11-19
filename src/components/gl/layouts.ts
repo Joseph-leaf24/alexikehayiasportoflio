@@ -538,11 +538,10 @@ export function buildLayouts(): LayoutSet {
     // The village lifts off in a wave sweeping across the cliff
     delay[i] = THREE.MathUtils.clamp(((pieces[i].pos.x + 14) / 28) * 0.22 + rnd() * 0.13, 0, 0.35);
     lambda[i] = 3.2 + rnd() * 3.5;
-    // Hold-to-shatter flight: outward from the village and up, leaning away from the camera
-    // so the pieces leave the frame (same three draws as before, so later layouts don't shift)
-    const out = pieces[i].pos.clone().sub(villageCenter).setY(0);
-    if (out.lengthSq() < 1e-6) out.set(1, 0, 0);
-    burstDir.push(out.normalize().add(new THREE.Vector3((rnd() - 0.5) * 0.8, 0.9 + rnd() * 0.7, (rnd() - 0.5) * 0.8 - 0.35)).normalize());
+    // Where the piece flies on hold-to-shatter (and arcs mid-transition): out from the village and up
+    burstDir.push(
+      pieces[i].pos.clone().sub(villageCenter).normalize().add(new THREE.Vector3(rnd() - 0.5, 0.6 + rnd() * 0.4, rnd() - 0.2)).normalize()
+    );
     tumbleAxis.push(new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize());
   }
 

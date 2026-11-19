@@ -753,9 +753,6 @@ html.no-webgl body {
 .hud-brand:hover .hud-brand__mark {
   transform: rotate(225deg);
 }
-.hud-brand__tag {
-  color: var(--dim);
-}
 .hud-section {
   display: none;
   align-items: center;
@@ -936,9 +933,6 @@ html.no-webgl body {
     padding-top: 14px;
     padding-bottom: 14px;
   }
-  .hud-brand__tag {
-    display: none;
-  }
   .hud-frame {
     display: none;
   }
@@ -1039,60 +1033,9 @@ html.no-webgl body {
   justify-content: space-between;
   gap: 1rem;
 }
-.hero__role {
-  color: var(--ice);
-}
-.hero__hint {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  border: 1px solid var(--line);
-  background: rgba(5, 7, 10, 0.82);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  white-space: nowrap;
-  transition: opacity 0.3s;
-}
-.hero__hint .mono-label {
-  color: var(--ice);
-  text-shadow: 0 0 12px rgba(5, 7, 10, 0.9);
-}
-.hero__hint-ring {
-  position: relative;
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--accent);
-  border-radius: 50%;
-}
-.hero__hint-ring::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border: 1px solid var(--accent);
-  border-radius: 50%;
-  animation: ping 2s var(--ease-out) infinite;
-}
-.hero.is-pressing .hero__hint {
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-@keyframes ping {
-  from {
-    transform: scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: scale(3.2);
-    opacity: 0;
-  }
-}
 .hero__title {
   margin: 0;
-  font-size: clamp(3.6rem, 13.2vw, 15rem);
+  font-size: clamp(3rem, 10.5vw, 12rem);
   line-height: 0.82;
   letter-spacing: -0.06em;
   font-weight: 400;
@@ -1109,7 +1052,7 @@ html[data-sky="day"] .hero__meta {
   text-shadow: 0 0 14px rgba(5, 7, 10, 0.85);
 }
 /* The dim grey label is made for a night sky; brighten it in front of the day sky */
-html[data-sky="day"] .hero__top > .mono-label:not(.hero__role) {
+html[data-sky="day"] .hero__top > .mono-label {
   color: var(--frost);
 }
 .hero__line {
@@ -2966,8 +2909,7 @@ html[data-tier="low"] .ghost-num {
   .pgraph *,
   .lifecycle__link::after,
   .portrait__scan::after,
-  .scroll-cue i::after,
-  .hero__hint-ring::after {
+  .scroll-cue i::after {
     animation: none !important;
   }
   .project-card,

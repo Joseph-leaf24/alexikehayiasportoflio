@@ -8,9 +8,9 @@ import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 
 /**
- * Hero: role, giant name, focus areas and the "View Projects" CTA. Pressing and holding
- * on it shatters the 3D village; with a mouse (and motion allowed, above the low tier) the
- * letters of the name shy away from the cursor.
+ * Hero: giant name, focus areas and the "View Projects" CTA. Pressing and holding on it
+ * shatters the 3D scene (an easter egg, listed in the `?` shortcuts help); with a mouse
+ * (and motion allowed, above the low tier) the letters of the name shy away from the cursor.
  */
 const Hero = () => {
   const ref = useRef<HTMLElement>(null);
@@ -116,14 +116,8 @@ const Hero = () => {
       <div className="hero__inner container-x">
         <div className="hero__top">
           <Reveal variant="fade" className="mono-label">
-            [ 00 ] — Portfolio · {new Date().getFullYear()}
+            [ 00 ] — Portfolio
           </Reveal>
-          <ScrambleText text={profile.role} trigger="mount" delay={500} className="mono-label hero__role" />
-        </div>
-
-        <div className="hero__hint" aria-hidden="true">
-          <span className="hero__hint-ring" />
-          <ScrambleText text={coarse ? "Touch & hold" : "Click & hold to shatter"} trigger="mount" delay={1400} className="mono-label" />
         </div>
 
         <div className="hero__bottom">

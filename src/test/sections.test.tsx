@@ -65,10 +65,11 @@ describe("Hero", () => {
     expect(ch.style.transform).toBe("");
   });
 
-  it("shows a touch hint on phones", () => {
+  it("keeps the top plain: no role, year or shatter hint (holding still works, see above)", () => {
     media["(pointer: coarse)"] = true;
-    renderRoute(<Hero />);
-    expect(screen.getByText("Touch & hold")).toBeInTheDocument();
+    const { container } = renderRoute(<Hero />);
+    expect(container.querySelector(".hero__top")?.textContent).toBe("[ 00 ] — Portfolio");
+    expect(container.textContent).not.toMatch(/student|hold|\b20\d\d\b/i);
   });
 });
 

@@ -95,7 +95,6 @@ export default function Loader() {
       <div className="loader__inner">
         <div className="loader__row">
           <span>[ AK ] — Portfolio</span>
-          <span>{profile.role}</span>
         </div>
         <div className="loader__center">
           <span ref={countRef} className="loader__count">
