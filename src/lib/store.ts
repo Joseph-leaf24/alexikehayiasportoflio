@@ -94,6 +94,8 @@ export const sceneState = {
   pointer: { x: 0, y: 0, lastMove: -1e9 },
   /** Hold-to-shatter on the hero. */
   press: false,
+  /** A page-wipe transition is running (slow devices pause the 3D render meanwhile). */
+  transition: false,
   /** performance.now() / 1000 of the last ripple pulse. */
   pulse: -100,
   /** Scroll velocity in px/s (written by the smooth-scroll driver, decayed by the scene). */

@@ -138,6 +138,15 @@ describe("device tiers", () => {
     expect(getQuality({ ...base, gpu: "RTX" }).tier).toBe("low");
   });
 
+  it("probes the GPU (a throwaway WebGL context) only on the first call", () => {
+    resetQualityCache();
+    const probe = vi.spyOn(HTMLCanvasElement.prototype, "getContext");
+    getQuality();
+    getQuality();
+    getQuality();
+    expect(probe).toHaveBeenCalledTimes(1);
+  });
+
   it("reads the GPU name when WebGL2 is available", () => {
     const getContext = HTMLCanvasElement.prototype.getContext;
     const lose = vi.fn();

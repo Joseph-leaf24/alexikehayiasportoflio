@@ -70,9 +70,15 @@ const ENV = /* glsl */ `
     return c;
   }
   vec3 envColor(vec3 d) {
-    vec3 c = mix(envNight(d), envDay(d), uDay);
-    vec3 sunH = normalize(vec3(uSunDir.x, 0.08, uSunDir.z));
-    c += vec3(1.0, 0.5, 0.28) * uGolden * pow(max(dot(d, sunH), 0.0), 5.0) * 0.55;
+    // (uniform branches: only twilight pays for both skies)
+    vec3 c;
+    if (uDay < 0.001) c = envNight(d);
+    else if (uDay > 0.999) c = envDay(d);
+    else c = mix(envNight(d), envDay(d), uDay);
+    if (uGolden > 0.001) {
+      vec3 sunH = normalize(vec3(uSunDir.x, 0.08, uSunDir.z));
+      c += vec3(1.0, 0.5, 0.28) * uGolden * pow(max(dot(d, sunH), 0.0), 5.0) * 0.55;
+    }
     return c;
   }
 `;
@@ -91,12 +97,17 @@ const SEA = /* glsl */ `
     vec3 skyDay = mix(vec3(0.3, 0.42, 0.52), vec3(0.1, 0.24, 0.46), smoothstep(0.0, 0.6, R.y));
     vec3 skyR = mix(skyNight, skyDay, uDay);
     float n = vnoise(vec3(w.xz * 7.0, t * 3.0));
-    float md = max(dot(R, uMoonDir), 0.0);
-    vec3 glint = vec3(0.85, 0.92, 1.0) * (pow(md, 400.0) * 2.4 * step(0.62, n) + pow(md, 50.0) * 0.14) * (1.0 - uDay);
+    vec3 glint = vec3(0.0);
+    if (uDay < 0.999) {
+      float md = max(dot(R, uMoonDir), 0.0);
+      glint += vec3(0.85, 0.92, 1.0) * (pow(md, 400.0) * 2.4 * step(0.62, n) + pow(md, 50.0) * 0.14) * (1.0 - uDay);
+    }
     // The sun's glitter path: a narrow, sparser band than the moon's, so the water stays blue
-    float sd = max(dot(R, uSunDir), 0.0);
-    vec3 sunCol = mix(vec3(1.0, 0.95, 0.84), vec3(1.0, 0.62, 0.34), uGolden);
-    glint += sunCol * (pow(sd, 700.0) * 2.0 * step(0.7, n) + pow(sd, 90.0) * 0.12) * max(uDay, uGolden) * step(0.0, uSunDir.y);
+    if (uSunDir.y > 0.0 && max(uDay, uGolden) > 0.001) {
+      float sd = max(dot(R, uSunDir), 0.0);
+      vec3 sunCol = mix(vec3(1.0, 0.95, 0.84), vec3(1.0, 0.62, 0.34), uGolden);
+      glint += sunCol * (pow(sd, 700.0) * 2.0 * step(0.7, n) + pow(sd, 90.0) * 0.12) * max(uDay, uGolden);
+    }
     vec3 base = mix(vec3(0.006, 0.014, 0.026), vec3(0.012, 0.13, 0.25), uDay);
     base *= mix(1.0, 0.75 + 0.5 * max(dot(N, uLightDir), 0.0), uDay);
     base = mix(base, base * vec3(1.35, 1.0, 0.8), uGolden * 0.6);
@@ -642,31 +653,39 @@ export const skyFragment = /* glsl */ `
     vec3 d = normalize(vDir);
     float y = d.y;
 
-    // Night: deep blue-black with a faint horizon glow, aurora and stars
-    vec3 col = mix(vec3(0.01, 0.014, 0.022), vec3(0.028, 0.045, 0.075), smoothstep(-0.2, 0.7, y));
-    col += vec3(0.07, 0.11, 0.16) * exp(-abs(y - 0.02) * 9.0);
-    float a = fbm(vec3(d.x * 2.2 + uTime * 0.018, d.y * 5.0, d.z * 2.2 - uTime * 0.012));
-    float band = smoothstep(0.5, 0.85, a) * smoothstep(0.05, 0.4, y) * (1.0 - smoothstep(0.65, 1.0, y));
-    col += mix(vec3(0.1, 0.42, 0.5), vec3(0.25, 0.3, 0.7), d.x * 0.5 + 0.5) * band * 0.32;
-    vec3 sp = d * 260.0;
-    vec3 cell = floor(sp);
-    float s = hash13(cell);
-    float star = step(0.9965, s) * smoothstep(0.32, 0.0, length(fract(sp) - 0.5));
-    col += star * smoothstep(0.0, 0.25, y) * (0.55 + 0.45 * sin(uTime * 2.0 + s * 60.0)) * 0.9;
-    // Soft halo around the (voxel) moon
-    float md = max(dot(d, uMoonDir), 0.0);
-    col += vec3(0.3, 0.45, 0.68) * pow(md, 160.0) * 0.3 + vec3(0.08, 0.12, 0.2) * pow(md, 14.0) * 0.3;
+    // Night: deep blue-black with a faint horizon glow, aurora and stars (skipped in full
+    // daylight, where it's invisible: the aurora's noise is the sky's most expensive part)
+    vec3 col = vec3(0.0);
+    if (uDay < 0.999) {
+      col = mix(vec3(0.01, 0.014, 0.022), vec3(0.028, 0.045, 0.075), smoothstep(-0.2, 0.7, y));
+      col += vec3(0.07, 0.11, 0.16) * exp(-abs(y - 0.02) * 9.0);
+      float a = fbm(vec3(d.x * 2.2 + uTime * 0.018, d.y * 5.0, d.z * 2.2 - uTime * 0.012));
+      float band = smoothstep(0.5, 0.85, a) * smoothstep(0.05, 0.4, y) * (1.0 - smoothstep(0.65, 1.0, y));
+      col += mix(vec3(0.1, 0.42, 0.5), vec3(0.25, 0.3, 0.7), d.x * 0.5 + 0.5) * band * 0.32;
+      vec3 sp = d * 260.0;
+      vec3 cell = floor(sp);
+      float s = hash13(cell);
+      float star = step(0.9965, s) * smoothstep(0.32, 0.0, length(fract(sp) - 0.5));
+      col += star * smoothstep(0.0, 0.25, y) * (0.55 + 0.45 * sin(uTime * 2.0 + s * 60.0)) * 0.9;
+      // Soft halo around the (voxel) moon
+      float md = max(dot(d, uMoonDir), 0.0);
+      col += vec3(0.3, 0.45, 0.68) * pow(md, 160.0) * 0.3 + vec3(0.08, 0.12, 0.2) * pow(md, 14.0) * 0.3;
+    }
 
     // Day: Aegean blue overhead, hazy toward the horizon (deep enough for the white text on top)
-    vec3 day = mix(vec3(0.3, 0.42, 0.52), vec3(0.07, 0.19, 0.42), smoothstep(-0.02, 0.7, y));
-    col = mix(col, day, uDay);
+    if (uDay > 0.001) {
+      vec3 day = mix(vec3(0.3, 0.42, 0.52), vec3(0.07, 0.19, 0.42), smoothstep(-0.02, 0.7, y));
+      col = mix(col, day, uDay);
+    }
 
     // Sunrise / sunset: a warm band along the horizon, strongest toward the sun
-    vec3 hz = normalize(vec3(d.x, 0.0, d.z) + vec3(1e-4, 0.0, 0.0));
-    vec3 sunHz = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(1e-4, 0.0, 0.0));
-    float toward = pow(max(dot(hz, sunHz), 0.0), 3.0);
-    float horizon = exp(-max(y, 0.0) * 5.0) * smoothstep(-0.2, 0.0, y);
-    col = mix(col, mix(vec3(0.72, 0.36, 0.38), vec3(1.0, 0.56, 0.26), toward), uGolden * horizon * (0.35 + 0.55 * toward));
+    if (uGolden > 0.001) {
+      vec3 hz = normalize(vec3(d.x, 0.0, d.z) + vec3(1e-4, 0.0, 0.0));
+      vec3 sunHz = normalize(vec3(uSunDir.x, 0.0, uSunDir.z) + vec3(1e-4, 0.0, 0.0));
+      float toward = pow(max(dot(hz, sunHz), 0.0), 3.0);
+      float horizon = exp(-max(y, 0.0) * 5.0) * smoothstep(-0.2, 0.0, y);
+      col = mix(col, mix(vec3(0.72, 0.36, 0.38), vec3(1.0, 0.56, 0.26), toward), uGolden * horizon * (0.35 + 0.55 * toward));
+    }
 
     // Glow around the sun (the disc itself is the voxel sun)
     float sd = max(dot(d, uSunDir), 0.0);

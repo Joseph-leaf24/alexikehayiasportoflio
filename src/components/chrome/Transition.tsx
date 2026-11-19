@@ -10,11 +10,18 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { triggerPulse } from "@/lib/store";
+import { sceneState, triggerPulse } from "@/lib/store";
 import { getQuality } from "@/lib/device";
 
 type Go = (to: string, state?: unknown) => void;
 const TransitionCtx = createContext<Go>(() => {});
+
+/**
+ * Settle `p` after `ms` at the latest. The wipe's animations only advance as the browser
+ * draws frames, so on a device that manages about one frame a second they could hold
+ * navigation up for many seconds; this keeps the wipe on schedule regardless.
+ */
+const within = (p: Promise<unknown>, ms: number) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
 
 /**
  * `go(to, state?)`: navigate behind the page-wipe transition. A request made while a
@@ -62,15 +69,21 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         return;
       }
       busy.current = true;
+      sceneState.transition = true;
       el.style.visibility = "visible";
       const shards = Array.from(el.querySelectorAll<HTMLElement>(".page-wipe__shard"));
       const deco = Array.from(el.querySelectorAll<HTMLElement>(".page-wipe__grid, .page-wipe__label"));
+      const STAGGER = 45;
+      // Each sweep, with a little slack past its last sheet before moving on regardless
       const sweep = (from: string, to: string, duration: number) =>
-        Promise.all(
-          shards.map(
-            (sh, i) =>
-              sh.animate([{ transform: from }, { transform: to }], { duration, delay: i * 45, easing: EASE, fill: "forwards" }).finished
-          )
+        within(
+          Promise.all(
+            shards.map(
+              (sh, i) =>
+                sh.animate([{ transform: from }, { transform: to }], { duration, delay: i * STAGGER, easing: EASE, fill: "forwards" }).finished
+            )
+          ),
+          duration + (shards.length - 1) * STAGGER + 300
         );
       const fade = (from: number, to: number) =>
         deco.forEach((d) => d.animate([{ opacity: from }, { opacity: to }], { duration: 260, fill: "forwards" }));
@@ -79,7 +92,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         await sweep("translateY(110%) skewY(-7deg)", "translateY(0) skewY(0deg)", 620 * speed);
         fade(0, 1);
         navigate(to, { state });
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await within(new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), 300);
         await new Promise((r) => setTimeout(r, 140));
         fade(1, 0);
         // …and carry on upwards to reveal the new route
@@ -87,6 +100,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
       } finally {
         el.style.visibility = "hidden";
         busy.current = false;
+        sceneState.transition = false;
         const next = queued.current;
         queued.current = null;
         if (next) goRef.current(next.to, next.state);

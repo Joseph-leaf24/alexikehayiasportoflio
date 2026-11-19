@@ -188,9 +188,13 @@ let cached: Quality | null = null;
 /**
  * Resolve the quality budget once per page load and expose the tier as html[data-tier].
  * Priority: ?quality=low|mid|high  >  a downgrade remembered this session  >  detection.
+ * The signals are read only on that first call: probing the GPU creates a throwaway WebGL
+ * context, which on a busy GPU can block the page for seconds (and callers such as the
+ * page transition ask on every render).
  */
-export function getQuality(signals: DeviceSignals = readSignals()): Quality {
+export function getQuality(given?: DeviceSignals): Quality {
   if (cached) return cached;
+  const signals = given ?? readSignals();
   let tier: Tier = scoreDevice(signals);
   try {
     const remembered = sessionStorage.getItem(STORAGE_KEY);

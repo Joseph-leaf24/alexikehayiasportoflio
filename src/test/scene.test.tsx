@@ -158,6 +158,34 @@ describe("IceScene", () => {
     unmount();
   });
 
+  it("stops drawing during page transitions when frames are already slow", () => {
+    window.history.replaceState({}, "", "/?quality=low");
+    resetQualityCache();
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => (now += 120));
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const run = (n: number) => {
+      for (let i = 0; i < n && frames.length; i++) frames.shift()!(now);
+    };
+    const { unmount } = render(<IceScene />);
+    // Fast enough before the governor has measured anything; then ~8 fps
+    run(40);
+    sceneState.transition = true;
+    const before = gl.renders;
+    run(20);
+    expect(gl.renders).toBe(before);
+    sceneState.transition = false;
+    run(5);
+    expect(gl.renders).toBeGreaterThan(before);
+    unmount();
+    window.history.replaceState({}, "", "/");
+  });
+
   it("runs the low tier at a capped frame rate on touch devices", () => {
     media["(pointer: coarse)"] = true;
     media["(prefers-reduced-motion: reduce)"] = true;

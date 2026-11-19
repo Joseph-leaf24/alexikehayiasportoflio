@@ -643,6 +643,8 @@ export default function IceScene() {
     let slowWindows = 0;
     let longFrames = 0;
     let degraded = false;
+    /** Average frame time (s) over the governor's last window */
+    let frameAvg = 0;
     // Average frame-time budget (50 fps when uncapped) and what counts as a dropped frame
     const budget = q.fpsCap ? 1 / (q.fpsCap - 4) : 1 / 50;
     const hitch = q.fpsCap ? 1.8 / q.fpsCap : 1 / 30;
@@ -658,6 +660,13 @@ export default function IceScene() {
       const nowMs = performance.now();
       // Low-end devices render at a steady 30 fps instead of a stuttering 40-50
       if (minFrameMs && nowMs - last < minFrameMs) return;
+      // Where frames are already slow (software rendering, very weak GPUs), stop drawing while
+      // a page wipe covers the screen: the wipe can only advance one frame at a time, so
+      // with a heavy frame behind every step it would hold navigation up for seconds
+      if (sceneState.transition && frameAvg > 0.07) {
+        last = nowMs;
+        return;
+      }
       const dt = Math.min((nowMs - last) / 1000, 0.1);
       last = nowMs;
       const time = nowMs / 1000 - start;
@@ -670,6 +679,7 @@ export default function IceScene() {
       if (dt > hitch) longFrames++;
       if (frameSum > 1.5) {
         const avg = frameSum / frameCount;
+        frameAvg = avg;
         const janky = longFrames / frameCount > 0.12;
         frameSum = 0;
         frameCount = 0;

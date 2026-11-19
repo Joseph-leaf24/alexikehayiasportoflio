@@ -40,6 +40,7 @@ export function resetState() {
     stops: [],
     override: null,
     press: false,
+    transition: false,
     pulse: -100,
     velocity: 0,
     ready: false,

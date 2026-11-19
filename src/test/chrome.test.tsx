@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Hud from "@/components/chrome/Hud";
 import Cursor from "@/components/chrome/Cursor";
@@ -181,6 +181,23 @@ describe("page transitions", () => {
     fireEvent.click(link);
     expect(await screen.findByText("next page")).toBeInTheDocument();
     expect(sceneState.pulse).toBeGreaterThan(0);
+  });
+
+  it("keeps to schedule when the browser stalls the wipe's animations (very slow devices)", async () => {
+    const animate = Element.prototype.animate;
+    // Animations that never finish, as on a device drawing about one frame a second
+    Element.prototype.animate = function stalled() {
+      return { finished: new Promise(() => {}), cancel: () => {} } as unknown as Animation;
+    };
+    try {
+      render(app);
+      fireEvent.click(screen.getByRole("link", { name: "go" }));
+      expect(sceneState.transition).toBe(true);
+      expect(await screen.findByText("next page", undefined, { timeout: 3000 })).toBeInTheDocument();
+      await waitFor(() => expect(sceneState.transition).toBe(false), { timeout: 3000 });
+    } finally {
+      Element.prototype.animate = animate;
+    }
   });
 
   it("queues a navigation requested while a transition is still running", async () => {

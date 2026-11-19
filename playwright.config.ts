@@ -12,8 +12,10 @@ const CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: "e2e",
-  timeout: 90_000,
-  expect: { timeout: 20_000 },
+  // CI renders WebGL on a slow, shared CPU: be generous there (a slow test run only
+  // delays the deploy a little; a flaky failure blocks it)
+  timeout: CI ? 180_000 : 90_000,
+  expect: { timeout: CI ? 45_000 : 20_000 },
   forbidOnly: CI,
   retries: CI ? 1 : 0,
   // Every page renders WebGL on the CPU (no GPU), so run few browsers at once: one on
