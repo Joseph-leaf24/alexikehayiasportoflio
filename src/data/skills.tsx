@@ -18,7 +18,7 @@ import {
   SiLangchain,
 } from "react-icons/si";
 
-type IconType = ComponentType<{ className?: string }>;
+type IconType = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
 /** Simple Icons dropped the Azure DevOps glyph, so it is inlined here. */
 const AzureDevOpsIcon: IconType = ({ className }) => (

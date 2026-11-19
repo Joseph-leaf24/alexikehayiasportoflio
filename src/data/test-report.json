@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-11-19T10:47:05.356Z",
+  "generatedAt": "2026-11-19T12:09:06.625Z",
   "threshold": 80,
   "tests": {
-    "total": 108,
-    "passed": 108,
+    "total": 109,
+    "passed": 109,
     "failed": 0,
     "files": 10,
     "suites": 45
   },
   "coverage": {
-    "statements": 98.04,
-    "branches": 91.97,
+    "statements": 98.09,
+    "branches": 92.55,
     "functions": 98.25,
-    "lines": 99.04
+    "lines": 99.05
   }
 }

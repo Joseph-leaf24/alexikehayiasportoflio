@@ -26,6 +26,11 @@ dist-ssr
 # Test coverage output
 coverage
 
+# Browser test + Lighthouse output
+playwright-report/
+test-results/
+.lighthouseci/
+
 # Jupyter autosaves
 .ipynb_checkpoints/
 

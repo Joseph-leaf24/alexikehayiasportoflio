@@ -131,7 +131,7 @@ const ProjectDetails = () => {
       <div className="detail__specs">
         <Reveal className="spec-panel hc">
           <Corners />
-          <h3 className="mono-label">Technologies Used</h3>
+          <h2 className="mono-label">Technologies Used</h2>
           <ul className="chips chips--lg">
             {project.tags.map((t) => (
               <li key={t}>{t}</li>
@@ -141,7 +141,7 @@ const ProjectDetails = () => {
         {project.tools && project.tools.length > 0 ? (
           <Reveal className="spec-panel hc" delay={100}>
             <Corners />
-            <h3 className="mono-label">Tools &amp; Languages</h3>
+            <h2 className="mono-label">Tools &amp; Languages</h2>
             <ul className="chips chips--lg">
               {project.tools.map((t) => (
                 <li key={t}>{t}</li>
@@ -151,7 +151,7 @@ const ProjectDetails = () => {
         ) : null}
         <Reveal className="spec-panel hc" delay={200}>
           <Corners />
-          <h3 className="mono-label">AI/Data Science Concepts</h3>
+          <h2 className="mono-label">AI/Data Science Concepts</h2>
           <ul className="chips chips--lg chips--accent">
             {project.concepts.map((c) => (
               <li key={c}>{c}</li>
@@ -182,10 +182,12 @@ const ProjectDetails = () => {
           <div className="gallery">
             {images.map((src, i) => (
               <Reveal key={src + i} variant="clip" delay={(i % 3) * 90}>
-                <button type="button" className="gallery__item hc" onClick={() => setLightbox(i)} data-cursor="EXPAND" aria-label={`Open image ${i + 1} of ${images.length}`}>
-                  <DepthImage src={src} alt={`${project.title} - Image ${i + 1}`} fit="contain" />
+                <button type="button" className="gallery__item hc" onClick={() => setLightbox(i)} data-cursor="EXPAND">
+                  <DepthImage src={src} alt={`Open image ${i + 1} of ${images.length}`} fit="contain" />
                   <Corners />
-                  <span className="gallery__idx">IMG/{pad(i + 1)}</span>
+                  <span className="gallery__idx" aria-hidden="true">
+                    IMG/{pad(i + 1)}
+                  </span>
                 </button>
               </Reveal>
             ))}

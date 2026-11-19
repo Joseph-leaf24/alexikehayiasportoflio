@@ -153,8 +153,11 @@ describe("ProjectCard", () => {
   it("links to the project and tilts toward the pointer", () => {
     const project = projectData.dataAnalytics.projects[0];
     renderRoute(<ProjectCard project={project} category="dataAnalytics" index={0} order={0} />);
-    const card = screen.getByRole("link", { name: `${project.title} — view project` });
-    expect(card).toHaveAttribute("href", "#/project/dataAnalytics/0");
+    // The title is the link (stretched over the card by CSS); the card is the tilting article
+    const link = screen.getByRole("link", { name: project.title });
+    expect(link).toHaveAttribute("href", "#/project/dataAnalytics/0");
+    const card = link.closest(".project-card") as HTMLElement;
+    expect(card.tagName).toBe("ARTICLE");
     expect(screen.getByText("Live dashboard")).toBeInTheDocument();
     vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 200, height: 100 } as DOMRect);
     fireEvent(card, new PointerEvent("pointermove", { pointerType: "mouse", clientX: 150, clientY: 25, bubbles: true }));

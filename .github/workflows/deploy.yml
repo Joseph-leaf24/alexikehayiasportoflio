@@ -1,6 +1,9 @@
 name: Deploy to GitHub Pages
 
-# Two modes, chosen automatically:
+# On every push to main: run all the quality checks (quality.yml), build, deploy,
+# then confirm the live site is serving the new build.
+#
+# Two deploy modes, chosen automatically:
 #
 #  • Default (no PUBLIC_PAGES_REPO variable): this repo is public and deploys
 #    itself to GitHub Pages.
@@ -18,56 +21,74 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# One deployment at a time; a newer push waits rather than cancelling a deploy mid-way
 concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
+  quality:
+    name: Quality checks
+    uses: ./.github/workflows/quality.yml
+
   build:
+    name: Build
+    needs: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      bundle: ${{ steps.bundle.outputs.path }}
     steps:
       - name: Checkout (website source only — skips the large Projects/ folder)
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: |
             src
             public
-            .github
             scripts
 
+      # No dependency cache here: a release build shouldn't restore files that other
+      # (e.g. pull-request) runs could have written
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
-          cache: 'npm'
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Unit tests + coverage (fails below 80%) and on-page report
+      - name: Unit tests + coverage and the on-page test report
         run: npm run test:report
 
       - name: Build
         run: npm run build
 
+      - name: Record the app bundle name (used to verify the deploy)
+        id: bundle
+        run: |
+          set -euo pipefail
+          path=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)
+          test -n "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
       # ---- Default mode: deploy from this repo ---------------------------
       - name: Setup Pages
         if: ${{ vars.PUBLIC_PAGES_REPO == '' }}
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Upload Pages artifact
         if: ${{ vars.PUBLIC_PAGES_REPO == '' }}
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: ./dist
 
       # ---- Private-source mode: push only the compiled site --------------
       - name: Publish compiled site to the public repo
         if: ${{ vars.PUBLIC_PAGES_REPO != '' }}
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
           external_repository: ${{ vars.PUBLIC_PAGES_REPO }}
@@ -79,13 +100,56 @@ jobs:
           full_commit_message: 'Deploy compiled site'
 
   deploy:
+    name: Deploy
     needs: build
     if: ${{ vars.PUBLIC_PAGES_REPO == '' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # publish the Pages deployment
+      id-token: write # OIDC token that proves the deployment comes from this workflow
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  verify:
+    name: Verify the live site
+    needs: [build, deploy]
+    # Runs after either deploy mode (in private-source mode the deploy job is skipped)
+    if: ${{ always() && needs.build.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait until the new build is live
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+          PUBLIC_REPO: ${{ vars.PUBLIC_PAGES_REPO }}
+          BUNDLE: ${{ needs.build.outputs.bundle }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PUBLIC_REPO" ]; then
+            owner="${PUBLIC_REPO%%/*}"
+            url="https://${owner,,}.github.io/${PUBLIC_REPO#*/}/"
+          else
+            url="$PAGE_URL"
+          fi
+          echo "Checking $url for $BUNDLE"
+          # Pages can take a minute or two to publish; the query string skips the CDN cache
+          for attempt in $(seq 1 30); do
+            html=$(curl -fsSL "${url}?deploy=${GITHUB_SHA}" || true)
+            if grep -qF "$BUNDLE" <<<"$html"; then
+              curl -fsS -o /dev/null "${url}${BUNDLE}"
+              grep -q 'Content-Security-Policy' <<<"$html"
+              echo "Live after $attempt check(s): $url serves $BUNDLE" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error title=Deploy verification::$url is not serving $BUNDLE after 7.5 minutes"
+          exit 1

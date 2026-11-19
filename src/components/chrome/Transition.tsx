@@ -16,7 +16,10 @@ import { getQuality } from "@/lib/device";
 type Go = (to: string, state?: unknown) => void;
 const TransitionCtx = createContext<Go>(() => {});
 
-/** `go(to, state?)`: navigate behind the page-wipe transition (ignored while one is already running). */
+/**
+ * `go(to, state?)`: navigate behind the page-wipe transition. A request made while a
+ * transition is running is queued (latest wins) and plays as soon as it ends.
+ */
 export const usePageTransition = () => useContext(TransitionCtx);
 
 const EASE = "cubic-bezier(.76,0,.24,1)";
@@ -30,6 +33,8 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const overlayRef = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
+  /** Navigation requested mid-transition; plays when the current one finishes */
+  const queued = useRef<{ to: string; state?: unknown } | null>(null);
   const quality = getQuality();
   const shardCount = quality.shards;
   const speed = quality.tier === "low" ? 0.7 : 1;
@@ -38,7 +43,10 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
 
   const go = useCallback<Go>(
     async (to, state) => {
-      if (busy.current) return;
+      if (busy.current) {
+        queued.current = { to, state };
+        return;
+      }
       // Remember where we were on the home page so "back" returns to the same spot
       if (pathRef.current === "/") {
         try {
@@ -79,10 +87,15 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
       } finally {
         el.style.visibility = "hidden";
         busy.current = false;
+        const next = queued.current;
+        queued.current = null;
+        if (next) goRef.current(next.to, next.state);
       }
     },
     [navigate, speed]
   );
+  const goRef = useRef(go);
+  goRef.current = go;
 
   return (
     <TransitionCtx.Provider value={go}>

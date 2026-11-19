@@ -27,7 +27,8 @@ export default function About() {
     const ctx = gsap.context(() => {
       gsap.fromTo(
         ".mw",
-        { opacity: 0.12 },
+        // 0.55 keeps the unlit words above WCAG AA contrast (~5:1) before they light up
+        { opacity: 0.55 },
         {
           opacity: 1,
           stagger: 0.08,

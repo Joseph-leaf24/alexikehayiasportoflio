@@ -1,0 +1,7 @@
+# zizmor (workflow security audit) settings, used by the Workflows job in quality.yml.
+rules:
+  self-repository:
+    ignore:
+      # deploy.yml calls quality.yml with `./`. GitHub's newer `$/` syntax resolves to
+      # the same commit, but actionlint 1.7.12 can't parse it yet; switch once it can.
+      - deploy.yml

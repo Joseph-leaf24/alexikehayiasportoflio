@@ -1,0 +1,19 @@
+# Link checker settings for the weekly site-health workflow (lychee).
+
+# Only check web links (relative paths are covered by the build and browser tests)
+scheme = ["https", "http"]
+
+# LinkedIn answers automated requests with HTTP 999, so count that as reachable
+accept = ["200..=299", "999"]
+
+exclude = [
+  # Font preconnect origins in index.html: hosts, not pages
+  '^https://fonts\.(googleapis|gstatic)\.com/?$',
+  # XML namespace identifiers (e.g. in inline SVG), not links
+  '^http://www\.w3\.org/',
+  '^https?://localhost',
+]
+
+max_retries = 3
+retry_wait_time = 5
+timeout = 30

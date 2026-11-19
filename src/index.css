@@ -236,6 +236,7 @@ html.scroll-locked {
   .corners i:nth-child(4) { right: 0; bottom: 0; border-right-width: 1px; border-bottom-width: 1px; }
   .hc:hover .corners i,
   .hc:focus-visible .corners i,
+  .hc:has(:focus-visible) .corners i,
   .hc.is-active .corners i {
     opacity: 1;
   }
@@ -1193,8 +1194,9 @@ html.no-webgl body {
   letter-spacing: -0.045em;
   font-weight: 400;
 }
+/* Words start dimmed but still readable (WCAG AA) and light up as the statement scrolls by */
 .manifesto .mw {
-  opacity: 0.12;
+  opacity: 0.55;
 }
 .stats {
   display: grid;
@@ -1780,6 +1782,23 @@ html.no-webgl body {
   gap: 0.9rem;
   margin-top: 0.25rem;
 }
+/* The title link covers the whole card (stretched link); focus outlines the card */
+.project-card__link {
+  color: inherit;
+}
+.project-card__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+.project-card__link:focus-visible {
+  outline: none;
+}
+.project-card__link:focus-visible::after {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
 .project-card__cta {
   display: inline-flex;
   align-items: center;
@@ -2185,7 +2204,7 @@ html.no-webgl body {
   border: 1px solid var(--line);
   background: var(--panel);
 }
-.spec-panel h3 {
+.spec-panel h2 {
   margin: 0 0 1rem;
 }
 .detail__block {
@@ -2918,5 +2937,9 @@ html[data-tier="low"] .ghost-num {
   }
   .ghost-num {
     display: none;
+  }
+  /* No scroll animation to light the statement up, so show it at full strength */
+  .manifesto .mw {
+    opacity: 1;
   }
 }

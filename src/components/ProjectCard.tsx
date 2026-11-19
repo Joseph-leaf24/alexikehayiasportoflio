@@ -23,13 +23,14 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
  * Project card linking to its detail page: the project image with the depth effect, domains, chips.
- * Tilts toward the mouse (--rx/--ry) with a glare that follows it (--mx/--my).
+ * The link is the title, stretched over the whole card by CSS (so its accessible name is just the
+ * title). Tilts toward the mouse (--rx/--ry) with a glare that follows it (--mx/--my).
  */
 const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
-  const ref = useRef<HTMLAnchorElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const { title, description, image, tags, tools, concepts, powerBiUrl } = project;
 
-  const onMove = (e: PointerEvent<HTMLAnchorElement>) => {
+  const onMove = (e: PointerEvent<HTMLElement>) => {
     const el = ref.current;
     if (!el || e.pointerType !== "mouse") return;
     const r = el.getBoundingClientRect();
@@ -49,12 +50,9 @@ const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
 
   return (
     <Reveal delay={order * 110} className="card-wrap">
-      <TLink
+      <article
         ref={ref}
-        to={projectPath(category, index)}
         className="project-card hc"
-        data-cursor="OPEN"
-        aria-label={`${title} — view project`}
         onPointerMove={onMove}
         onPointerLeave={onLeave}
         onPointerEnter={() => triggerPulse()}
@@ -71,7 +69,9 @@ const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
         <div className="project-card__body">
           <span className="project-card__domains">{domainsFor(category, index).map((d) => d.title).join(" · ")}</span>
           <h4 className="project-card__title">
-            <ScrambleText text={title} hover trigger="none" />
+            <TLink to={projectPath(category, index)} className="project-card__link" data-cursor="OPEN">
+              <ScrambleText text={title} hover trigger="none" />
+            </TLink>
           </h4>
           <p className="project-card__desc">{description}</p>
 
@@ -104,11 +104,11 @@ const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
             </div>
           </div>
 
-          <span className="project-card__cta">
+          <span className="project-card__cta" aria-hidden="true">
             View project <ArrowUpRight className="h-4 w-4" />
           </span>
         </div>
-      </TLink>
+      </article>
     </Reveal>
   );
 };

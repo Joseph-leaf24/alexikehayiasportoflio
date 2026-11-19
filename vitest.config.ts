@@ -13,6 +13,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Unit tests only; the browser tests in e2e/ run under Playwright
+    include: ["src/**/*.test.{ts,tsx}"],
     css: false,
     restoreMocks: true,
     coverage: {

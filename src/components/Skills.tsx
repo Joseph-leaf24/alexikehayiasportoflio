@@ -83,7 +83,7 @@ export default function Skills() {
             <Reveal as="li" key={name} className="skill-tile hc" delay={(i % 6) * 60} data-scramble-host="">
               <Corners />
               <span className="skill-tile__idx">S/{pad(i + 1)}</span>
-              <Icon className="skill-tile__icon" />
+              <Icon className="skill-tile__icon" aria-hidden="true" />
               <div>
                 <ScrambleText text={name} hover trigger="none" className="skill-tile__name" />
                 <span className="skill-tile__hint">{hint ?? "—"}</span>

@@ -183,6 +183,34 @@ describe("page transitions", () => {
     expect(sceneState.pulse).toBeGreaterThan(0);
   });
 
+  it("queues a navigation requested while a transition is still running", async () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <TransitionProvider>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <>
+                  <TLink to="/a">a</TLink>
+                  <TLink to="/b">b</TLink>
+                </>
+              }
+            />
+            <Route path="/a" element={<p>page a</p>} />
+            <Route path="/b" element={<p>page b</p>} />
+          </Routes>
+          <LocationProbe />
+        </TransitionProvider>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole("link", { name: "a" }));
+    // Second click lands mid-transition: it must not be dropped
+    fireEvent.click(screen.getByRole("link", { name: "b" }));
+    expect(await screen.findByText("page b")).toBeInTheDocument();
+    expect(screen.getByTestId("location").textContent).toBe("/b");
+  });
+
   it("lets modified clicks through (open in new tab)", () => {
     render(app);
     fireEvent.click(screen.getByRole("link", { name: "go" }), { ctrlKey: true });

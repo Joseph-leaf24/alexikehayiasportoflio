@@ -1,0 +1,57 @@
+name: Site health
+
+# Weekly (and on demand): is the live site up and serving the app, and do the links
+# it shows (LinkedIn, GitHub, Power BI dashboards, fonts) still work? A failed run
+# emails you like any other failed workflow.
+#
+# The site URL defaults to the GitHub Pages address; set the repository variable
+# SITE_URL to override it (e.g. after adding a custom domain).
+
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-health
+  cancel-in-progress: true
+
+jobs:
+  uptime:
+    name: Live site is up
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Site, app bundle and CV respond
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://joseph-leaf24.github.io/alexikehayiasportoflio/' }}
+        run: |
+          set -euo pipefail
+          html=$(curl -fsSL --retry 3 --retry-delay 10 "$SITE_URL")
+          grep -q 'Content-Security-Policy' <<<"$html" || { echo "::error::$SITE_URL has no Content-Security-Policy"; exit 1; }
+          bundle=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' <<<"$html" | head -1)
+          [ -n "$bundle" ] || { echo "::error::$SITE_URL does not reference the app bundle"; exit 1; }
+          curl -fsS --retry 3 -o /dev/null "${SITE_URL}${bundle}"
+          curl -fsS --retry 3 -o /dev/null "${SITE_URL}Alexi_Kehayias_CV.pdf"
+          echo "✅ $SITE_URL is up and serving $bundle" >> "$GITHUB_STEP_SUMMARY"
+
+  links:
+    name: Links still work
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (website source only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src
+
+      # Settings (accepted statuses, exclusions, retries) are in lychee.toml
+      - name: Check every external link in the site
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: --config lychee.toml --no-progress 'src/**/*.ts' 'src/**/*.tsx' index.html
