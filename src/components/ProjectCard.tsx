@@ -28,7 +28,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
  */
 const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
   const ref = useRef<HTMLElement>(null);
-  const { title, description, image, tags, tools, concepts, powerBiUrl } = project;
+  const { title, description, image, tags, tools, concepts } = project;
 
   const onMove = (e: PointerEvent<HTMLElement>) => {
     const el = ref.current;
@@ -63,7 +63,6 @@ const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
           <DepthImage src={image} alt="" />
           <span className="project-card__tint" aria-hidden="true" />
           <span className="project-card__idx">P/{pad(index + 1)}</span>
-          {powerBiUrl ? <span className="project-card__flag">Live dashboard</span> : null}
         </div>
 
         <div className="project-card__body">

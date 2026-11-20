@@ -551,6 +551,9 @@ export default function IceScene() {
       // Less bloom by day so the white houses don't wash out
       bloom.strength = q.bloomStrength * (1 - 0.5 * d);
       bloom.threshold = 0.72 + 0.2 * d;
+      // The whole backdrop a little darker so the text on top reads: more by day, when the
+      // sky and the white village are bright
+      finalPass.uniforms.uDim.value = 0.88 - 0.12 * d;
       // Lets the CSS give text over the bright daytime scene a stronger shadow
       document.documentElement.dataset.sky = d > 0.5 ? "day" : "night";
     };

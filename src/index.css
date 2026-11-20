@@ -1017,6 +1017,15 @@ html.no-webgl body {
   -webkit-user-select: none;
   touch-action: pan-y;
 }
+/* A soft shade over the lower part of the scene, where the name and focus list sit right in
+   front of the white village; it fades out before the sky, sun and moon */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(5, 7, 10, 0.62) 0%, rgba(5, 7, 10, 0.42) 34%, rgba(5, 7, 10, 0.16) 58%, rgba(5, 7, 10, 0) 76%);
+}
 .hero__inner {
   position: relative;
   display: flex;
@@ -1689,8 +1698,7 @@ html[data-sky="day"] .hero__top > .mono-label {
 .project-card:hover .project-card__tint {
   opacity: 0.45;
 }
-.project-card__idx,
-.project-card__flag {
+.project-card__idx {
   position: absolute;
   top: 12px;
   font-family: var(--font-mono);
@@ -1701,23 +1709,6 @@ html[data-sky="day"] .hero__top > .mono-label {
 .project-card__idx {
   left: 12px;
   color: var(--ice);
-}
-.project-card__flag {
-  right: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  color: var(--bg);
-  background: var(--accent);
-}
-.project-card__flag::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--bg);
-  animation: blink 1.2s steps(1) infinite;
 }
 .project-card__body {
   position: relative;

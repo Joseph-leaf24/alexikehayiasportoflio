@@ -755,6 +755,8 @@ export const skyFragment = /* glsl */ `
       col += star * seam * smoothstep(0.0, 0.25, d.y) * (0.55 + 0.45 * sin(uTime * 2.0 + s * 60.0)) * 0.9 * (1.0 - uDay);
     }
 
+    // The bright daytime sky sits behind the hero's labels and name: a little deeper by day
+    col *= 1.0 - 0.15 * uDay;
     gl_FragColor = vec4(col * uExposure, 1.0);
   }
 `;
@@ -856,7 +858,7 @@ export const lineFragment = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Final composite: aberration, glitch, vignette, grain, scanlines     */
+/* Final composite: dimming, aberration, glitch, vignette, grain, scanlines */
 /* ------------------------------------------------------------------ */
 export const FinalShader = {
   uniforms: {
@@ -865,6 +867,8 @@ export const FinalShader = {
     uAberr: { value: 0.0015 },
     uGlitch: { value: 0 },
     uRes: { value: [1, 1] },
+    /** Overall brightness of the 3D backdrop (below 1 keeps the text on top readable; set per time of day) */
+    uDim: { value: 1 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -879,6 +883,7 @@ export const FinalShader = {
     uniform float uAberr;
     uniform float uGlitch;
     uniform vec2 uRes;
+    uniform float uDim;
     varying vec2 vUv;
     float rnd(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main() {
@@ -892,6 +897,7 @@ export const FinalShader = {
       col.r = texture2D(tDiffuse, uv + off).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - off).b;
+      col *= uDim;
       col *= 1.0 - smoothstep(0.12, 0.62, r2) * 0.55;
       col += (rnd(uv * uRes + fract(uTime) * 97.0) - 0.5) * 0.045;
       col += vec3(0.0, 0.01, 0.02) * sin(uv.y * uRes.y * 1.4) * 0.5;

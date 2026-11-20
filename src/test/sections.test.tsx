@@ -158,7 +158,8 @@ describe("ProjectCard", () => {
     expect(link).toHaveAttribute("href", "#/project/dataAnalytics/0");
     const card = link.closest(".project-card") as HTMLElement;
     expect(card.tagName).toBe("ARTICLE");
-    expect(screen.getByText("Live dashboard")).toBeInTheDocument();
+    // No "Live dashboard" badge on the cards (the dashboards are on the project pages)
+    expect(screen.queryByText(/live dashboard/i)).toBeNull();
     vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 200, height: 100 } as DOMRect);
     fireEvent(card, new PointerEvent("pointermove", { pointerType: "mouse", clientX: 150, clientY: 25, bubbles: true }));
     expect(card.style.getPropertyValue("--ry")).toBe("2.25deg");
