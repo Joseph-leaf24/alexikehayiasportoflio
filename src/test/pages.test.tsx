@@ -7,7 +7,7 @@ import NotFound from "@/pages/NotFound";
 import { TransitionProvider } from "@/components/chrome/Transition";
 import { projectData } from "@/data/projects";
 import { allProjects } from "@/data/profile";
-import { sceneState, ui } from "@/lib/store";
+import { nav, sceneState, ui } from "@/lib/store";
 import { flush, renderRoute, resetState } from "./utils";
 import { setScrollY } from "./setup";
 
@@ -41,9 +41,34 @@ describe("home page", () => {
     expect(sceneState.stops).toEqual([]);
   });
 
-  it("opens on the requested section with the specialization that was being viewed", () => {
+  it("a fresh load or reload opens on the intro, whatever position or target is left over", () => {
+    // A reload looks like this: React Router says "POP", the history entry still carries the
+    // last link's state, and session storage still holds the last scroll position
+    sessionStorage.setItem("ak:homeY", "1234");
+    render(
+      <MemoryRouter initialEntries={["/x", { pathname: "/", state: { scrollTo: "projects" } }]} initialIndex={1}>
+        <TransitionProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+          </Routes>
+        </TransitionProvider>
+      </MemoryRouter>
+    );
+    expect(window.scrollTo).toHaveBeenCalledTimes(1);
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
+  });
+
+  it("counts the browser's back / forward buttons as moving within the site", () => {
+    expect(nav.inApp).toBe(false);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(nav.inApp).toBe(true);
+  });
+
+  it("after moving within the site, opens on the requested section with the specialization that was being viewed", () => {
+    nav.inApp = true;
     renderIndex({ scrollTo: "projects", category: "nlp" });
-    expect(window.scrollTo).toHaveBeenCalled();
+    // #projects is at 0 in jsdom, so the -10 offset gives -10 (not the plain top, 0)
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: -10, behavior: "auto" });
     const selected = screen.getAllByRole("tab").find((t) => t.getAttribute("aria-selected") === "true")!;
     expect(selected).toHaveAttribute("id", "tab-nlp");
     expect(sessionStorage.getItem("ak:spec")).toBe("3");
@@ -78,7 +103,8 @@ describe("home page", () => {
     get.mockRestore();
   });
 
-  it("restores the scroll position on back/forward navigation", () => {
+  it("restores the scroll position on back/forward navigation within the site", () => {
+    nav.inApp = true;
     sessionStorage.setItem("ak:homeY", "1234");
     render(
       <MemoryRouter initialEntries={["/x", "/"]} initialIndex={1}>

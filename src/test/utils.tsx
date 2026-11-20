@@ -3,7 +3,7 @@ import { act, render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { vi } from "vitest";
 import { TransitionProvider } from "@/components/chrome/Transition";
-import { sceneState, ui } from "@/lib/store";
+import { nav, sceneState, ui } from "@/lib/store";
 import { resetQualityCache } from "@/lib/device";
 
 /** Fake timers that also drive requestAnimationFrame + performance.now. */
@@ -36,6 +36,7 @@ export const flush = () => act(async () => {
 /** Put every shared store back to its initial state. */
 export function resetState() {
   ui.set({ ready: false, sectionIndex: "00", sectionLabel: "INTRO", menuOpen: false });
+  nav.inApp = false;
   Object.assign(sceneState, {
     stops: [],
     override: null,

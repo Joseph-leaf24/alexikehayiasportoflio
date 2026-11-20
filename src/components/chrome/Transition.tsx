@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
-import { sceneState, triggerPulse } from "@/lib/store";
+import { nav, sceneState, triggerPulse } from "@/lib/store";
 import { getQuality } from "@/lib/device";
 
 type Go = (to: string, state?: unknown) => void;
@@ -50,6 +50,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
 
   const go = useCallback<Go>(
     async (to, state) => {
+      nav.inApp = true;
       if (busy.current) {
         queued.current = { to, state };
         return;

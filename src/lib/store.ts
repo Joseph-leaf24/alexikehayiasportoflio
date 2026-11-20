@@ -115,6 +115,20 @@ export const sceneState = {
   cam: { x: 0, y: 0, z: 0 },
 };
 
+/* ------------------------------------------------------------------ */
+/* Navigation within this page load                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Whether the visitor has moved within the site since the page loaded (a link through the
+ * page transition, or the browser's back / forward buttons). Until then the home page opens
+ * on the intro: the router state and the saved scroll position only describe moves within
+ * the site, but both outlive a reload (in history and session storage).
+ */
+export const nav = { inApp: false };
+// Registered at import, before the router's own listener, so it is set before the new route renders
+if (typeof window !== "undefined") window.addEventListener("popstate", () => (nav.inApp = true));
+
 /** Send a ripple through the scene (loader exit, page transitions, card hovers, tab changes). */
 export const triggerPulse = () => {
   sceneState.pulse = performance.now() / 1000;

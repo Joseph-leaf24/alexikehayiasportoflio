@@ -23,7 +23,9 @@ export default function About() {
 
   // Words light up one by one as the statement scrolls through the viewport
   useEffect(() => {
-    if (prefersReducedMotion()) return;
+    const el = manifestoRef.current;
+    if (prefersReducedMotion() || !el) return;
+    // (scoped to the element, not the ref: see Hero)
     const ctx = gsap.context(() => {
       gsap.fromTo(
         ".mw",
@@ -33,10 +35,10 @@ export default function About() {
           opacity: 1,
           stagger: 0.08,
           ease: "none",
-          scrollTrigger: { trigger: manifestoRef.current, start: "top 85%", end: "bottom 45%", scrub: true },
+          scrollTrigger: { trigger: el, start: "top 85%", end: "bottom 45%", scrub: true },
         }
       );
-    }, manifestoRef);
+    }, el);
     return () => ctx.revert();
   }, []);
 

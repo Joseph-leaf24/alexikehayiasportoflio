@@ -7,7 +7,7 @@ import Skills from "@/components/Skills";
 import Work from "@/components/Work";
 import Contact from "@/components/Contact";
 import { specializations } from "@/data/profile";
-import { sceneState, ui, type LayoutKey } from "@/lib/store";
+import { nav, sceneState, ui, type LayoutKey } from "@/lib/store";
 import { refreshScroll, scrollToTarget } from "@/lib/smoothScroll";
 
 /** Router state other pages send when linking home. */
@@ -54,9 +54,13 @@ const Index = () => {
     }
   }, [active]);
 
-  // Scroll position on arrival: explicit target > browser back/forward > top
+  // Scroll position on arrival. A fresh page load or reload always opens on the intro (React
+  // Router reports it as "POP", and the router state survives a reload). After moving within
+  // the site: an explicit target > browser back/forward (the saved position) > top.
   useLayoutEffect(() => {
-    if (state.scrollTo) {
+    if (!nav.inApp) {
+      scrollToTarget(0, { immediate: true });
+    } else if (state.scrollTo) {
       scrollToTarget(`#${state.scrollTo}`, { immediate: true, offset: -10 });
     } else if (navType === "POP") {
       scrollToTarget(readNumber("ak:homeY"), { immediate: true });

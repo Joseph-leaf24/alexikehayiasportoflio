@@ -32,6 +32,8 @@ test.beforeEach(async ({ page }) => {
   page.on("pageerror", (e) => problems.push(`uncaught: ${e.message}`));
   page.on("console", (m) => {
     if (m.type() === "error") problems.push(`console: ${m.text()}`);
+    // GSAP's warning for an animation scoped to an element React has already removed
+    if (m.type() === "warning" && /Invalid scope/.test(m.text())) problems.push(`console warning: ${m.text()}`);
   });
 });
 
@@ -98,6 +100,29 @@ test("home page: every section renders, fits the screen and passes axe", async (
   await expectSilent(page);
   await expectNoLocation(page);
   await expectAccessible(page);
+});
+
+test("a reload always opens on the intro, also after coming back from a project", async ({ page }) => {
+  const atIntro = async () => {
+    await expect(page.locator(".loader")).toHaveCount(0, { timeout: 45_000 });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(page.locator(".hud-section__idx")).toHaveText("00");
+  };
+  await open(page);
+  // Scrolled down, then reloaded
+  await page.locator("#projects").scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
+  await page.waitForTimeout(400); // the position is saved shortly after scrolling stops
+  await page.reload();
+  await atIntro();
+  // Back from a project lands on the work section; a reload there still opens on the intro
+  await page.locator("#projects").scrollIntoViewIfNeeded();
+  await page.locator(".project-card__link").first().click();
+  await expect(page).toHaveURL(/#\/project\//);
+  await page.getByRole("link", { name: /back to portfolio/i }).click();
+  await expect(page.locator("#projects")).toBeInViewport({ ratio: 0.1 });
+  await page.reload();
+  await atIntro();
 });
 
 test("a project card opens its page, and Back returns to the work section", async ({ page }) => {

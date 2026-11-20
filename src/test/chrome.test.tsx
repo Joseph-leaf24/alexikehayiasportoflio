@@ -5,7 +5,7 @@ import Hud from "@/components/chrome/Hud";
 import Cursor from "@/components/chrome/Cursor";
 import Loader from "@/components/chrome/Loader";
 import { TLink, TransitionProvider } from "@/components/chrome/Transition";
-import { sceneState, ui } from "@/lib/store";
+import { nav, sceneState, ui } from "@/lib/store";
 import { advance, LocationProbe, renderRoute, resetState, useAnimationTimers } from "./utils";
 import { media, setScrollY } from "./setup";
 
@@ -181,6 +181,8 @@ describe("page transitions", () => {
     fireEvent.click(link);
     expect(await screen.findByText("next page")).toBeInTheDocument();
     expect(sceneState.pulse).toBeGreaterThan(0);
+    // ...and marks that the visitor has moved within the site (see Index)
+    expect(nav.inApp).toBe(true);
   });
 
   it("keeps to schedule when the browser stalls the wipe's animations (very slow devices)", async () => {

@@ -98,16 +98,20 @@ const Hero = () => {
     };
   }, [coarse]);
 
-  // Hero copy drifts up and fades as you leave it
+  // Hero copy drifts up and fades as you leave it. (The scope is the element itself, not the
+  // ref: React nulls the ref before this cleanup runs, and ScrollTrigger re-reads the scope
+  // while tearing down, which made GSAP warn "Invalid scope" every time the page was left.)
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
     const ctx = gsap.context(() => {
       gsap.to(".hero__inner", {
         yPercent: -14,
         opacity: 0,
         ease: "none",
-        scrollTrigger: { trigger: ref.current, start: "top top", end: "bottom top", scrub: true },
+        scrollTrigger: { trigger: el, start: "top top", end: "bottom top", scrub: true },
       });
-    }, ref);
+    }, el);
     return () => ctx.revert();
   }, []);
 
