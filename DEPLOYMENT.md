@@ -110,10 +110,9 @@ The site is live again within a minute or two.
   accessibility tests in your installed Google Chrome (desktop and phone sizes).
 - Lighthouse: after `npm run build`, run `npx @lhci/cli@0.15.1 autorun` for the same
   scores and thresholds as CI (`lighthouserc.json`).
-- Quality is live: the scene aims for 60 fps and moves resolution, bloom and grain up or
-  down to the best the device holds (`src/lib/adaptive.ts`; the HUD's bottom bar shows
-  e.g. `60 fps · 1.50×` on wide screens). Start from another tier with `?quality=low`,
-  `?quality=mid` or `?quality=high` in the URL.
+- Every device gets the full quality (screen resolution up to 2×, bloom, grain, every
+  page effect; `src/lib/device.ts`). Try a lighter budget by hand with `?quality=low` or
+  `?quality=mid` in the URL.
 - The scene follows the real time in Amsterdam. Add `?time=HH:MM` (e.g. `?time=16:30`) to
   see another time of day; the link-preview image `public/og-image.jpg` is the hero at
   `?time=16:30`, 1200×630.

@@ -643,7 +643,7 @@ export const sunFragment = /* glsl */ `
 `;
 
 /* ------------------------------------------------------------------ */
-/* Sky dome: night (aurora + stars) ↔ day (Aegean blue + sun glow)      */
+/* Sky dome, built from cubes: night (aurora + stars) ↔ day ↔ sunset   */
 /* ------------------------------------------------------------------ */
 export const skyVertex = /* glsl */ `
   varying vec3 vDir;
@@ -653,6 +653,9 @@ export const skyVertex = /* glsl */ `
   }
 `;
 
+/** Angular size of one sky cube (radians, ~1.6°: about 35 px on screen). */
+const SKY_CELL = 0.028;
+
 export const skyFragment = /* glsl */ `
   uniform float uTime;
   uniform float uExposure;
@@ -660,12 +663,12 @@ export const skyFragment = /* glsl */ `
   varying vec3 vDir;
   ${DAY}
   ${NOISE}
-  void main() {
-    vec3 d = normalize(vDir);
-    float y = d.y;
 
-    // Night: deep blue-black with a faint horizon glow, aurora and stars (skipped in full
-    // daylight, where it's invisible: the aurora's noise is the sky's most expensive part)
+  /** The smooth sky colour toward d (stars apart): night, day and sunset, moon halo, sun glow. */
+  vec3 skyAt(vec3 d) {
+    float y = d.y;
+    // Night: deep blue-black with a faint horizon glow and aurora (skipped in full daylight,
+    // where it's invisible: the aurora's noise is the sky's most expensive part)
     vec3 col = vec3(0.0);
     if (uDay < 0.999) {
       col = mix(vec3(0.01, 0.014, 0.022), vec3(0.028, 0.045, 0.075), smoothstep(-0.2, 0.7, y));
@@ -673,22 +676,15 @@ export const skyFragment = /* glsl */ `
       float a = fbm(vec3(d.x * 2.2 + uTime * 0.018, d.y * 5.0, d.z * 2.2 - uTime * 0.012));
       float band = smoothstep(0.5, 0.85, a) * smoothstep(0.05, 0.4, y) * (1.0 - smoothstep(0.65, 1.0, y));
       col += mix(vec3(0.1, 0.42, 0.5), vec3(0.25, 0.3, 0.7), d.x * 0.5 + 0.5) * band * 0.32;
-      vec3 sp = d * 260.0;
-      vec3 cell = floor(sp);
-      float s = hash13(cell);
-      float star = step(0.9965, s) * smoothstep(0.32, 0.0, length(fract(sp) - 0.5));
-      col += star * smoothstep(0.0, 0.25, y) * (0.55 + 0.45 * sin(uTime * 2.0 + s * 60.0)) * 0.9;
       // Soft halo around the (voxel) moon
       float md = max(dot(d, uMoonDir), 0.0);
       col += vec3(0.3, 0.45, 0.68) * pow(md, 160.0) * 0.3 + vec3(0.08, 0.12, 0.2) * pow(md, 14.0) * 0.3;
     }
-
     // Day: Aegean blue overhead, hazy toward the horizon (deep enough for the white text on top)
     if (uDay > 0.001) {
       vec3 day = mix(vec3(0.3, 0.42, 0.52), vec3(0.07, 0.19, 0.42), smoothstep(-0.02, 0.7, y));
       col = mix(col, day, uDay);
     }
-
     // Sunrise / sunset: a warm band along the horizon, strongest toward the sun
     if (uGolden > 0.001) {
       vec3 hz = normalize(vec3(d.x, 0.0, d.z) + vec3(1e-4, 0.0, 0.0));
@@ -697,11 +693,67 @@ export const skyFragment = /* glsl */ `
       float horizon = exp(-max(y, 0.0) * 5.0) * smoothstep(-0.2, 0.0, y);
       col = mix(col, mix(vec3(0.72, 0.36, 0.38), vec3(1.0, 0.56, 0.26), toward), uGolden * horizon * (0.35 + 0.55 * toward));
     }
-
     // Glow around the sun (the disc itself is the voxel sun)
     float sd = max(dot(d, uSunDir), 0.0);
     vec3 sunCol = mix(vec3(1.0, 0.94, 0.8), vec3(1.0, 0.62, 0.32), uGolden);
     col += sunCol * (pow(sd, 60.0) * 0.35 + pow(sd, 8.0) * 0.1) * max(uDay, uGolden) * smoothstep(-0.1, 0.02, uSunDir.y);
+    return col;
+  }
+
+  /** Turn c's hue by a radians (YIQ), keeping its brightness; sat scales the colourfulness. */
+  vec3 hueTurn(vec3 c, float a, float sat) {
+    vec3 yiq = mat3(0.299, 0.596, 0.211, 0.587, -0.274, -0.523, 0.114, -0.322, 0.312) * c;
+    float h = atan(yiq.z, yiq.y) + a;
+    float chroma = length(yiq.yz) * sat;
+    return max(mat3(1.0, 1.0, 1.0, 0.956, -0.272, -1.106, 0.621, -0.647, 1.703) * vec3(yiq.x, chroma * cos(h), chroma * sin(h)), 0.0);
+  }
+
+  void main() {
+    vec3 d = normalize(vDir);
+
+    // The sky as a wall of cubes: a grid of square cells by compass bearing and height, each
+    // one a single colour (the sky toward its centre), so the aurora, the sunset band and the
+    // sun and moon glows all step from cube to cube
+    vec2 g = vec2(atan(d.x, -d.z), asin(clamp(d.y, -1.0, 1.0))) / ${SKY_CELL.toFixed(3)};
+    vec2 cell = floor(g);
+    vec2 f = fract(g);
+    vec2 cc = (cell + 0.5) * ${SKY_CELL.toFixed(3)};
+    vec3 dc = vec3(sin(cc.x) * cos(cc.y), sin(cc.y), -cos(cc.x) * cos(cc.y));
+    vec3 col = skyAt(dc);
+
+    // Colour, cube by cube: a slow-drifting field turns each cube's hue through a range that
+    // suits the hour (teal to violet at night, cyan to periwinkle by day, gold to rose at sunset)
+    // (a broad, slowly travelling sweep across the sky plus drifting patches, so neighbouring
+    // cubes step through the range a little at a time)
+    float sweep = sin(cell.x * 0.045 + cell.y * 0.07 - uTime * 0.09);
+    float patches = vnoise(vec3(cell * 0.05, uTime * 0.05)) * 2.0 - 1.0;
+    float n = clamp(0.5 + 0.28 * sweep + 0.34 * patches + 0.12 * (vnoise(vec3(cell * 0.14 + 7.0, uTime * 0.08)) - 0.5), 0.0, 1.0);
+    float swing = mix(mix(1.5, 1.1, uDay), 0.9, uGolden);
+    col = hueTurn(col, (n - 0.5) * 2.0 * swing, mix(1.7, 1.4, uDay));
+    // …and each cube catches the light a little differently; now and then one glints
+    float h = hash12(cell);
+    col *= 0.9 + 0.2 * h;
+    col *= 1.0 + pow(hash12(cell + 3.7), 40.0) * (0.5 + 0.5 * sin(uTime * 1.3 + h * 50.0)) * 0.9;
+
+    // Cube faces: bevelled edges (lit from above) and dark seams, a few screen pixels wide
+    vec2 px = fwidth(g);
+    float top = smoothstep(1.0 - 3.0 * px.y, 1.0, f.y);
+    float bottom = smoothstep(3.0 * px.y, 0.0, f.y);
+    float left = smoothstep(3.0 * px.x, 0.0, f.x);
+    float right = smoothstep(1.0 - 3.0 * px.x, 1.0, f.x);
+    col *= (0.96 + 0.08 * f.y) * (1.0 + 0.32 * top + 0.12 * left - 0.28 * bottom - 0.12 * right);
+    col += vec3(0.25, 0.5, 0.75) * top * 0.02 * (1.0 - uDay); // icy rim on the top edges at night
+    float seam = smoothstep(0.0, 1.2 * px.x, min(f.x, 1.0 - f.x)) * smoothstep(0.0, 1.2 * px.y, min(f.y, 1.0 - f.y));
+    col *= mix(0.6, 1.0, seam);
+
+    // Stars: tiny square pixels on the cube faces (night only)
+    if (uDay < 0.999) {
+      vec3 sp = d * 260.0;
+      float s = hash13(floor(sp));
+      vec3 o = abs(fract(sp) - 0.5);
+      float star = step(0.9965, s) * (1.0 - smoothstep(0.16, 0.26, max(o.x, max(o.y, o.z))));
+      col += star * seam * smoothstep(0.0, 0.25, d.y) * (0.55 + 0.45 * sin(uTime * 2.0 + s * 60.0)) * 0.9 * (1.0 - uDay);
+    }
 
     gl_FragColor = vec4(col * uExposure, 1.0);
   }

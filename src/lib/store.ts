@@ -94,7 +94,7 @@ export const sceneState = {
   pointer: { x: 0, y: 0, lastMove: -1e9 },
   /** Hold-to-shatter on the hero. */
   press: false,
-  /** A page-wipe transition is running (slow devices pause the 3D render meanwhile). */
+  /** A page-wipe transition is running (very slow devices skip the hidden 3D frames meanwhile). */
   transition: false,
   /** performance.now() / 1000 of the last ripple pulse. */
   pulse: -100,
@@ -110,9 +110,6 @@ export const sceneState = {
   highlight: -1,
   /** Incremented on every click — the scene answers with a burst of ice dust. */
   burst: 0,
-  /** Frames per second the scene is drawing, and the resolution (device-pixel ratio) it draws at. */
-  fps: 0,
-  res: 1,
   /** Dominant formation + camera position, read by the HUD telemetry. */
   formation: "village" as LayoutKey,
   cam: { x: 0, y: 0, z: 0 },

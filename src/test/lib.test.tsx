@@ -2,16 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { createStore, onAppReady, sceneState, triggerPulse, ui, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import {
-  getQuality,
-  isIntegratedGpu,
-  qualityFor,
-  readSignals,
-  rememberTier,
-  resetQualityCache,
-  scoreDevice,
-  type DeviceSignals,
-} from "@/lib/device";
+import { getQuality, MAX_DPR, qualityFor, resetQualityCache } from "@/lib/device";
 import { resetState } from "./utils";
 import { media } from "./setup";
 
@@ -79,116 +70,40 @@ describe("cn", () => {
   });
 });
 
-describe("device tiers", () => {
-  const base: DeviceSignals = { cores: 8, memory: 8, dpr: 1, width: 1440, coarse: false, saveData: false, webgl2: true };
-
-  it("rates strong desktops high", () => {
-    expect(scoreDevice({ ...base, gpu: "NVIDIA GeForce RTX 4070" })).toBe("high");
-    expect(scoreDevice(base)).toBe("high");
-  });
-
-  it("never rates integrated laptop graphics high (browsers often run on them)", () => {
-    const iris = "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x0000A7A0) Direct3D11 vs_5_0 ps_5_0, D3D11)";
-    const apu = "ANGLE (AMD, AMD Radeon(TM) Graphics (0x00001638) Direct3D11 vs_5_0 ps_5_0, D3D11)";
-    expect(scoreDevice({ ...base, gpu: iris })).toBe("mid");
-    expect(scoreDevice({ ...base, gpu: apu })).toBe("mid");
-    expect(scoreDevice({ ...base, gpu: "AMD Radeon 780M Graphics" })).toBe("mid");
-    expect(isIntegratedGpu("Intel(R) UHD Graphics 620")).toBe(true);
-    // Dedicated laptop GPUs keep the full effect
-    expect(isIntegratedGpu("NVIDIA GeForce RTX 4080 Laptop GPU")).toBe(false);
-    expect(isIntegratedGpu("AMD Radeon RX 7600M XT")).toBe(false);
-    expect(isIntegratedGpu(undefined)).toBe(false);
-    expect(scoreDevice({ ...base, gpu: "NVIDIA GeForce RTX 4080 Laptop GPU" })).toBe("high");
-  });
-
-  it("rates average hardware mid", () => {
-    expect(scoreDevice({ ...base, cores: 4, memory: 4 })).toBe("mid");
-    expect(scoreDevice({ ...base, coarse: true, width: 390, gpu: "Apple GPU", cores: 6, memory: undefined })).toBe("mid");
-  });
-
-  it("rates weak, data-saving or software-rendered devices low", () => {
-    expect(scoreDevice({ ...base, webgl2: false })).toBe("low");
-    expect(scoreDevice({ ...base, saveData: true })).toBe("low");
-    expect(scoreDevice({ ...base, gpu: "Google SwiftShader" })).toBe("low");
-    expect(scoreDevice({ ...base, cores: 2, memory: 2, coarse: true, width: 360 })).toBe("low");
-    expect(scoreDevice({ ...base, cores: undefined, memory: undefined, coarse: true, width: 360 })).toBe("low");
-  });
-
-  it("gives each tier a progressively lighter budget", () => {
-    const high = qualityFor("high", false);
-    const mid = qualityFor("mid", false);
-    const low = qualityFor("low", true);
-    expect(high.msaa).toBeGreaterThan(mid.msaa);
-    expect(mid.particles).toBeGreaterThan(low.particles);
-    expect(low.msaa).toBe(0);
-    expect(low.bloomStrength).toBeGreaterThan(0); // bloom is the live controller's call now
-    expect(qualityFor("high", true).msaa).toBeLessThan(high.msaa);
-    expect(qualityFor("mid", true).particles).toBeLessThan(mid.particles);
-    expect(high.terrain.xMax - high.terrain.xMin).toBeGreaterThan(low.terrain.xMax - low.terrain.xMin);
-  });
-
-  it("reads signals from the browser (no WebGL in jsdom → low)", () => {
-    const s = readSignals();
-    expect(s.webgl2).toBe(false);
-    expect(getQuality(s).tier).toBe("low");
-    expect(document.documentElement.dataset.tier).toBe("low");
-    // cached
-    expect(getQuality({ ...base, gpu: "RTX" }).tier).toBe("low");
-  });
-
-  it("probes the GPU (a throwaway WebGL context) only on the first call", () => {
-    resetQualityCache();
-    const probe = vi.spyOn(HTMLCanvasElement.prototype, "getContext");
-    getQuality();
-    getQuality();
-    getQuality();
-    expect(probe).toHaveBeenCalledTimes(1);
-  });
-
-  it("reads the GPU name when WebGL2 is available", () => {
-    const getContext = HTMLCanvasElement.prototype.getContext;
-    const lose = vi.fn();
-    HTMLCanvasElement.prototype.getContext = (() => ({
-      getExtension: (name: string) =>
-        name === "WEBGL_debug_renderer_info" ? { UNMASKED_RENDERER_WEBGL: 1 } : { loseContext: lose },
-      getParameter: () => "Apple M2",
-    })) as unknown as typeof getContext;
-    media["(pointer: coarse)"] = false;
-    const s = readSignals();
-    expect(s).toMatchObject({ webgl2: true, gpu: "Apple M2" });
-    expect(lose).toHaveBeenCalled();
-    HTMLCanvasElement.prototype.getContext = (() => {
-      throw new Error("blocked");
-    }) as unknown as typeof getContext;
-    expect(readSignals().webgl2).toBe(false);
-    HTMLCanvasElement.prototype.getContext = getContext;
-  });
-
-  it("honours ?quality= and a tier remembered this session (down or up)", () => {
-    window.history.replaceState({}, "", "/?quality=high");
-    expect(getQuality({ ...base, webgl2: false }).tier).toBe("high");
+describe("rendering budget", () => {
+  beforeEach(() => {
     resetQualityCache();
     window.history.replaceState({}, "", "/");
-    expect(rememberTier("high", -1)).toBe("mid");
-    expect(getQuality(base).tier).toBe("mid");
-    resetQualityCache();
-    expect(rememberTier("low", 1)).toBe("mid");
-    expect(getQuality({ ...base, webgl2: false }).tier).toBe("mid");
-    resetQualityCache();
-    expect(rememberTier("low", -1)).toBe("low");
-    expect(rememberTier("high", 1)).toBe("high");
   });
 
-  it("survives blocked storage", () => {
-    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("denied");
-    });
-    expect(getQuality(base).tier).toBe("high");
-    expect(rememberTier("mid", -1)).toBe("low");
-    get.mockRestore();
-    set.mockRestore();
+  it("gives every device the full budget, phones included, without probing the hardware", () => {
+    const probe = vi.spyOn(HTMLCanvasElement.prototype, "getContext");
+    expect(getQuality()).toEqual(qualityFor("high", false));
+    expect(document.documentElement.dataset.tier).toBe("high");
+    resetQualityCache();
+    media["(pointer: coarse)"] = true;
+    const phone = getQuality();
+    expect(phone.tier).toBe("high");
+    // Touch screens differ only where it can't show: no MSAA (pixel density) and no cursor dust
+    expect({ ...phone, msaa: 4, dust: 480 }).toEqual(qualityFor("high", false));
+    expect(probe).not.toHaveBeenCalled();
+    expect(MAX_DPR).toBe(2);
+  });
+
+  it("picks a lighter budget only when asked to in the URL (?quality=), for testing", () => {
+    window.history.replaceState({}, "", "/?quality=low");
+    expect(getQuality().tier).toBe("low");
+    expect(getQuality()).toBe(getQuality()); // decided once per page load
+    resetQualityCache();
+    window.history.replaceState({}, "", "/?quality=nonsense");
+    expect(getQuality().tier).toBe("high");
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("keeps the hand-picked tiers progressively lighter", () => {
+    const [high, mid, low] = (["high", "mid", "low"] as const).map((t) => qualityFor(t, false));
+    expect(high.msaa).toBeGreaterThan(mid.msaa);
+    expect(mid.particles).toBeGreaterThan(low.particles);
+    expect(high.terrain.xMax - high.terrain.xMin).toBeGreaterThan(low.terrain.xMax - low.terrain.xMin);
   });
 });

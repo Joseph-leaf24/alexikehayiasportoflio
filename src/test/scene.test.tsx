@@ -179,93 +179,29 @@ describe("IceScene", () => {
     unmount();
   });
 
-  describe("live quality (a steady 60 fps at the best settings the device holds)", () => {
-    it("climbs to the richest settings on a fast device, and remembers a bigger budget", () => {
-      window.history.replaceState({}, "", "/?quality=mid");
-      resetQualityCache();
-      setScreenDpr(2);
-      const d = display(1000 / 60, () => 4);
-      const { unmount } = render(<IceScene />);
-      // Starts at 1× with bloom (the mid tier's rung)…
-      d.run(1);
-      expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
-      // …and climbs to the screen's own 2× within ~15 s, then flags the tier as too small
-      d.run(40);
-      expect(d.settings()).toEqual({ dpr: 2, bloom: true, fx: true });
-      expect(sceneState.res).toBe(2);
-      expect(Math.round(sceneState.fps)).toBe(60);
-      expect(sessionStorage.getItem("ak:tier")).toBe("high");
-      unmount();
-    });
+  it("always renders at full quality: the screen's own resolution (up to 2×), bloom and grain, even on a struggling device", () => {
+    setScreenDpr(3);
+    media["(pointer: coarse)"] = true;
+    resetQualityCache();
+    // A phone that only manages ~12 fps
+    const d = display(1000 / 60, () => 80);
+    const { unmount } = render(<IceScene />);
+    d.run(30);
+    expect(d.settings()).toEqual({ dpr: 2, bloom: true, fx: true });
+    expect(document.documentElement.dataset.tier).toBe("high");
+    unmount();
+  });
 
-    it("steps down to the best settings a slower GPU holds at 60 fps, and stops re-trying richer ones", () => {
-      window.history.replaceState({}, "", "/?quality=high");
-      resetQualityCache();
-      setScreenDpr(1.5);
-      // 1× with grain fits a 60 fps frame (16 ms); adding bloom doesn't (20 ms)
-      const d = display(1000 / 60, ({ dpr, bloom, fx }) => 3 + 12 * dpr * dpr + (bloom ? 4 : 0) + (fx ? 1 : 0));
-      const { unmount } = render(<IceScene />);
-      d.run(50);
-      expect(d.settings()).toEqual({ dpr: 1, bloom: false, fx: true });
-      // Three failed tries at bloom and it stops trying: the settings hold from here on
-      const rung = sessionStorage.getItem("ak:rung");
-      const renders = gl.renders;
-      d.run(30);
-      expect(sessionStorage.getItem("ak:rung")).toBe(rung);
-      expect(gl.renders - renders).toBeGreaterThan(30 * 58);
-      unmount();
-    });
-
-    it("drops to 30 fps as a last resort, then remembers a smaller budget", () => {
-      window.history.replaceState({}, "", "/?quality=mid");
-      resetQualityCache();
-      const d = display(1000 / 60, ({ dpr, bloom }) => 30 + 40 * dpr * dpr + (bloom ? 10 : 0));
-      const { unmount } = render(<IceScene />);
-      d.run(20);
-      expect(d.settings()).toEqual({ dpr: 0.5, bloom: false, fx: false });
-      expect(document.documentElement.dataset.perf).toBe("degraded");
-      expect(sessionStorage.getItem("ak:tier")).toBe("low");
-      unmount();
-    });
-
-    it("keeps its quality when lowering it doesn't speed frames up (a CPU limit, not the GPU)", () => {
-      window.history.replaceState({}, "", "/?quality=high");
-      resetQualityCache();
-      const d = display(1000 / 60, () => 30);
-      const { unmount } = render(<IceScene />);
-      d.run(10);
-      expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
-      // It tries once more later, finds the same, and then leaves the settings alone for good
-      d.run(45);
-      expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
-      expect(document.documentElement.dataset.perf).toBeUndefined();
-      unmount();
-    });
-
-    it("renders every other refresh on a 120 Hz screen (≈60 fps), starting low-end devices without effects", () => {
-      window.history.replaceState({}, "", "/?quality=low");
-      resetQualityCache();
-      const d = display(1000 / 120, () => 2);
-      const { unmount } = render(<IceScene />);
-      d.run(1);
-      expect(d.settings()).toEqual({ dpr: 0.65, bloom: false, fx: false });
-      const before = gl.renders;
-      d.run(3);
-      // 3 s of a 120 Hz screen is 360 refreshes; ~180 of them are drawn
-      expect(gl.renders - before).toBeGreaterThan(170);
-      expect(gl.renders - before).toBeLessThan(190);
-      unmount();
-    });
-
-    it("starts a reload where this session's last visit settled", () => {
-      resetQualityCache();
-      sessionStorage.setItem("ak:rung", "3");
-      const d = display(1000 / 60, () => 4);
-      const { unmount } = render(<IceScene />);
-      d.run(0.2);
-      expect(d.settings()).toEqual({ dpr: 0.8, bloom: false, fx: true });
-      unmount();
-    });
+  it("renders every refresh, also on a 120 Hz screen", () => {
+    resetQualityCache();
+    const d = display(1000 / 120, () => 2);
+    const { unmount } = render(<IceScene />);
+    d.run(0.5);
+    const before = gl.renders;
+    d.run(2);
+    expect(gl.renders - before).toBeGreaterThan(235);
+    expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
+    unmount();
   });
 
   it("stops drawing during page transitions when frames are already slow", () => {

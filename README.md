@@ -1,8 +1,9 @@
 # Alexi Kehayias — Data Science & AI Portfolio
 
-An interactive portfolio built as a voxel Cycladic village. The village is made of
-WebGL cubes that break apart and re-form into new shapes as you scroll: clusters, a
-neural network, data bars. The light follows the real time of day in Amsterdam (sun by
+An interactive portfolio built as a voxel Cycladic village under a sky of slowly
+colour-shifting cubes. The village is made of WebGL cubes that break apart and re-form
+into new shapes as you scroll: clusters, a neural network, data bars. The light follows
+the real time of day in Amsterdam (sun by
 day, moon by night), and clicking and holding on the opening screen shatters the whole
 scene, sun and moon included. It presents my projects across data science, data
 engineering and data analytics.
@@ -44,12 +45,10 @@ npm run dev          # http://localhost:8080/alexikehayiasportoflio/
 ```
 
 `npm run build` writes the static site to `dist/`, and `npm run preview` serves that build.
-The 3D scene tunes itself while it runs: it aims for a steady 60 fps and raises or lowers
-the resolution, bloom and grain to the best that device can hold (the live frame rate and
-resolution show at the end of the HUD's bottom bar on wide screens; `src/lib/adaptive.ts`).
-Add `?quality=low`, `?quality=mid` or `?quality=high` to the URL to start from a different
-device tier, and `?time=HH:MM` (Amsterdam time, e.g. `?time=16:30`) to see the scene at
-another time of day.
+The 3D scene always renders at full quality on every device: the screen's own resolution
+(up to 2×), bloom and grain, and nothing is scaled down while it runs (`src/lib/device.ts`).
+Add `?quality=low` or `?quality=mid` to the URL to try a lighter budget by hand, and
+`?time=HH:MM` (Amsterdam time, e.g. `?time=16:30`) to see the scene at another time of day.
 
 ## Run it in Docker
 

@@ -2859,9 +2859,7 @@ html[data-tier="low"] .project-card,
 html[data-tier="low"] .spec-tab,
 html[data-tier="low"] .spec-panel,
 html[data-tier="low"] .gallery__item,
-html[data-tier="low"] .btn-ice,
-html[data-perf="degraded"] .project-card,
-html[data-perf="degraded"] .spec-tab {
+html[data-tier="low"] .btn-ice {
   background: rgba(9, 13, 20, 0.92);
 }
 html[data-tier="low"] .project-card {

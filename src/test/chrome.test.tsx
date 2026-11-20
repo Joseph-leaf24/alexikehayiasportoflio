@@ -55,14 +55,11 @@ describe("HUD", () => {
     sceneState.blocks = 12941;
     sceneState.formation = "network";
     sceneState.cam.x = -1.5;
-    sceneState.fps = 59.6;
-    sceneState.res = 1.5;
     renderRoute(<Hud />);
     advance(300);
     expect(screen.getAllByText("Neural net").length).toBeGreaterThan(0);
     expect(screen.getByText("12,941")).toBeInTheDocument();
     expect(document.querySelector(".hud-telemetry")?.textContent).toMatch(/−01\.50/);
-    expect(screen.getByText("60 fps · 1.50×")).toBeInTheDocument();
     expect(document.querySelector(".hud-bottom__left")?.textContent).toMatch(/\d{2}:\d{2}:\d{2} CES?T/);
     Object.defineProperty(document.documentElement, "scrollHeight", { configurable: true, value: 3000 });
     act(() => {
