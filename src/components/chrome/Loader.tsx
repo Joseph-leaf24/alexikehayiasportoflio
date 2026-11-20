@@ -56,8 +56,9 @@ export default function Loader() {
     let lastLines = 1;
     let lastT = t0;
     const loop = () => {
-      raf = requestAnimationFrame(loop);
+      // (stops for good once finished: the loader stays mounted, hidden, for the whole visit)
       if (finished) return;
+      raf = requestAnimationFrame(loop);
       const now = performance.now();
       const dt = Math.min(0.25, (now - lastT) / 1000);
       lastT = now;
@@ -90,9 +91,11 @@ export default function Loader() {
   if (gone) return null;
   return (
     <div ref={rootRef} className="loader" role="status" aria-live="polite" aria-label="Loading portfolio">
+      {/* Screen readers hear this once; the counter and boot log below change every frame */}
+      <span className="sr-only">Loading portfolio…</span>
       <div className="loader__panel loader__panel--top" />
       <div className="loader__panel loader__panel--bottom" />
-      <div className="loader__inner">
+      <div className="loader__inner" aria-hidden="true">
         <div className="loader__row">
           <span>[ AK ] — Portfolio</span>
         </div>

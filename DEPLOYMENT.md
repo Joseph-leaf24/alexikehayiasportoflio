@@ -126,7 +126,7 @@ inside the deploy for `main`:
 
 | Job | What it checks | Run it locally |
 | --- | --- | --- |
-| Website | ESLint, TypeScript, unit tests with ≥ 80% coverage, and `npm audit` (fails on high/critical advisories in the dependencies the site ships) | `npm run lint`, `npx tsc -p tsconfig.app.json --noEmit`, `npm run test:coverage`, `npm audit --omit=dev` |
+| Website | ESLint, TypeScript, unit tests with ≥ 80% coverage, and `npm audit` (fails on high/critical advisories in the dependencies the site ships) | `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm audit --omit=dev` |
 | Browser | The built site in Chromium: pages load without errors, navigation and the image viewer work, nothing overflows on a phone, zero axe accessibility violations; then Lighthouse (accessibility, best practices and SEO ≥ 95, performance reported only) | `npm run test:e2e`, Lighthouse as above |
 | Workflows | actionlint (workflow mistakes, plus shellcheck on every script) and zizmor (workflow security; settings in `.github/zizmor.yml`) | not needed day to day |
 | Docker | hadolint on the `Dockerfile`, then the image builds, starts locked down (read-only, no privileges) and serves the site | `npm run docker` |
@@ -143,8 +143,8 @@ Other automation:
   checks the live site, app bundle and CV respond, and that every external link in the
   site still works (lychee, settings in `lychee.toml`). Failures arrive by email like any
   failed run. Set the repository variable `SITE_URL` if the address changes.
-- **Dependabot** (`.github/dependabot.yml`): weekly grouped PRs for npm minor/patch
-  updates, the Docker base images and the GitHub Actions used here (images and actions
+- **Dependabot** (`.github/dependabot.yml`): weekly PRs for npm (minor/patch updates
+  grouped into one), the Docker base images and the GitHub Actions used here (images and actions
   are pinned to exact digests/commits, so Dependabot is what keeps them current). Each PR
   runs the checks above. Major npm upgrades are left for you to do by hand.
 

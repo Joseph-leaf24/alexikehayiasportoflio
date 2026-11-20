@@ -11,7 +11,7 @@ import ProjectCard from "@/components/ProjectCard";
 import { projectData } from "@/data/projects";
 import { profile, specializations } from "@/data/profile";
 import { sceneState } from "@/lib/store";
-import { advance, flush, markReady, renderRoute, resetState, useAnimationTimers } from "./utils";
+import { advance, flush, renderRoute, resetState, useAnimationTimers } from "./utils";
 import { io, media } from "./setup";
 
 beforeEach(resetState);
@@ -36,8 +36,14 @@ describe("Hero", () => {
     const hero = container.querySelector(".hero")!;
     fireEvent(hero, new PointerEvent("pointerdown", { pointerType: "mouse", clientX: 100, clientY: 100, bubbles: true }));
     expect(sceneState.press).toBe(true);
-    expect(hero).toHaveClass("is-pressing");
     fireEvent(window, new PointerEvent("pointerup"));
+    expect(sceneState.press).toBe(false);
+
+    // A right-click doesn't start a hold, and a context menu ends one
+    fireEvent(hero, new PointerEvent("pointerdown", { pointerType: "mouse", button: 2, bubbles: true }));
+    expect(sceneState.press).toBe(false);
+    fireEvent(hero, new PointerEvent("pointerdown", { pointerType: "mouse", bubbles: true }));
+    fireEvent(window, new MouseEvent("contextmenu"));
     expect(sceneState.press).toBe(false);
 
     // dragging a finger cancels (so scrolling on phones doesn't shatter)
@@ -87,7 +93,7 @@ describe("About", () => {
 });
 
 describe("Toolbox", () => {
-  it("lists every tool and skews the marquee with scroll speed", async () => {
+  it("lists every tool, skews the marquee with scroll speed and runs it only while on screen", async () => {
     useAnimationTimers();
     const { container } = renderRoute(<Skills />);
     await flush();
@@ -96,8 +102,10 @@ describe("Toolbox", () => {
     sceneState.velocity = 2600;
     advance(200);
     const marquee = container.querySelector(".marquee") as HTMLElement;
+    expect(marquee).toHaveAttribute("data-live");
     expect(parseFloat(marquee.style.getPropertyValue("--skew"))).toBeGreaterThan(0);
     act(() => io.instances.find((o) => o.targets.includes(marquee))!.fire(false));
+    expect(marquee).not.toHaveAttribute("data-live");
   });
 });
 
@@ -152,7 +160,7 @@ describe("Work", () => {
 describe("ProjectCard", () => {
   it("links to the project and tilts toward the pointer", () => {
     const project = projectData.dataAnalytics.projects[0];
-    renderRoute(<ProjectCard project={project} category="dataAnalytics" index={0} order={0} />);
+    renderRoute(<ProjectCard project={project} category="dataAnalytics" index={0} />);
     // The title is the link (stretched over the card by CSS); the card is the tilting article
     const link = screen.getByRole("link", { name: project.title });
     expect(link).toHaveAttribute("href", "#/project/dataAnalytics/0");
@@ -173,7 +181,7 @@ describe("ProjectCard", () => {
 
   it("omits tools when a project has none", () => {
     const project = { ...projectData.nlp.projects[0], tools: undefined, powerBiUrl: undefined };
-    renderRoute(<ProjectCard project={project} category="nlp" index={0} order={1} />);
+    renderRoute(<ProjectCard project={project} category="nlp" index={0} />);
     expect(screen.queryByText("Tools & Languages")).toBeNull();
   });
 });

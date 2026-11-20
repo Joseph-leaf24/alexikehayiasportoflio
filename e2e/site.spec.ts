@@ -122,7 +122,8 @@ test("a reload always opens on the intro, also after coming back from a project"
   // Scrolled down, then reloaded
   await page.locator("#projects").scrollIntoViewIfNeeded();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
-  await page.waitForTimeout(400); // the position is saved shortly after scrolling stops
+  // the position is saved shortly after scrolling stops: reload once it has been (so the test proves it is ignored)
+  await expect.poll(() => page.evaluate(() => Number(sessionStorage.getItem("ak:homeY")))).toBeGreaterThan(1000);
   await page.reload();
   await atIntro();
   // Back from a project lands on the work section; a reload there still opens on the intro

@@ -14,8 +14,7 @@ import DepthImage from "@/components/fx/DepthImage";
 import ProjectGraph from "@/components/fx/ProjectGraph";
 import { domainsFor } from "@/data/domains";
 import Lightbox from "@/components/Lightbox";
-
-const pad = (n: number) => String(n).padStart(2, "0");
+import { pad } from "@/lib/utils";
 
 /**
  * Project page (`/project/:category/:projectIndex`): header, a neural-network figure of

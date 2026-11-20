@@ -135,7 +135,8 @@ html.scroll-locked {
   }
 
   .display-xl {
-    font-size: clamp(3.4rem, 13vw, 13.5rem);
+    /* min() keeps one long word like "INTERESTED?" inside phones narrower than ~360 px */
+    font-size: clamp(min(3.4rem, 15vw), 13vw, 13.5rem);
     line-height: 0.86;
     letter-spacing: -0.055em;
     font-weight: 400;
@@ -193,11 +194,20 @@ html.scroll-locked {
     transform-origin: bottom;
     transition: transform 0.55s var(--ease-io);
   }
-  .btn-ice:hover {
+  @media (hover: hover) {
+    .btn-ice:hover {
+      color: var(--bg);
+      border-color: var(--ice);
+    }
+    .btn-ice:hover::before {
+      transform: scaleY(1);
+    }
+  }
+  .btn-ice:focus-visible {
     color: var(--bg);
     border-color: var(--ice);
   }
-  .btn-ice:hover::before {
+  .btn-ice:focus-visible::before {
     transform: scaleY(1);
   }
   .btn-ice--solid {
@@ -234,16 +244,12 @@ html.scroll-locked {
   .corners i:nth-child(2) { right: 0; top: 0; border-right-width: 1px; border-top-width: 1px; }
   .corners i:nth-child(3) { left: 0; bottom: 0; border-left-width: 1px; border-bottom-width: 1px; }
   .corners i:nth-child(4) { right: 0; bottom: 0; border-right-width: 1px; border-bottom-width: 1px; }
-  .hc:hover .corners i,
-  .hc:focus-visible .corners i,
-  .hc:has(:focus-visible) .corners i,
-  .hc.is-active .corners i {
-    opacity: 1;
-  }
-  .hc:hover .corners i:nth-child(1), .hc.is-active .corners i:nth-child(1) { transform: translate(-5px, -5px); }
-  .hc:hover .corners i:nth-child(2), .hc.is-active .corners i:nth-child(2) { transform: translate(5px, -5px); }
-  .hc:hover .corners i:nth-child(3), .hc.is-active .corners i:nth-child(3) { transform: translate(-5px, 5px); }
-  .hc:hover .corners i:nth-child(4), .hc.is-active .corners i:nth-child(4) { transform: translate(5px, 5px); }
+  /* :is() is forgiving: without :has() support, hover and focus still work */
+  .hc:is(:hover, :focus-visible, :has(:focus-visible)) .corners i { opacity: 1; }
+  .hc:is(:hover, :focus-visible, :has(:focus-visible)) .corners i:nth-child(1) { transform: translate(-5px, -5px); }
+  .hc:is(:hover, :focus-visible, :has(:focus-visible)) .corners i:nth-child(2) { transform: translate(5px, -5px); }
+  .hc:is(:hover, :focus-visible, :has(:focus-visible)) .corners i:nth-child(3) { transform: translate(-5px, 5px); }
+  .hc:is(:hover, :focus-visible, :has(:focus-visible)) .corners i:nth-child(4) { transform: translate(5px, 5px); }
 
   /* Chips -------------------------------------------------------------- */
   .chip-label {
@@ -359,13 +365,10 @@ html.scroll-locked {
   -webkit-text-fill-color: var(--accent);
 }
 
-/* Reveal */
-.reveal {
-  --d: 0ms;
-}
+/* Reveal (Reveal.tsx sets --d, the delay) */
 .reveal-up {
   opacity: 0;
-  transform: translate3d(0, 28px, 0);
+  transform: translateY(28px);
   transition: opacity 0.9s var(--ease-out) var(--d), transform 1.1s var(--ease-out) var(--d);
 }
 .reveal-fade {
@@ -647,7 +650,6 @@ html.no-webgl body {
   border-top: 1px solid rgba(127, 212, 255, 0.65);
   border-left: 1px solid rgba(170, 190, 215, 0.08);
   box-shadow: 0 -10px 40px rgba(127, 212, 255, 0.22);
-  will-change: transform;
 }
 .page-wipe__grid,
 .page-wipe__label {
@@ -683,6 +685,8 @@ html.no-webgl body {
   height: 100%;
   width: 40%;
   background: var(--accent);
+}
+.page-wipe.is-active .page-wipe__bar i {
   animation: wipe-bar 0.9s var(--ease-io) infinite;
 }
 @keyframes wipe-bar {
@@ -1015,7 +1019,7 @@ html.no-webgl body {
   display: flex;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
 }
 /* A soft shade over the lower part of the scene, where the name and focus list sit right in
    front of the white village; it fades out before the sky, sun and moon */
@@ -1036,11 +1040,6 @@ html.no-webgl body {
   padding-top: 96px;
   padding-bottom: clamp(28px, 6vh, 64px);
   will-change: transform, opacity;
-}
-.hero__top {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
 }
 .hero__title {
   margin: 0;
@@ -1069,7 +1068,11 @@ html[data-sky="day"] .hero__top > .mono-label {
 }
 .hero__title .sc-ch {
   transition: transform 0.6s var(--ease-out);
-  will-change: transform;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .hero__title .sc-ch {
+    will-change: transform;
+  }
 }
 .hero__line--r {
   text-align: right;
@@ -1265,16 +1268,18 @@ html[data-sky="day"] .hero__top > .mono-label {
   position: absolute;
   left: 0;
   right: 0;
+  top: 0;
   height: 30%;
   background: linear-gradient(to bottom, transparent, rgba(127, 212, 255, 0.18), transparent);
   animation: scan 4.5s linear infinite;
 }
+/* -30% to 100% of the portrait, in units of the strip's own height (30%) */
 @keyframes scan {
   from {
-    top: -30%;
+    transform: translateY(-100%);
   }
   to {
-    top: 100%;
+    transform: translateY(333.333%);
   }
 }
 .portrait__meta {
@@ -1394,8 +1399,13 @@ html[data-sky="day"] .hero__top > .mono-label {
   animation-direction: reverse;
   animation-duration: 85s;
 }
-.marquee:hover .marquee__row {
+.marquee:not([data-live]) .marquee__row {
   animation-play-state: paused;
+}
+@media (hover: hover) {
+  .marquee:hover .marquee__row {
+    animation-play-state: paused;
+  }
 }
 .marquee__set {
   display: flex;
@@ -1701,18 +1711,14 @@ html[data-sky="day"] .hero__top > .mono-label {
 .project-card__idx {
   position: absolute;
   top: 12px;
+  left: 12px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-}
-.project-card__idx {
-  left: 12px;
   color: var(--ice);
 }
 .project-card__body {
-  position: relative;
-  z-index: 2;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1845,13 +1851,37 @@ html[data-sky="day"] .contact__text {
   transform-origin: bottom;
   transition: transform 0.6s var(--ease-io);
 }
-.contact-row:hover {
+@media (hover: hover) {
+  .contact-row:hover {
+    color: var(--bg);
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  .contact-row:hover .contact-row__fill {
+    transform: scaleY(1);
+  }
+  .contact-row:hover .contact-row__idx,
+  .contact-row:hover .contact-row__val {
+    color: var(--bg);
+  }
+  .contact-row:hover .contact-row__arrow {
+    transform: rotate(45deg);
+  }
+}
+.contact-row:focus-visible {
   color: var(--bg);
   padding-left: 1.5rem;
   padding-right: 1.5rem;
 }
-.contact-row:hover .contact-row__fill {
+.contact-row:focus-visible .contact-row__fill {
   transform: scaleY(1);
+}
+.contact-row:focus-visible .contact-row__idx,
+.contact-row:focus-visible .contact-row__val {
+  color: var(--bg);
+}
+.contact-row:focus-visible .contact-row__arrow {
+  transform: rotate(45deg);
 }
 .contact-row__idx {
   font-family: var(--font-mono);
@@ -1859,10 +1889,6 @@ html[data-sky="day"] .contact__text {
   letter-spacing: 0.16em;
   color: var(--accent);
   transition: color 0.45s;
-}
-.contact-row:hover .contact-row__idx,
-.contact-row:hover .contact-row__val {
-  color: var(--bg);
 }
 .contact-row__key {
   font-size: clamp(1.6rem, 4vw, 3.6rem);
@@ -1885,9 +1911,6 @@ html[data-sky="day"] .contact__text {
   width: clamp(22px, 3vw, 40px);
   height: clamp(22px, 3vw, 40px);
   transition: transform 0.6s var(--ease-out);
-}
-.contact-row:hover .contact-row__arrow {
-  transform: rotate(45deg);
 }
 @media (min-width: 900px) {
   .contact-row {
@@ -2207,7 +2230,7 @@ html[data-sky="day"] .contact__text {
   height: 100%;
   border: 0;
 }
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .embed-frame {
     aspect-ratio: 3 / 4;
   }
@@ -2844,7 +2867,7 @@ html[data-sky="day"] .contact__text {
 }
 
 /* ==================================================================== */
-/* Device tiers — lighter effects on low / mid-range hardware            */
+/* Lighter tiers: only via ?quality=low|mid (every device gets "high")   */
 /* ==================================================================== */
 html[data-tier="low"] .project-card,
 html[data-tier="low"] .spec-tab,
@@ -2884,8 +2907,7 @@ html[data-tier="low"] .ghost-num {
 /* Reduced motion                                                        */
 /* ==================================================================== */
 @media (prefers-reduced-motion: reduce) {
-  .reveal,
-  .reveal.is-in {
+  .reveal {
     opacity: 1 !important;
     transform: none !important;
     clip-path: none !important;
@@ -2902,8 +2924,18 @@ html[data-tier="low"] .ghost-num {
     animation: none !important;
   }
   .project-card,
-  .hero__title .sc-ch {
+  .hero__title .sc-ch,
+  .depth__stage {
     transform: none !important;
+  }
+  .shortcuts,
+  .lightbox,
+  .lightbox img,
+  .loader__log li.is-current::after {
+    animation: none !important;
+  }
+  .mobile-menu nav a {
+    transition: none !important;
   }
   .ghost-num {
     display: none;

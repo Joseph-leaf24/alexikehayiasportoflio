@@ -37,7 +37,7 @@ const NOISE = /* glsl */ `
   }
 `;
 
-/** Time of day + key light, written by the scene every frame (see the header comment). */
+/** Time of day + key light, set by the scene's updateDaylight() every 10 s (see the header comment). */
 const DAY = /* glsl */ `
   uniform float uDay;
   uniform float uGolden;
@@ -279,8 +279,10 @@ export const pieceFragment = /* glsl */ `
     vec3 col = mix(village, ice, vMix);
     col += vec3(0.4, 0.78, 1.0) * uMouseOn * smoothstep(2.2, 0.0, distance(vW, uMouse)) * (0.15 + edge * 0.9 + edgeW * 0.5);
     float pt = uTime - uPulseT;
-    float ring = exp(-pow(length(vW - uPulseC) - pt * 11.0, 2.0) * 1.2) * smoothstep(2.0, 0.0, pt);
-    col += vec3(0.5, 0.85, 1.0) * ring * (0.4 + edge + edgeW);
+    if (pt < 2.0) {
+      float ring = exp(-pow(length(vW - uPulseC) - pt * 11.0, 2.0) * 1.2) * smoothstep(2.0, 0.0, pt);
+      col += vec3(0.5, 0.85, 1.0) * ring * (0.4 + edge + edgeW);
+    }
     // The cluster of the hovered domain card glows
     col += vec3(0.45, 0.85, 1.0) * uHi * smoothstep(2.0, 0.4, distance(vW, uHiC)) * (0.35 + edge * 0.9);
     // Neural net: activations sweep layer by layer (forward propagation)
@@ -335,23 +337,28 @@ export const terrainVertex = /* glsl */ `
     vec3 c = instanceMatrix[3].xyz;
     float r = length(c.xz - uCenter.xz);
     float holo = 1.0 - uLand;
-    // Equaliser: whole columns pump with a travelling wave once the land goes holographic
-    float eq = (sin(r * 0.55 - uTime * 2.2) * 0.5 + 0.5) * 0.9 + vnoise(vec3(c.xz * 0.22, uTime * 0.6)) * 1.1;
-    float lift = holo * eq * uAmp * 0.6;
-    lift += holo * smoothstep(3.0, 0.0, length(c.xz - uMouse.xz)) * 1.4 * uMouseOn;
-    // Shockwave (hold-to-shatter) and ripple (UI pulse, e.g. hovering a card)
+    float lift = 0.0;
+    // Equaliser: whole columns pump with a travelling wave once the land goes holographic.
+    // (Each effect below is skipped by a uniform branch while its weight is zero.)
+    if (holo > 0.001) {
+      float eq = (sin(r * 0.55 - uTime * 2.2) * 0.5 + 0.5) * 0.9 + vnoise(vec3(c.xz * 0.22, uTime * 0.6)) * 1.1;
+      lift = holo * eq * uAmp * 0.6;
+      lift += holo * smoothstep(3.0, 0.0, length(c.xz - uMouse.xz)) * 1.4 * uMouseOn;
+    }
+    // Shockwave (hold-to-shatter) and ripple (UI pulse, e.g. hovering a card), while running
     float st = uTime - uShockT;
-    lift += exp(-pow(r - st * 9.0, 2.0) * 0.35) * smoothstep(3.0, 0.0, st) * 1.4;
+    if (st < 3.0) lift += exp(-pow(r - st * 9.0, 2.0) * 0.35) * smoothstep(3.0, 0.0, st) * 1.4;
     float pt = uTime - uPulseT;
-    lift += exp(-pow(r - pt * 12.0, 2.0) * 0.5) * smoothstep(1.8, 0.0, pt) * 0.5;
+    if (pt < 1.8) lift += exp(-pow(r - pt * 12.0, 2.0) * 0.5) * smoothstep(1.8, 0.0, pt) * 0.5;
     // Intro: the hills rise out of the sea in a ripple from the village
     float grow = smoothstep(r * 0.025, r * 0.025 + 0.45, uGrow);
     lift -= (1.0 - grow) * (c.y + 3.0);
 
     // Hold-to-shatter: every cube tears loose and tumbles (see BREAK)
-    mat3 R;
-    float e;
-    vec3 fly = shatter(c, aRand, aDepth, 1.0, R, e);
+    mat3 R = mat3(1.0);
+    float e = 0.0;
+    vec3 fly = vec3(0.0);
+    if (uBreak > 0.0) fly = shatter(c, aRand, aDepth, 1.0, R, e);
     vec3 w = c + R * (position * size * (1.0 - e * 0.25)) + fly;
     w.y += lift;
 
@@ -474,7 +481,6 @@ export const waterVertex = /* glsl */ `
   varying vec3 vW;
   varying vec3 vN;
   varying vec3 vL;
-  varying float vR;
   ${BREAK}
   // GLSL twin of waveHeight() in layouts.ts
   float waveHeight(vec2 p, float t) {
@@ -484,17 +490,17 @@ export const waterVertex = /* glsl */ `
     vec3 c = instanceMatrix[3].xyz;
     // The block's top sits on the swell; in the holographic formations the blocks sink under the flat sea
     c.y += waveHeight(c.xz, uTime) - 0.15 - (1.0 - uLand) * 0.9;
-    mat3 R;
-    float e;
     // On hold-to-shatter the water splashes: blocks jump and roll near the surface rather
     // than flying up and tumbling with the land, and stay down close to the camera (they'd
     // fill the lens)
-    vec3 fly = shatter(c, aRand, 0.0, 0.45 * smoothstep(4.0, 14.0, length(c.xz - uCam.xz)), R, e) * 0.8;
+    mat3 R = mat3(1.0);
+    float e = 0.0;
+    vec3 fly = vec3(0.0);
+    if (uBreak > 0.0) fly = shatter(c, aRand, 0.0, 0.45 * smoothstep(4.0, 14.0, length(c.xz - uCam.xz)), R, e) * 0.8;
     vec3 w = c + R * (position * (1.0 - e * 0.25)) + fly;
     vW = w;
     vN = normalize(R * normal);
     vL = position;
-    vR = aRand;
     gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }
 `;
@@ -508,7 +514,6 @@ export const waterFragment = /* glsl */ `
   varying vec3 vW;
   varying vec3 vN;
   varying vec3 vL;
-  varying float vR;
   ${DAY}
   ${NOISE}
   ${SEA}

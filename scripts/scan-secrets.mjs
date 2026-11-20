@@ -10,6 +10,8 @@ const TEXT = new Set([
   ".py", ".ipynb", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".json", ".md", ".yml", ".yaml",
   ".toml", ".cfg", ".ini", ".env", ".txt", ".html", ".css", ".sh", ".urdf",
 ]);
+// Files whose names carry no (useful) extension: extname(".env") is "" and extname(".env.local") is ".local"
+const NAMED = /^(?:\.env(?:\..+)?|\.npmrc|\.netrc|Dockerfile)$/i;
 const MAX_BYTES = 3 * 1024 * 1024;
 
 const RULES = [
@@ -35,7 +37,7 @@ function walk(dir) {
     const st = statSync(path);
     if (st.isDirectory()) {
       if (!SKIP_DIRS.has(name)) walk(path);
-    } else if (TEXT.has(extname(name).toLowerCase()) && st.size <= MAX_BYTES && !name.endsWith("package-lock.json")) {
+    } else if ((TEXT.has(extname(name).toLowerCase()) || NAMED.test(name)) && st.size <= MAX_BYTES && !name.endsWith("package-lock.json")) {
       scan(path);
     }
   }

@@ -23,7 +23,7 @@ export function initSmoothScroll() {
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
   if (prefersReducedMotion()) {
-    // Native scroll: still feed velocity to the scene + ScrollTrigger.
+    // Native scroll: still feed the scroll velocity to the scene (ScrollTrigger follows native scroll itself)
     let lastY = window.scrollY;
     let lastT = performance.now();
     const onScroll = () => {

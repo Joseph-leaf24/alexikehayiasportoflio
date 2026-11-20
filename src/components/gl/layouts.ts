@@ -172,7 +172,7 @@ const WATER_Z_MAX = 18;
 
 /**
  * The near sea as a grid of water blocks, wherever there is no land: x, z and a random
- * 0..1 per block. Same x extent as the terrain; `cell` sets the block size (per device tier).
+ * 0..1 per block. Same x extent as the terrain; `cell` sets the block size (see device.ts).
  */
 export function buildWater(ext: { xMin: number; xMax: number; cell: number } = { xMin: -28, xMax: 28, cell: 0.6 }) {
   const rnd = mulberry32(4242);
@@ -201,8 +201,10 @@ export function buildTerrain(ext: { xMin: number; xMax: number; zMin: number } =
   for (let ix = 0; ix < nx; ix++)
     for (let iz = 0; iz < nz; iz++) tops[ix * nz + iz] = voxelTop(x0 + ix * CELL, z0 + iz * CELL);
   const cubes: number[] = [];
-  for (let ix = 0; ix < nx; ix++)
-    for (let iz = 0; iz < nz; iz++) {
+  // Front (near the camera) to back: drawn in this order, the GPU's depth test can skip the
+  // many cubes hidden behind nearer ones (most of the hills sit behind the ridge)
+  for (let iz = nz - 1; iz >= 0; iz--)
+    for (let ix = 0; ix < nx; ix++) {
       const top = tops[ix * nz + iz];
       if (top < 0) continue; // under the sea
       let minN = top;

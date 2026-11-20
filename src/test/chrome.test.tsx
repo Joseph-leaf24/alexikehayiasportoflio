@@ -61,7 +61,7 @@ describe("HUD", () => {
     expect(screen.getByText("12,941")).toBeInTheDocument();
     expect(document.querySelector(".hud-telemetry")?.textContent).toMatch(/−01\.50/);
     expect(document.querySelector(".hud-bottom__left")?.textContent).toMatch(/\d{2}:\d{2}:\d{2} CES?T/);
-    Object.defineProperty(document.documentElement, "scrollHeight", { configurable: true, value: 3000 });
+    vi.spyOn(document.documentElement, "scrollHeight", "get").mockReturnValue(3000);
     act(() => {
       window.dispatchEvent(new Event("resize"));
       setScrollY(1116);
@@ -114,6 +114,10 @@ describe("Cursor", () => {
     fireEvent(window, new PointerEvent("pointerup", { pointerType: "mouse" }));
     fireEvent(window, new PointerEvent("pointermove", { clientX: 400, clientY: 400, pointerType: "mouse" }));
     expect(btn.style.transform).toBe("");
+    expect(btn.style.transition).toMatch(/transform 0\.7s/);
+    // once it has glided back, the control's own CSS transitions are in charge again
+    advance(800);
+    expect(btn.style.transition).toBe("");
     fireEvent.mouseOver(document.body);
     expect(cursor).not.toHaveClass("has-label");
     fireEvent.mouseLeave(document.documentElement);

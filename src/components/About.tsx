@@ -81,7 +81,7 @@ export default function About() {
             </dl>
           </Reveal>
 
-          <div className="about-copy">
+          <div>
             <Reveal>
               <p className="lead">{profile.intro}</p>
             </Reveal>

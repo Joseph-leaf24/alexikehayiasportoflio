@@ -1,7 +1,7 @@
 name: Site health
 
 # Weekly (and on demand): is the live site up and serving the app, and do the links
-# it shows (LinkedIn, GitHub, Power BI dashboards, fonts) still work? A failed run
+# it shows (LinkedIn, Power BI dashboards, fonts) still work? A failed run
 # emails you like any other failed workflow.
 #
 # The site URL defaults to the GitHub Pages address; set the repository variable
@@ -30,14 +30,14 @@ jobs:
           SITE_URL: ${{ vars.SITE_URL || 'https://joseph-leaf24.github.io/alexikehayiasportoflio/' }}
         run: |
           set -euo pipefail
-          html=$(curl -fsSL --retry 3 --retry-delay 10 "$SITE_URL")
+          html=$(curl -fsSL --max-time 30 --retry 3 --retry-delay 10 "$SITE_URL")
           grep -q 'Content-Security-Policy' <<<"$html" || { echo "::error::$SITE_URL has no Content-Security-Policy"; exit 1; }
           bundle=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' <<<"$html" | head -1)
           [ -n "$bundle" ] || { echo "::error::$SITE_URL does not reference the app bundle"; exit 1; }
-          curl -fsS --retry 3 -o /dev/null "${SITE_URL}${bundle}"
-          curl -fsS --retry 3 -o /dev/null "${SITE_URL}Alexi_Kehayias_CV.pdf"
+          curl -fsS --max-time 30 --retry 3 -o /dev/null "${SITE_URL}${bundle}"
+          curl -fsS --max-time 30 --retry 3 -o /dev/null "${SITE_URL}Alexi_Kehayias_CV.pdf"
           # The image LinkedIn / WhatsApp show when the site is shared (og:image in index.html)
-          curl -fsS --retry 3 -o /dev/null "${SITE_URL}og-image.jpg"
+          curl -fsS --max-time 30 --retry 3 -o /dev/null "${SITE_URL}og-image.jpg"
           echo "✅ $SITE_URL is up and serving $bundle" >> "$GITHUB_STEP_SUMMARY"
 
   links:

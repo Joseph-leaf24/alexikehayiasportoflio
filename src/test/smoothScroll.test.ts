@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sceneState } from "@/lib/store";
 import { media, setScrollY } from "./setup";
 
@@ -22,7 +22,10 @@ class FakeLenis {
 vi.mock("lenis", () => ({ default: FakeLenis }));
 
 const mod = await import("@/lib/smoothScroll");
+// (after the mock: the helpers import the app, which imports Lenis)
+const { resetState } = await import("./utils");
 
+beforeEach(resetState);
 afterEach(() => {
   document.documentElement.classList.remove("scroll-locked");
 });

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { setScrollLocked } from "@/lib/smoothScroll";
-import { hasModifier, isTypingTarget, trapTab } from "@/lib/keys";
+import { hasModifier, isModalOpen, isTypingTarget, trapTab } from "@/lib/keys";
+import { ui } from "@/lib/store";
 
 const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["←", "→"], label: "Previous / next project (on a project page)" },
@@ -64,15 +65,20 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
 
 /**
  * Global `?` key: opens (or closes) the keyboard-shortcuts help. Ignored while typing in a
- * field or with Ctrl / Alt / Cmd held.
+ * field, with Ctrl / Alt / Cmd held, and over another overlay (the image viewer, the phone
+ * menu, the loader), so two overlays never stack.
  */
 export default function Shortcuts() {
   const [open, setOpen] = useState(false);
+  const openRef = useRef(open);
+  openRef.current = open;
   const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "?" || hasModifier(e) || isTypingTarget(e.target)) return;
+      const { ready, menuOpen } = ui.get();
+      if (!openRef.current && (isModalOpen() || menuOpen || !ready)) return;
       e.preventDefault();
       setOpen((o) => !o);
     };

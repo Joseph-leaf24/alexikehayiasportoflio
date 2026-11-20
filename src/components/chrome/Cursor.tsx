@@ -27,9 +27,20 @@ export default function Cursor() {
     // Magnetic controls: they lean toward the pointer and the ring sticks to them
     let magnet: HTMLElement | null = null;
     const stick = { x: 0, y: 0 };
+    // The pull's transform transition is added to the control's own transitions (its colour fill
+    // etc. keep animating), and taken off again once it has settled back
+    const own = new WeakMap<HTMLElement, string>();
+    const glide = (el: HTMLElement, seconds: number) => {
+      if (!own.has(el)) own.set(el, getComputedStyle(el).transition);
+      const base = own.get(el);
+      el.style.transition = `${base ? `${base}, ` : ""}transform ${seconds}s cubic-bezier(0.16, 1, 0.3, 1)`;
+    };
     const release = (el: HTMLElement) => {
-      el.style.transition = "transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)";
+      glide(el, 0.7);
       el.style.transform = "";
+      window.setTimeout(() => {
+        if (el !== magnet) el.style.transition = "";
+      }, 700);
     };
 
     const onMove = (e: PointerEvent) => {
@@ -53,11 +64,19 @@ export default function Cursor() {
         const cy = r.top + r.height / 2;
         const dx = Math.max(-14, Math.min(14, (pos.x - cx) * 0.28));
         const dy = Math.max(-10, Math.min(10, (pos.y - cy) * 0.38));
-        magnet.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
+        glide(magnet, 0.25);
         magnet.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
         stick.x = cx + dx;
         stick.y = cy + dy;
       }
+      kick();
+    };
+    // Scrolling moves the control away from under the pointer: let it go
+    const onScroll = () => {
+      if (!magnet) return;
+      release(magnet);
+      magnet = null;
+      kick();
     };
     const onOver = (e: MouseEvent) => {
       const t = elementOf(e.target)?.closest<HTMLElement>("[data-cursor], a, button, [role='tab'], label");
@@ -75,14 +94,14 @@ export default function Cursor() {
       magnet = null;
     };
 
+    // Runs only while the ring is catching up: it stops once settled and the next move restarts it
     const drawn = { x: NaN, y: NaN, rx: NaN, ry: NaN };
     const loop = () => {
-      raf = requestAnimationFrame(loop);
+      raf = 0;
       const tx = magnet ? stick.x + (pos.x - stick.x) * 0.3 : pos.x;
       const ty = magnet ? stick.y + (pos.y - stick.y) * 0.3 : pos.y;
       ring.x += (tx - ring.x) * 0.18;
       ring.y += (ty - ring.y) * 0.18;
-      // Idle pointer: nothing moved since the last frame, so skip the style writes
       if (pos.x === drawn.x && pos.y === drawn.y && Math.abs(ring.x - drawn.rx) < 0.05 && Math.abs(ring.y - drawn.ry) < 0.05) return;
       drawn.x = pos.x;
       drawn.y = pos.y;
@@ -90,10 +109,14 @@ export default function Cursor() {
       drawn.ry = ring.y;
       if (dotRef.current) dotRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
       if (ringRef.current) ringRef.current.style.transform = `translate3d(${ring.x}px, ${ring.y}px, 0)`;
+      raf = requestAnimationFrame(loop);
     };
-    raf = requestAnimationFrame(loop);
+    function kick() {
+      if (!raf) raf = requestAnimationFrame(loop);
+    }
 
     window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("mouseover", onOver, { passive: true });
     window.addEventListener("pointerdown", onDown, { passive: true });
     window.addEventListener("pointerup", onUp, { passive: true });
@@ -103,6 +126,7 @@ export default function Cursor() {
       if (magnet) release(magnet);
       document.documentElement.classList.remove("has-cursor");
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("scroll", onScroll);
       document.removeEventListener("mouseover", onOver);
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointerup", onUp);

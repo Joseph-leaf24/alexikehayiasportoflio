@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { prefersReducedMotion } from "@/lib/smoothScroll";
 import { nav, sceneState, triggerPulse } from "@/lib/store";
 import { getQuality } from "@/lib/device";
+import { HOME_Y, save } from "@/lib/session";
 
 type Go = (to: string, state?: unknown) => void;
 const TransitionCtx = createContext<Go>(() => {});
@@ -22,6 +23,9 @@ const TransitionCtx = createContext<Go>(() => {});
  * navigation up for many seconds; this keeps the wipe on schedule regardless.
  */
 const within = (p: Promise<unknown>, ms: number) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
+
+/** After a route change the link that was clicked is gone: move focus to the new page's content. */
+const focusMain = () => document.getElementById("main")?.focus({ preventScroll: true });
 
 /**
  * `go(to, state?)`: navigate behind the page-wipe transition. A request made while a
@@ -56,22 +60,18 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         return;
       }
       // Remember where we were on the home page so "back" returns to the same spot
-      if (pathRef.current === "/") {
-        try {
-          sessionStorage.setItem("ak:homeY", String(window.scrollY));
-        } catch {
-          /* ignore */
-        }
-      }
+      if (pathRef.current === "/") save(HOME_Y, window.scrollY);
       const el = overlayRef.current;
       triggerPulse();
       if (!el || prefersReducedMotion() || typeof el.animate !== "function") {
         navigate(to, { state });
+        focusMain();
         return;
       }
       busy.current = true;
       sceneState.transition = true;
       el.style.visibility = "visible";
+      el.classList.add("is-active");
       const shards = Array.from(el.querySelectorAll<HTMLElement>(".page-wipe__shard"));
       const deco = Array.from(el.querySelectorAll<HTMLElement>(".page-wipe__grid, .page-wipe__label"));
       const STAGGER = 45;
@@ -93,6 +93,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         await sweep("translateY(110%) skewY(-7deg)", "translateY(0) skewY(0deg)", 620 * speed);
         fade(0, 1);
         navigate(to, { state });
+        focusMain();
         await within(new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), 300);
         await new Promise((r) => setTimeout(r, 140));
         fade(1, 0);
@@ -100,6 +101,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         await sweep("translateY(0) skewY(0deg)", "translateY(-110%) skewY(7deg)", 720 * speed);
       } finally {
         el.style.visibility = "hidden";
+        el.classList.remove("is-active");
         busy.current = false;
         sceneState.transition = false;
         const next = queued.current;

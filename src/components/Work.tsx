@@ -3,14 +3,11 @@ import { projectData } from "@/data/projects";
 import { profile, specializations } from "@/data/profile";
 import { triggerPulse } from "@/lib/store";
 import { scrollToTarget } from "@/lib/smoothScroll";
-import { cn } from "@/lib/utils";
+import { cn, pad } from "@/lib/utils";
 import SectionHead from "@/components/fx/SectionHead";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
-import Corners from "@/components/fx/Corners";
 import ProjectCard from "./ProjectCard";
-
-const pad = (n: number) => String(n).padStart(2, "0");
 
 interface WorkProps {
   active: number;
@@ -83,11 +80,10 @@ export default function Work({ active, setActive }: WorkProps) {
                   aria-selected={isActive}
                   aria-controls="work-panel"
                   tabIndex={isActive ? 0 : -1}
-                  className={cn("spec-tab hc", isActive && "is-active")}
+                  className={cn("spec-tab", isActive && "is-active")}
                   onClick={() => select(i)}
                   data-cursor={isActive ? "" : "SELECT"}
                 >
-                  <Corners />
                   <span className="spec-tab__top">
                     <span>{pad(i + 1)}</span>
                     <span>
@@ -124,7 +120,7 @@ export default function Work({ active, setActive }: WorkProps) {
 
           <div className="project-grid">
             {category.projects.map((project, i) => (
-              <ProjectCard key={project.title} project={project} category={spec.id} index={i} order={i} />
+              <ProjectCard key={project.title} project={project} category={spec.id} index={i} />
             ))}
           </div>
         </div>

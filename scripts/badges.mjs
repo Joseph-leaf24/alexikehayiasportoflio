@@ -30,8 +30,11 @@ export function summariseUnit(results, coverageSummary) {
   };
 }
 
-/** Number of known vulnerabilities in an `npm audit --json` report. */
-export const countVulnerabilities = (audit) => Object.values(audit?.metadata?.vulnerabilities ?? {}).reduce((sum, n) => sum + n, 0);
+/** Number of known vulnerabilities in an `npm audit --json` report (undefined if the audit itself failed, so no badge claims 0). */
+export const countVulnerabilities = (audit) => {
+  const counts = audit?.metadata?.vulnerabilities;
+  return counts ? Object.values(counts).reduce((sum, n) => sum + n, 0) : undefined;
+};
 
 /** Lowest score per Lighthouse category across all audited pages (the same rule CI asserts with). */
 export function summariseLighthouse(manifest) {
@@ -75,7 +78,13 @@ function collect() {
   const unit = summariseUnit(readJson("coverage/test-results.json"), readJson("coverage/coverage-summary.json"));
   // npm exits non-zero when it finds anything, so read the JSON whatever the status
   const audit = spawnSync("npm", ["audit", "--omit=dev", "--json"], { encoding: "utf8", shell: process.platform === "win32" });
-  const vulnerabilities = countVulnerabilities(JSON.parse(audit.stdout || "{}"));
+  let report = {};
+  try {
+    report = JSON.parse(audit.stdout);
+  } catch {
+    /* no usable report: that badge keeps its last value */
+  }
+  const vulnerabilities = countVulnerabilities(report) ?? "";
   return `passed=${unit.passed}\nfailed=${unit.failed}\ncoverage=${unit.coverage}\nvulnerabilities=${vulnerabilities}\n`;
 }
 

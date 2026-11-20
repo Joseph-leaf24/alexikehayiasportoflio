@@ -5,3 +5,6 @@ import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+/** Two-digit index ("07"), as used for numbering across the site. */
+export const pad = (n: number) => String(n).padStart(2, "0");

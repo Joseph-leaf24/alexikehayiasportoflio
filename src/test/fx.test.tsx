@@ -89,11 +89,12 @@ describe("Reveal", () => {
 });
 
 describe("Counter", () => {
-  it("counts up to its value once visible", async () => {
+  it("counts up to its value once visible, while screen readers get the value itself", async () => {
     useAnimationTimers();
-    render(<Counter value={18} className="n" />);
-    const el = screen.getByLabelText("18");
+    const { container } = render(<Counter value={18} className="n" />);
+    const el = container.querySelector(".n [aria-hidden]")!;
     expect(el.textContent).toBe("00");
+    expect(container.querySelector(".n .sr-only")).toHaveTextContent("18");
     markReady();
     await flush();
     advance(2000);
@@ -102,8 +103,8 @@ describe("Counter", () => {
 
   it("shows the final value straight away with reduced motion", () => {
     media["(prefers-reduced-motion: reduce)"] = true;
-    render(<Counter value={7} />);
-    expect(screen.getByLabelText("7").textContent).toBe("07");
+    const { container } = render(<Counter value={7} />);
+    expect(container.querySelector("[aria-hidden]")?.textContent).toBe("07");
   });
 });
 

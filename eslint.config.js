@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage", "playwright-report", "test-results", ".lighthouseci"] },
+  { ignores: ["dist", "coverage", "playwright-report", "test-results", ".lighthouseci", "Projects"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -25,6 +25,12 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-unused-vars": "off",
     },
+  },
+  {
+    // Node scripts and config files
+    extends: [js.configs.recommended],
+    files: ["**/*.{js,mjs}"],
+    languageOptions: { globals: globals.node },
   },
   {
     // Data modules and test helpers aren't hot-reloaded components

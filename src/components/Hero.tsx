@@ -22,10 +22,10 @@ const Hero = () => {
     if (!el) return;
     let start: { x: number; y: number } | null = null;
     const down = (e: PointerEvent) => {
-      if (e.target instanceof Element && e.target.closest("a,button")) return;
+      // Main button / touch only: a right-click's menu would swallow the release
+      if (e.button !== 0 || (e.target instanceof Element && e.target.closest("a,button"))) return;
       start = { x: e.clientX, y: e.clientY };
       sceneState.press = true;
-      el.classList.add("is-pressing");
     };
     // A touch that turns into a scroll or drag cancels the hold
     const move = (e: PointerEvent) => {
@@ -34,20 +34,16 @@ const Hero = () => {
     const up = () => {
       start = null;
       sceneState.press = false;
-      el.classList.remove("is-pressing");
     };
+    const releases = ["pointerup", "pointercancel", "blur", "contextmenu"] as const;
     el.addEventListener("pointerdown", down);
     window.addEventListener("pointermove", move, { passive: true });
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-    window.addEventListener("blur", up);
+    for (const ev of releases) window.addEventListener(ev, up);
     return () => {
       up();
       el.removeEventListener("pointerdown", down);
       window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-      window.removeEventListener("blur", up);
+      for (const ev of releases) window.removeEventListener(ev, up);
     };
   }, []);
 
@@ -62,16 +58,23 @@ const Hero = () => {
     const update = () => {
       raf = 0;
       if (window.scrollY > window.innerHeight) return;
-      const chars = title.querySelectorAll<HTMLElement>(".sc-ch");
-      chars.forEach((ch) => {
+      const chars = Array.from(title.querySelectorAll<HTMLElement>(".sc-ch"));
+      // Read every letter's resting centre first, then write the transforms (reading after
+      // each write would make the browser recompute styles once per letter). offset*
+      // ignores transforms, so the centres stay put while the letters move.
+      const parentRects = new Map<HTMLElement, DOMRect>();
+      const centres = chars.map((ch) => {
         const parent = ch.offsetParent as HTMLElement | null;
-        if (!parent) return;
-        const pr = parent.getBoundingClientRect();
-        // offset* ignores transforms, so the letter's resting centre stays stable
-        const cx = pr.left + ch.offsetLeft + ch.offsetWidth / 2;
-        const cy = pr.top + ch.offsetTop + ch.offsetHeight / 2;
-        const dx = cx - px;
-        const dy = cy - py;
+        if (!parent) return null;
+        let pr = parentRects.get(parent);
+        if (!pr) parentRects.set(parent, (pr = parent.getBoundingClientRect()));
+        return { x: pr.left + ch.offsetLeft + ch.offsetWidth / 2, y: pr.top + ch.offsetTop + ch.offsetHeight / 2 };
+      });
+      chars.forEach((ch, i) => {
+        const c = centres[i];
+        if (!c) return;
+        const dx = c.x - px;
+        const dy = c.y - py;
         const d = Math.hypot(dx, dy);
         if (d < R && d > 0.001) {
           const f = (1 - d / R) ** 2 * 34;
@@ -124,7 +127,7 @@ const Hero = () => {
           </Reveal>
         </div>
 
-        <div className="hero__bottom">
+        <div>
           <h1 className="hero__title">
             <span className="sr-only">{profile.name}</span>
             <span aria-hidden="true">

@@ -57,7 +57,6 @@ export function resetState() {
   sceneState.cam.x = sceneState.cam.y = sceneState.cam.z = 0;
   resetQualityCache();
   delete document.documentElement.dataset.tier;
-  delete document.documentElement.dataset.perf;
   window.history.replaceState({}, "", "/");
 }
 

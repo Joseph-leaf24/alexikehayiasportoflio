@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { setScrollLocked } from "@/lib/smoothScroll";
-import { trapTab } from "@/lib/keys";
+import { hasModifier, trapTab } from "@/lib/keys";
+import { pad } from "@/lib/utils";
 
 interface Props {
   images: string[];
@@ -11,8 +12,6 @@ interface Props {
   onClose: () => void;
   onIndex: (i: number) => void;
 }
-
-const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
  * Full-screen gallery viewer (portalled to <body>). Locks page scroll, focuses Close, keeps
@@ -38,6 +37,8 @@ export default function Lightbox({ images, index, title, onClose, onIndex }: Pro
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Alt+← is the browser's Back, not "previous image"
+      if (hasModifier(e)) return;
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowRight" && count > 1) onIndex((index + 1) % count);
       else if (e.key === "ArrowLeft" && count > 1) onIndex((index - 1 + count) % count);

@@ -51,6 +51,7 @@ vi.mock("three/examples/jsm/postprocessing/ShaderPass.js", () => ({
   ShaderPass: class {
     enabled = true;
     uniforms = { uTime: { value: 0 }, uAberr: { value: 0 }, uGlitch: { value: 0 }, uRes: { value: [1, 1] }, uDim: { value: 1 } };
+    dispose() {}
   },
 }));
 
@@ -64,7 +65,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   document.documentElement.classList.remove("no-webgl");
-  delete document.documentElement.dataset.perf;
   Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
   window.history.replaceState({}, "", "/");
 });
@@ -168,12 +168,12 @@ describe("IceScene", () => {
 
     // Window + context events
     window.dispatchEvent(new Event("resize"));
-    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
     document.dispatchEvent(new Event("visibilitychange"));
     const before = gl.renders;
     advance(200);
     expect(gl.renders).toBe(before);
-    Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    hidden.mockReturnValue(false);
     document.dispatchEvent(new Event("visibilitychange"));
     canvas.dispatchEvent(new Event("webglcontextlost"));
     canvas.dispatchEvent(new Event("webglcontextrestored"));

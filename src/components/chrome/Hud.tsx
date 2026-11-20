@@ -54,19 +54,18 @@ const FORMATIONS: Record<LayoutKey, string> = {
 /** Fixed-width signed coordinate for the camera readout (typographic minus). */
 const signed = (v: number) => `${v < 0 ? "−" : "+"}${Math.abs(v).toFixed(2).padStart(5, "0")}`;
 
-/** Live readout of what the 3D scene is doing (polled ~8×/s; hidden without WebGL). */
+/** Live readout of what the 3D scene is doing (polled ~8×/s while on screen; hidden without WebGL). */
 function Telemetry() {
   const [formation, setFormation] = useState<LayoutKey>(sceneState.formation);
+  const rootRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<HTMLSpanElement>(null);
   const blocksRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    let raf = 0;
-    let last = 0;
     let current = sceneState.formation;
-    const loop = (t: number) => {
-      raf = requestAnimationFrame(loop);
-      if (t - last < 120) return;
-      last = t;
+    const id = window.setInterval(() => {
+      // Hidden by CSS below 1280 px wide: nothing to update
+      const root = rootRef.current;
+      if (!root || getComputedStyle(root).display === "none") return;
       if (sceneState.formation !== current) {
         current = sceneState.formation;
         setFormation(current);
@@ -74,13 +73,12 @@ function Telemetry() {
       const c = sceneState.cam;
       if (camRef.current) camRef.current.textContent = `${signed(c.x)} ${signed(c.y)} ${signed(c.z)}`;
       if (blocksRef.current && sceneState.blocks) blocksRef.current.textContent = sceneState.blocks.toLocaleString("en-GB");
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    }, 120);
+    return () => window.clearInterval(id);
   }, []);
   if (!sceneState.webgl) return null;
   return (
-    <div className="hud-telemetry">
+    <div ref={rootRef} className="hud-telemetry">
       <span>Formation</span>
       <ScrambleText key={formation} text={FORMATIONS[formation]} trigger="mount" duration={500} className="hud-telemetry__val" />
       <span className="hud-dot" />
@@ -170,9 +168,14 @@ export default function Hud() {
     else go("/", { scrollTo: id === "top" ? undefined : id });
   };
 
+  const burgerRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     setScrollLocked(menuOpen);
-    if (!menuOpen) return;
+    if (!menuOpen) {
+      // Closing with focus on one of its links (now hidden) would drop focus to the page: hand it back to the burger
+      if (document.getElementById("mobile-menu")?.contains(document.activeElement)) burgerRef.current?.focus();
+      return;
+    }
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && ui.set({ menuOpen: false });
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -202,7 +205,7 @@ export default function Hud() {
           }}
         >
           <span className="hud-brand__mark" aria-hidden="true" />
-          <ScrambleText text="Alexi Kehayias" trigger="mount" hover className="hud-brand__name" />
+          <ScrambleText text="Alexi Kehayias" trigger="mount" hover />
           {/* The name stays the visible text plus "home" (WCAG 2.5.3 label in name) */}
           <span className="sr-only"> — home</span>
         </a>
@@ -229,6 +232,7 @@ export default function Hud() {
             ))}
           </nav>
           <button
+            ref={burgerRef}
             type="button"
             className={cn("hud-burger", menuOpen && "is-open")}
             onClick={() => ui.set({ menuOpen: !menuOpen })}

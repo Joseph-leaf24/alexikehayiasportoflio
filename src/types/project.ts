@@ -16,7 +16,7 @@ export interface Project {
   tools?: string[];
   /** Live demo, linked from the project page */
   demoUrl?: string;
-  /** Public Power BI report: embedded on the project page and flagged on the card */
+  /** Public Power BI report, embedded on the project page */
   powerBiUrl?: string;
 }
 

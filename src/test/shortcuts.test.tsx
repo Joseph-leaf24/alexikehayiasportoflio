@@ -48,6 +48,27 @@ describe("keyboard helpers", () => {
 });
 
 describe("shortcuts help (?)", () => {
+  // The loader has finished (the help stays out of its way, see below)
+  beforeEach(() => ui.set({ ready: true }));
+
+  it("never opens on top of the loader, the image viewer or the phone menu", () => {
+    render(<Shortcuts />);
+    act(() => ui.set({ ready: false }));
+    fireEvent.keyDown(window, { key: "?" });
+    act(() => ui.set({ ready: true, menuOpen: true }));
+    fireEvent.keyDown(window, { key: "?" });
+    act(() => ui.set({ menuOpen: false }));
+    const viewer = document.createElement("div");
+    viewer.setAttribute("role", "dialog");
+    viewer.setAttribute("aria-modal", "true");
+    document.body.appendChild(viewer);
+    fireEvent.keyDown(window, { key: "?" });
+    viewer.remove();
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+    fireEvent.keyDown(window, { key: "?" });
+    expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+  });
+
   it("opens with ?, focuses Close, traps Tab and closes with Esc", () => {
     render(<Shortcuts />);
     expect(screen.queryByRole("dialog")).toBeNull();

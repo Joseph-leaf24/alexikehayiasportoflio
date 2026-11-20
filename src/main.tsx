@@ -4,7 +4,7 @@ import App from './App.tsx'
 import './index.css'
 import { getQuality } from './lib/device'
 
-// Pick the device tier before the first render so <html data-tier> is set before anything paints
+// Resolve the render budget (full quality, unless ?quality= says otherwise) so <html data-tier> is set before anything paints
 getQuality();
 
 createRoot(document.getElementById("root")!).render(<App />);

@@ -2,12 +2,12 @@ import { useEffect, useRef } from "react";
 import { SKILLS } from "@/data/skills";
 import { profile } from "@/data/profile";
 import { sceneState } from "@/lib/store";
+import { prefersReducedMotion } from "@/lib/smoothScroll";
 import SectionHead from "@/components/fx/SectionHead";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
-
-const pad = (n: number) => String(n).padStart(2, "0");
+import { pad } from "@/lib/utils";
 
 /** One marquee row. The set is rendered twice (the copy hidden from screen readers) so the CSS loop is seamless. */
 function MarqueeRow({ reverse = false, outline = false }: { reverse?: boolean; outline?: boolean }) {
@@ -30,18 +30,20 @@ function MarqueeRow({ reverse = false, outline = false }: { reverse?: boolean; o
 export default function Skills() {
   const marqueeRef = useRef<HTMLDivElement>(null);
 
-  // Skew the marquee with scroll velocity (only while it's on screen)
+  // The marquee only scrolls while on screen (data-live), and skews with scroll velocity unless motion is reduced
   useEffect(() => {
     const el = marqueeRef.current;
     if (!el) return;
+    const skews = !prefersReducedMotion();
     let raf = 0;
     let skew = 0;
     let written = "";
     let visible = false;
     const io = new IntersectionObserver(([e]) => {
       visible = e.isIntersecting;
-      if (visible) raf = requestAnimationFrame(loop);
-      else cancelAnimationFrame(raf);
+      el.toggleAttribute("data-live", visible);
+      cancelAnimationFrame(raf);
+      if (visible && skews) raf = requestAnimationFrame(loop);
     });
     const loop = () => {
       if (!visible) return;
@@ -59,7 +61,7 @@ export default function Skills() {
   }, []);
 
   return (
-    <section id="toolbox" className="section section--toolbox" data-scene="network" data-section="03|Toolbox">
+    <section id="toolbox" className="section" data-scene="network" data-section="03|Toolbox">
       <div className="container-x">
         <SectionHead index="03" label="Toolbox" />
         <div className="toolbox-head">

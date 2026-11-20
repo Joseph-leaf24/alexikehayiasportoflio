@@ -145,7 +145,7 @@ describe("DepthImage", () => {
 describe("project cards", () => {
   it("show which domains a project belongs to", () => {
     const project = projectData.mlops.projects[0];
-    renderRoute(<ProjectCard project={project} category="mlops" index={0} order={0} />);
+    renderRoute(<ProjectCard project={project} category="mlops" index={0} />);
     expect(document.querySelector(".project-card__domains")?.textContent).toBe("Data Engineering · MLOps & Deployment");
     expect(document.querySelector(".project-card__media .depth")).toBeInTheDocument();
   });

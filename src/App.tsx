@@ -27,7 +27,7 @@ function Shell() {
     };
     const onDown = (e: PointerEvent) => {
       onPointer(e);
-      if (e.pointerType === "mouse") sceneState.burst++;
+      if (e.pointerType === "mouse" && e.button === 0) sceneState.burst++;
     };
     window.addEventListener("pointermove", onPointer, { passive: true });
     window.addEventListener("pointerdown", onDown, { passive: true });

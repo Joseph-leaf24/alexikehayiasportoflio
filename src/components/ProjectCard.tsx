@@ -9,24 +9,21 @@ import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
 import DepthImage from "@/components/fx/DepthImage";
 import { domainsFor } from "@/data/domains";
+import { pad } from "@/lib/utils";
 
 interface ProjectCardProps {
   project: Project;
   category: string;
-  /** Index within the category (builds the link and the P/xx label) */
+  /** Index within the category (builds the link and the P/xx label, and staggers the reveal) */
   index: number;
-  /** Position in the grid (staggers the reveal) */
-  order: number;
 }
-
-const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
  * Project card linking to its detail page: the project image with the depth effect, domains, chips.
  * The link is the title, stretched over the whole card by CSS (so its accessible name is just the
  * title). Tilts toward the mouse (--rx/--ry) with a glare that follows it (--mx/--my).
  */
-const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
+const ProjectCard = ({ project, category, index }: ProjectCardProps) => {
   const ref = useRef<HTMLElement>(null);
   const { title, description, image, tags, tools, concepts } = project;
 
@@ -49,7 +46,7 @@ const ProjectCard = ({ project, category, index, order }: ProjectCardProps) => {
   };
 
   return (
-    <Reveal delay={order * 110} className="card-wrap">
+    <Reveal delay={index * 110} className="card-wrap">
       <article
         ref={ref}
         className="project-card hc"

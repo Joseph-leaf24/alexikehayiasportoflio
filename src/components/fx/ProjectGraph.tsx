@@ -107,7 +107,7 @@ export default function ProjectGraph({ project }: Props) {
             ))}
         </g>
 
-        <g className="pgraph__nodes">
+        <g>
           {g.nodes.map((n) => {
             const cls = cn("pgraph__node", `pgraph__node--l${n.layer}`, linked?.has(n.key) && "is-hot");
             const delay = { animationDelay: `${(n.step * STEP).toFixed(2)}s`, animationDuration: `${PERIOD}s` } as CSSProperties;

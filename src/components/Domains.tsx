@@ -9,8 +9,7 @@ import SectionHead from "@/components/fx/SectionHead";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
-
-const pad = (n: number) => String(n).padStart(2, "0");
+import { pad } from "@/lib/utils";
 
 interface DomainsProps {
   /** Open a specialization tab in the Work section */
@@ -81,7 +80,7 @@ export default function Domains({ onExplore }: DomainsProps) {
               >
                 <Corners />
                 <div className="domain__top">
-                  <span className="domain__idx">
+                  <span>
                     {pad(i + 1)} · {d.step}
                   </span>
                   <Icon className="domain__icon" aria-hidden="true" />

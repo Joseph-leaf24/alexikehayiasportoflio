@@ -12,7 +12,9 @@ describe("README badge data (scripts/badges.mjs)", () => {
     const unit = summariseUnit({ numPassedTests: 106, numFailedTests: 0 }, { total: { statements: { pct: 98.0912 } } });
     expect(unit).toEqual({ passed: 106, failed: 0, coverage: 98.1 });
     expect(countVulnerabilities({ metadata: { vulnerabilities: { info: 0, low: 1, moderate: 2, high: 0, critical: 0 } } })).toBe(3);
-    expect(countVulnerabilities({})).toBe(0);
+    expect(countVulnerabilities({ metadata: { vulnerabilities: { high: 0 } } })).toBe(0);
+    // a failed audit (e.g. registry unreachable) gives no number rather than a false 0
+    expect(countVulnerabilities({ error: { code: "ENOTFOUND" } })).toBeUndefined();
   });
 
   it("keeps the lowest Lighthouse score per category across pages", () => {
