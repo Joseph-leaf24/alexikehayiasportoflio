@@ -9,7 +9,8 @@
       ],
       "numberOfRuns": 1,
       "settings": {
-        "chromeFlags": "--use-angle=swiftshader --enable-unsafe-swiftshader --force-prefers-reduced-motion"
+        "chromeFlags": "--use-angle=swiftshader --enable-unsafe-swiftshader --force-prefers-reduced-motion",
+        "disableFullPageScreenshot": true
       }
     },
     "upload": {

@@ -114,7 +114,8 @@ jobs:
   browser:
     name: Browser · e2e, accessibility, Lighthouse
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The runner draws the full-quality 3D scene in software (no GPU), so this job is slow
+    timeout-minutes: 40
     outputs:
       lighthouse: ${{ steps.scores.outputs.lighthouse }}
     steps:
