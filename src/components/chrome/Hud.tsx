@@ -161,6 +161,10 @@ export default function Hud() {
   const onHome = location.pathname === "/";
 
   const navTo = (id: string) => {
+    // From the phone menu: unlock scrolling before scrolling. (Left to the menu-closed effect,
+    // restarting the smooth scroller would cancel the scroll that had just begun, so the
+    // menu closed but the page stayed put.)
+    if (ui.get().menuOpen) setScrollLocked(false);
     ui.set({ menuOpen: false });
     if (onHome) scrollToTarget(id === "top" ? 0 : `#${id}`, { offset: id === "top" ? 0 : -10 });
     else go("/", { scrollTo: id === "top" ? undefined : id });

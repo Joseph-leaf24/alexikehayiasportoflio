@@ -102,6 +102,16 @@ test("home page: every section renders, fits the screen and passes axe", async (
   await expectAccessible(page);
 });
 
+test("the phone menu's links close the menu and scroll to their section", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "the full-screen menu is for small screens");
+  await open(page);
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await expect(page.locator("#mobile-menu")).toHaveClass(/is-open/);
+  await page.locator("#mobile-menu").getByRole("link", { name: /work/i }).click();
+  await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
+  await expect(page.locator("#projects")).toBeInViewport({ ratio: 0.1 });
+});
+
 test("a reload always opens on the intro, also after coming back from a project", async ({ page }) => {
   const atIntro = async () => {
     await expect(page.locator(".loader")).toHaveCount(0, { timeout: 45_000 });
