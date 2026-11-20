@@ -96,6 +96,8 @@ export const sceneState = {
   press: false,
   /** A page-wipe transition is running (very slow devices skip the hidden 3D frames meanwhile). */
   transition: false,
+  /** A full-screen overlay (image viewer, phone menu, shortcuts help) hides the scene: no need to draw. */
+  covered: false,
   /** performance.now() / 1000 of the last ripple pulse. */
   pulse: -100,
   /** Scroll velocity in px/s (written by the smooth-scroll driver, decayed by the scene). */

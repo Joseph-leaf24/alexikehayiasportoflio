@@ -195,14 +195,41 @@ describe("IceScene", () => {
     unmount();
   });
 
-  it("renders every refresh, also on a 120 Hz screen", () => {
+  it("paces itself to spare the GPU: ~60 fps on a 120 Hz screen, 30 when idle or in the background, none behind an overlay", () => {
     resetQualityCache();
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(true);
     const d = display(1000 / 120, () => 2);
     const { unmount } = render(<IceScene />);
-    d.run(0.5);
-    const before = gl.renders;
-    d.run(2);
-    expect(gl.renders - before).toBeGreaterThan(235);
+    /** Frames drawn over `s` simulated seconds */
+    const drawn = (s: number) => {
+      const before = gl.renders;
+      d.run(s);
+      return gl.renders - before;
+    };
+    d.run(0.5); // the refresh rate is measured first
+    // While the intro plays: every other refresh, 60 fps
+    expect(drawn(2)).toBeGreaterThan(110);
+    expect(drawn(2)).toBeLessThan(130);
+    // Nobody touching anything for a while: 30 fps
+    ui.set({ ready: true });
+    d.run(13);
+    const idle = drawn(2);
+    expect(idle).toBeGreaterThan(55);
+    expect(idle).toBeLessThan(65);
+    // Any input brings it straight back to 60
+    window.dispatchEvent(new Event("pointermove"));
+    expect(drawn(2)).toBeGreaterThan(110);
+    // In a background window: 30 again
+    window.dispatchEvent(new Event("pointermove"));
+    focus.mockReturnValue(false);
+    expect(drawn(2)).toBeLessThan(65);
+    // Behind the image viewer / phone menu: nothing, then back
+    focus.mockReturnValue(true);
+    sceneState.covered = true;
+    expect(drawn(1)).toBe(0);
+    sceneState.covered = false;
+    expect(drawn(1)).toBeGreaterThan(25);
+    // The quality itself never changes
     expect(d.settings()).toEqual({ dpr: 1, bloom: true, fx: true });
     unmount();
   });

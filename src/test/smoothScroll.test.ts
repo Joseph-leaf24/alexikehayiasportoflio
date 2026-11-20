@@ -45,8 +45,11 @@ describe("smooth scrolling", () => {
     mod.setScrollLocked(true);
     expect(lenis.stop).toHaveBeenCalled();
     expect(document.documentElement).toHaveClass("scroll-locked");
+    // …and tells the 3D scene it's hidden behind the overlay
+    expect(sceneState.covered).toBe(true);
     mod.setScrollLocked(false);
     expect(lenis.start).toHaveBeenCalled();
+    expect(sceneState.covered).toBe(false);
     mod.refreshScroll();
 
     stop();

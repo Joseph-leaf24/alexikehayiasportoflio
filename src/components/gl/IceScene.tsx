@@ -71,6 +71,10 @@ const DAY_FOG = new THREE.Vector3(0.27, 0.38, 0.48);
 const GOLD_FOG = new THREE.Vector3(0.5, 0.36, 0.34);
 /** Centre of the hold-to-shatter explosion (the village) */
 const BREAK_C = new THREE.Vector3(0, 2, -4);
+/** After this long without input (ms) the scene drops to half its frame rate */
+const IDLE_MS = 8000;
+/** What counts as someone interacting */
+const INPUT_EVENTS = ["pointermove", "pointerdown", "wheel", "keydown", "touchstart", "scroll"] as const;
 
 /**
  * Which two layouts we are between, and how far (0..1), for the current scroll. Each
@@ -382,11 +386,14 @@ export default function IceScene() {
         uniforms: { uTime: { value: 0 }, uExposure: { value: 1 }, uMoonDir: moonDirU, ...dayU },
         side: THREE.BackSide,
         depthWrite: false,
-        depthTest: false,
+        // Depth-tested at the far plane (see skyVertex): only the pixels nothing else covers
+        depthTest: true,
       })
     );
     const sky = new THREE.Mesh(keep(new THREE.SphereGeometry(200, 48, 24)), skyMat);
-    sky.renderOrder = -1;
+    // After the other solid objects (the transparent snow and dust still go on top)
+    sky.renderOrder = 1;
+    sky.frustumCulled = false;
     scene.add(sky);
 
     /* ---------------- Drifting particles ---------------- */
@@ -639,6 +646,19 @@ export default function IceScene() {
     let running = true;
     /** Smoothed time between frames (ms) */
     let frameMs = 1000 / 60;
+    // Frame pacing, to spare the GPU without changing what's drawn: about 60 fps on any screen
+    // (every refresh up to 100 Hz, every other one at 120–144 Hz), and half that while nobody is
+    // interacting or the window is in the background. The refresh rate is estimated from the
+    // quickest recent rAF intervals.
+    const rafDeltas: number[] = [];
+    let refreshDiv = 1;
+    let lastRaf = last;
+    let vsync = 0;
+    let lastInput = last;
+    const onInput = () => {
+      lastInput = performance.now();
+    };
+    for (const ev of INPUT_EVENTS) window.addEventListener(ev, onInput, { passive: true });
     let firstFrame = true;
     let revealAt = -1;
     let wasPressed = false;
@@ -649,6 +669,34 @@ export default function IceScene() {
       raf = requestAnimationFrame(tick);
       if (!running) return;
       const nowMs = performance.now();
+      const rafDt = nowMs - lastRaf;
+      lastRaf = nowMs;
+      if (rafDt > 0 && rafDt < 100) {
+        rafDeltas.push(rafDt);
+        if (rafDeltas.length >= 30) {
+          rafDeltas.sort((x, y) => x - y);
+          const hz = 1000 / rafDeltas[6];
+          refreshDiv = hz > 100 ? Math.min(4, Math.max(1, Math.floor(hz / 60 + 0.15))) : 1;
+          rafDeltas.length = 0;
+        }
+      }
+      // Behind a full-screen overlay there's nothing to see: keep the last frame
+      if (sceneState.covered) {
+        last = nowMs;
+        return;
+      }
+      // Something worth keeping smooth: recent input, the shatter, a scroll glide, a page
+      // transition or the opening drop-in; otherwise (or in a background window) half rate
+      const busy =
+        nowMs - lastInput < IDLE_MS ||
+        sceneState.press ||
+        pressAmt > 0.01 ||
+        Math.abs(sceneState.velocity) > 5 ||
+        sceneState.transition ||
+        revealAt < 0 ||
+        nowMs / 1000 - start - revealAt < 4;
+      const idle = !busy || !document.hasFocus();
+      if (++vsync % (refreshDiv * (idle ? 2 : 1)) !== 0) return;
       // Where frames are already slow (software rendering, very weak GPUs), skip drawing while
       // a page wipe covers the screen (nothing visible is lost): the wipe can only advance one
       // frame at a time, so with a heavy frame behind every step it would hold navigation up
@@ -955,6 +1003,7 @@ export default function IceScene() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      for (const ev of INPUT_EVENTS) window.removeEventListener(ev, onInput);
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onLost);
       canvas.removeEventListener("webglcontextrestored", onRestored);

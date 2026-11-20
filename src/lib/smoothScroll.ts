@@ -90,13 +90,14 @@ export function scrollToTarget(target: Target, opts: { offset?: number; immediat
   window.scrollTo({ top: top + offset, behavior: immediate || prefersReducedMotion() ? "auto" : "smooth" });
 }
 
-/** Freeze page scrolling (lightbox, mobile menu). */
+/** Freeze page scrolling (image viewer, phone menu, shortcuts help); the 3D scene pauses behind them. */
 export function setScrollLocked(locked: boolean) {
   if (lenis) {
     if (locked) lenis.stop();
     else lenis.start();
   }
   document.documentElement.classList.toggle("scroll-locked", locked);
+  sceneState.covered = locked;
 }
 
 /** Re-measure page height and ScrollTrigger positions after the layout changes. */

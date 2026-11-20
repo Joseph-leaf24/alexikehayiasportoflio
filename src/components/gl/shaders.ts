@@ -649,7 +649,9 @@ export const skyVertex = /* glsl */ `
   varying vec3 vDir;
   void main() {
     vDir = position;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    // Pinned to the far plane: drawn after everything else, the sky (the scene's most expensive
+    // shader) is only shaded where nothing covers it; the GPU's depth test skips the rest
+    gl_Position = (projectionMatrix * modelViewMatrix * vec4(position, 1.0)).xyww;
   }
 `;
 
