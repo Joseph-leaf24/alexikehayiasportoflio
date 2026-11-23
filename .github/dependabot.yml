@@ -4,8 +4,9 @@
 # known vulnerabilities get a fix PR straight away rather than on the weekly run.
 version: 2
 updates:
+  # The website: package.json and the lockfile are in "Site 1/"
   - package-ecosystem: npm
-    directory: /
+    directory: /Site 1
     schedule:
       interval: weekly
       day: monday
@@ -22,9 +23,9 @@ updates:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
 
-  # Base images in the Dockerfile (pinned by digest)
+  # Base images in Site 1/Dockerfile (pinned by digest)
   - package-ecosystem: docker
-    directory: /
+    directory: /Site 1
     schedule:
       interval: weekly
       day: monday

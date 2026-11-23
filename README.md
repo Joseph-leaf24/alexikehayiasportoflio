@@ -23,10 +23,10 @@ engineering and data analytics.
 [![Vulnerabilities](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Fvulnerabilities.json)](../../actions/workflows/deploy.yml)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](.github/dependabot.yml)
 
-[![Lighthouse performance](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-performance.json&logo=lighthouse&logoColor=white)](lighthouserc.json)
-[![Lighthouse accessibility](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-accessibility.json&logo=lighthouse&logoColor=white)](lighthouserc.json)
-[![Lighthouse best practices](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-best-practices.json&logo=lighthouse&logoColor=white)](lighthouserc.json)
-[![Lighthouse SEO](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-seo.json&logo=lighthouse&logoColor=white)](lighthouserc.json)
+[![Lighthouse performance](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-performance.json&logo=lighthouse&logoColor=white)](Site%201/lighthouserc.json)
+[![Lighthouse accessibility](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-accessibility.json&logo=lighthouse&logoColor=white)](Site%201/lighthouserc.json)
+[![Lighthouse best practices](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-best-practices.json&logo=lighthouse&logoColor=white)](Site%201/lighthouserc.json)
+[![Lighthouse SEO](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-seo.json&logo=lighthouse&logoColor=white)](Site%201/lighthouserc.json)
 
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -35,24 +35,36 @@ engineering and data analytics.
 [![GSAP](https://img.shields.io/badge/GSAP-3-88CE02?logo=greensock&logoColor=black)](https://gsap.com)
 [![Docker](https://img.shields.io/badge/Docker-run%20locally-2496ED?logo=docker&logoColor=white)](#run-it-in-docker)
 
+## Repository layout
+
+| Folder | What it is |
+| --- | --- |
+| [`Site 1/`](Site%201/) | The live portfolio described here. The workflows in `.github/` test, build and deploy it to GitHub Pages |
+| [`Site 2/`](Site%202/) | A pixel-art edition of the site, for running locally only (never deployed; see its own README) |
+| [`Projects/`](Projects/) | The original university project code and notebooks (not part of the site) |
+
+The repository root keeps only what GitHub needs there: this README, `DEPLOYMENT.md`, the
+`LICENSE`, `.gitignore`, the workflows in `.github/`, and the flake8 settings for `Projects/`.
+
 ## Run it locally
 
-Needs Node.js 22 or newer.
+Needs Node.js 22 or newer. Every command below runs inside `Site 1/`:
 
 ```bash
+cd "Site 1"
 npm ci
 npm run dev          # http://localhost:8080/alexikehayiasportoflio/
 ```
 
 `npm run build` writes the static site to `dist/`, and `npm run preview` serves that build.
 The 3D scene always renders at full quality on every device: the screen's own resolution
-(up to 2×), bloom and grain, and nothing is scaled down while it runs (`src/lib/device.ts`).
+(up to 2×), bloom and grain, and nothing is scaled down while it runs (`Site 1/src/lib/device.ts`).
 Add `?quality=low` or `?quality=mid` to the URL to try a lighter budget by hand, and
 `?time=HH:MM` (Amsterdam time, e.g. `?time=16:30`) to see the scene at another time of day.
 
 ## Run it in Docker
 
-To run the site in a container (separate from the GitHub Pages deployment):
+To run the site in a container (separate from the GitHub Pages deployment), from `Site 1/`:
 
 ```bash
 npm run docker       # same as: docker compose up --build
@@ -64,13 +76,15 @@ it with security headers, caching and gzip. Compose runs it read-only with no pr
 
 ## Tests and checks
 
+Run these from `Site 1/`:
+
 | Command | What it does |
 | --- | --- |
 | `npm test` | Unit tests (Vitest + Testing Library) |
 | `npm run test:coverage` | Unit tests with coverage (fails below 80%) |
 | `npm run test:e2e` | Builds, then runs the Playwright smoke and axe accessibility tests (desktop and phone) |
 | `npm run lint` | ESLint |
-| `npm run scan:secrets` | Scans for committed keys, tokens and passwords |
+| `npm run scan:secrets` | Scans the whole repository for committed keys, tokens and passwords |
 
 Every pull request and every push runs these in GitHub Actions, along with:
 - a dependency audit;
@@ -80,22 +94,25 @@ Every pull request and every push runs these in GitHub Actions, along with:
 A push to `main` deploys only if all of them pass. See [DEPLOYMENT.md](DEPLOYMENT.md) for
 how deployment, the checks and the weekly site-health run work.
 
-## Project layout
+## Site 1 layout
 
 ```
-src/
-  components/      sections (Hero, About, Domains, Skills, Work, Contact) and UI
-    gl/            the WebGL scene: layouts, shaders, renderer
-    fx/            effects: scramble text, reveals, depth images, project network graph
-    chrome/        HUD, cursor, loader, page transitions
-  pages/           home, project detail, 404
-  data/            profile, projects, domains, skills
-  lib/             device tiers, smooth scrolling, shared state
-  test/            unit tests
-e2e/               Playwright browser tests
-scripts/           secrets scan, README badge data
-docker/            nginx config for the container
-.github/           CI/CD workflows and Dependabot
+Site 1/
+  src/
+    components/    sections (Hero, About, Domains, Skills, Work, Contact) and UI
+      gl/          the WebGL scene: layouts, shaders, renderer
+      fx/          effects: scramble text, reveals, depth images, project network graph
+      chrome/      HUD, cursor, loader, page transitions
+    pages/         home, project detail, 404
+    data/          profile, projects, domains, skills
+    lib/           device tiers, smooth scrolling, shared state
+    test/          unit tests
+  public/          CV, link-preview image, robots.txt, 404 redirect
+  e2e/             Playwright browser tests
+  scripts/         secrets scan, README badge data
+  docker/          nginx config for the container
+  package.json, Vite / Vitest / Playwright / ESLint / Lighthouse / lychee configs, Dockerfile
+.github/           CI/CD workflows and Dependabot (at the repo root, where GitHub reads them)
 ```
 
 ## License

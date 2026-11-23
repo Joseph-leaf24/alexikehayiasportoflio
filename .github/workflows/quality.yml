@@ -1,7 +1,8 @@
 name: Code quality
 
 # Runs on pull requests, on pushes to branches other than main, and from deploy.yml
-# (which runs it on main and only deploys if every job passes):
+# (which runs it on main and only deploys if every job passes). The website lives in
+# "Site 1/", so the website, browser and Docker jobs run their commands there:
 #   • Website   — ESLint, TypeScript, unit tests with ≥ 80% coverage, npm audit
 #   • Browser   — the built site in a real browser: Playwright smoke + axe
 #                 accessibility tests (desktop + phone) and Lighthouse CI
@@ -58,22 +59,27 @@ jobs:
       failed: ${{ steps.results.outputs.failed }}
       coverage: ${{ steps.results.outputs.coverage }}
       vulnerabilities: ${{ steps.results.outputs.vulnerabilities }}
+    defaults:
+      run:
+        working-directory: Site 1
     steps:
+      # (sparse cone mode also checks out the files directly in "Site 1/": package.json, configs)
       - name: Checkout (website source only)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: |
-            src
-            public
-            scripts
-            e2e
+            Site 1/src
+            Site 1/public
+            Site 1/scripts
+            Site 1/e2e
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: 'npm'
+          cache-dependency-path: Site 1/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -116,22 +122,26 @@ jobs:
     timeout-minutes: 40
     outputs:
       lighthouse: ${{ steps.scores.outputs.lighthouse }}
+    defaults:
+      run:
+        working-directory: Site 1
     steps:
       - name: Checkout (website source only)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: |
-            src
-            public
-            scripts
-            e2e
+            Site 1/src
+            Site 1/public
+            Site 1/scripts
+            Site 1/e2e
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: 'npm'
+          cache-dependency-path: Site 1/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -151,35 +161,40 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report
-          path: playwright-report/
+          path: Site 1/playwright-report/
           retention-days: 7
 
       # Accessibility, best practices and SEO must score ≥ 95; performance only warns
-      # (runners have no GPU, so the WebGL scene renders in software). See lighthouserc.json.
+      # (runners have no GPU, so the WebGL scene renders in software). See Site 1/lighthouserc.json.
+      # The action always runs from the repo root (it has no working-directory option), so
+      # the config starts the preview server in "Site 1/" and the results land in ./.lighthouseci
       - name: Lighthouse CI
         uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # 12.6.2
         with:
-          configPath: ./lighthouserc.json
+          configPath: ./Site 1/lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: false
 
       - name: Record the Lighthouse scores for the README badges
         id: scores
-        run: node scripts/badges.mjs lighthouse .lighthouseci >> "$GITHUB_OUTPUT"
+        run: node scripts/badges.mjs lighthouse ../.lighthouseci >> "$GITHUB_OUTPUT"
 
   docker:
     name: Docker · hadolint, image builds and serves
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Site 1
     steps:
       - name: Checkout (website source only)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: |
-            src
-            public
-            docker
+            Site 1/src
+            Site 1/public
+            Site 1/docker
 
       - name: hadolint (Dockerfile best practices)
         run: docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
@@ -280,7 +295,7 @@ jobs:
           filter: blob:none
           sparse-checkout-cone-mode: false
           sparse-checkout: |
-            /scripts/
+            /Site 1/scripts/
             **/*.py
             **/*.ipynb
             **/*.ts
@@ -310,5 +325,6 @@ jobs:
         with:
           node-version: '22'
 
+      # Scans the whole repository (the sites and Projects/), from the root
       - name: Scan for committed credentials
-        run: node scripts/scan-secrets.mjs .
+        run: node "Site 1/scripts/scan-secrets.mjs" .

@@ -12,7 +12,7 @@ name: Deploy to GitHub Pages
 #
 #  • Private-source mode: set the repository *variable* PUBLIC_PAGES_REPO
 #    (e.g. Joseph-leaf24/alexikehayiasportoflio) and the *secret* PAGES_DEPLOY_KEY.
-#    The source stays private; only the compiled site in dist/ is pushed to the
+#    The source stays private; only the compiled site in Site 1/dist/ is pushed to the
 #    public repo's gh-pages branch (as a single commit, no history).
 #    See DEPLOYMENT.md.
 
@@ -39,17 +39,23 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The website lives in "Site 1/"
+    defaults:
+      run:
+        working-directory: Site 1
     outputs:
       bundle: ${{ steps.bundle.outputs.path }}
     steps:
-      - name: Checkout (website source only — skips the large Projects/ folder)
+      # Skips the large Projects/ folder and Site 2/. (Sparse cone mode also checks out the
+      # files directly in "Site 1/": package.json, the lockfile and the configs.)
+      - name: Checkout (website source only)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: |
-            src
-            public
-            scripts
+            Site 1/src
+            Site 1/public
+            Site 1/scripts
 
       # No dependency cache here: a release build shouldn't restore files that other
       # (e.g. pull-request) runs could have written
@@ -91,7 +97,7 @@ jobs:
         if: ${{ vars.PUBLIC_PAGES_REPO == '' }}
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: ./dist
+          path: ./Site 1/dist
 
       # ---- Private-source mode: push only the compiled site --------------
       - name: Publish compiled site to the public repo
@@ -101,7 +107,7 @@ jobs:
           deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
           external_repository: ${{ vars.PUBLIC_PAGES_REPO }}
           publish_branch: gh-pages
-          publish_dir: ./dist
+          publish_dir: ./Site 1/dist
           force_orphan: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'

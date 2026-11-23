@@ -57,7 +57,7 @@ ssh-keygen -t ed25519 -C "pages-deploy" -f pages_deploy_key -N ""
 ```bash
 git push
 ```
-The workflow sees `PUBLIC_PAGES_REPO`, builds the site and pushes only `dist/` to the
+The workflow sees `PUBLIC_PAGES_REPO`, builds the site and pushes only `Site 1/dist/` to the
 public repo's `gh-pages` branch, as a single commit with no history.
 You can watch it under **Actions** in the private repo.
 
@@ -101,6 +101,8 @@ The site is live again within a minute or two.
   set Cloudflare SSL to *Full*.
 
 ## Day to day
+- The site lives in `Site 1/`, and the `npm` commands below run there (`cd "Site 1"`).
+  The workflows stay in `.github/` at the repo root, where GitHub reads them.
 - Edit the site, then `git push`. A push to `main` runs every quality check below, then
   builds, deploys and confirms the live site is serving the new build. If any check
   fails, nothing is deployed.
@@ -108,13 +110,15 @@ The site is live again within a minute or two.
   `npm run test:coverage` (with the coverage table).
 - Browser tests: `npm run test:e2e` builds the site and runs the Playwright smoke and
   accessibility tests in your installed Google Chrome (desktop and phone sizes).
-- Lighthouse: after `npm run build`, run `npx @lhci/cli@0.15.1 autorun` for the same
-  scores and thresholds as CI (`lighthouserc.json`).
+- Lighthouse: after `npm run build`, run
+  `npx @lhci/cli@0.15.1 autorun --config="Site 1/lighthouserc.json"` from the **repo root**
+  for the same scores and thresholds as CI. (CI's Lighthouse action can only run from the
+  root, so the config starts the preview server in `Site 1/` itself.)
 - Every device gets the full quality (screen resolution up to 2×, bloom, grain, every
-  page effect; `src/lib/device.ts`). Try a lighter budget by hand with `?quality=low` or
+  page effect; `Site 1/src/lib/device.ts`). Try a lighter budget by hand with `?quality=low` or
   `?quality=mid` in the URL.
 - The scene follows the real time in Amsterdam. Add `?time=HH:MM` (e.g. `?time=16:30`) to
-  see another time of day; the link-preview image `public/og-image.jpg` is the hero at
+  see another time of day; the link-preview image `Site 1/public/og-image.jpg` is the hero at
   `?time=16:30`, 1200×630.
 - Run it in Docker instead: `npm run docker` (or `docker compose up --build`), then open
   http://localhost:8080/alexikehayiasportoflio/. This is only for running the site
@@ -129,19 +133,19 @@ inside the deploy for `main`:
 | Website | ESLint, TypeScript, unit tests with ≥ 80% coverage, and `npm audit` (fails on high/critical advisories in the dependencies the site ships) | `npm run lint`, `npm run typecheck`, `npm run test:coverage`, `npm audit --omit=dev` |
 | Browser | The built site in Chromium: pages load without errors, navigation and the image viewer work, nothing overflows on a phone, zero axe accessibility violations; then Lighthouse (accessibility, best practices and SEO ≥ 95, performance reported only) | `npm run test:e2e`, Lighthouse as above |
 | Workflows | actionlint (workflow mistakes, plus shellcheck on every script) and zizmor (workflow security; settings in `.github/zizmor.yml`) | not needed day to day |
-| Docker | hadolint on the `Dockerfile`, then the image builds, starts locked down (read-only, no privileges) and serves the site | `npm run docker` |
+| Docker | hadolint on `Site 1/Dockerfile`, then the image builds, starts locked down (read-only, no privileges) and serves the site | `npm run docker` |
 | Python | PEP 8 compliance of the code in `Projects/` (flake8, settings in `.flake8`) | `pip install flake8` then `npm run lint:python` |
-| Secrets | API keys, tokens or hard-coded passwords in the code | `npm run scan:secrets` |
+| Secrets | API keys, tokens or hard-coded passwords anywhere in the repository | `npm run scan:secrets` |
 
 Other automation:
 - **README badges**: the deploy publishes the latest test count, coverage, audit and
   Lighthouse scores as small JSON files under `/badges/` on the live site
-  (`scripts/badges.mjs`); the badges in `README.md` read them through shields.io.
+  (`Site 1/scripts/badges.mjs`); the badges in `README.md` read them through shields.io.
 - **Deploy verification** (`deploy.yml`): after each deploy, waits until the live URL
   serves the new build and fails the run if it doesn't within about 7 minutes.
 - **Site health** (`site-health.yml`, Mondays and on demand from the Actions tab):
   checks the live site, app bundle and CV respond, and that every external link in the
-  site still works (lychee, settings in `lychee.toml`). Failures arrive by email like any
+  site still works (lychee, settings in `Site 1/lychee.toml`). Failures arrive by email like any
   failed run. Set the repository variable `SITE_URL` if the address changes.
 - **Dependabot** (`.github/dependabot.yml`): weekly PRs for npm (minor/patch updates
   grouped into one), the Docker base images and the GitHub Actions used here (images and actions

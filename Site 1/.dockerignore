@@ -1,5 +1,5 @@
 # Only what the Dockerfile copies is needed; keep the build context small
-# (the Projects/ folder alone is large) and never send secrets or local output.
+# (node_modules, dist and the test output stay out) and never send secrets.
 **
 !package.json
 !package-lock.json

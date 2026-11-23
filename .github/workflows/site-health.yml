@@ -50,10 +50,11 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: |
-            src
+            Site 1/src
 
-      # Settings (accepted statuses, exclusions, retries) are in lychee.toml
+      # Settings (accepted statuses, exclusions, retries) are in Site 1/lychee.toml
       - name: Check every external link in the site
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
+          workingDirectory: Site 1
           args: --config lychee.toml --no-progress 'src/**/*.ts' 'src/**/*.tsx' index.html
