@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { sceneState, ui, useStore } from "@/lib/store";
+import { ui, useStore } from "@/lib/store";
 import { scrollToTarget, setScrollLocked } from "@/lib/smoothScroll";
 import { profile } from "@/data/profile";
-import { SQUAD } from "@/data/squad";
 import { cn } from "@/lib/utils";
 import ScrambleText from "@/components/fx/ScrambleText";
 import { usePageTransition } from "./Transition";
@@ -17,82 +16,6 @@ const NAV = [
   { id: "contact", label: "Contact" },
   { id: "watch", label: "Watch" },
 ];
-
-/** A score in six characters, also after hours of play (1.25M). */
-const scoreText = (n: number) => (n < 1e6 ? String(n).padStart(6, "0") : `${(n / 1e6).toFixed(n < 1e7 ? 2 : 1)}M`.padStart(6, " "));
-
-/** The level being played and the squad's running totals (polled ~8×/s; hidden without a canvas). */
-function Telemetry() {
-  const [level, setLevel] = useState({ no: sceneState.level, name: sceneState.stage });
-  const rootRef = useRef<HTMLDivElement>(null);
-  const killsRef = useRef<HTMLSpanElement>(null);
-  const boomsRef = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    let current = "";
-    const id = window.setInterval(() => {
-      // Hidden by CSS below 1280 px wide: nothing to update
-      const root = rootRef.current;
-      if (!root || getComputedStyle(root).display === "none") return;
-      const key = `${sceneState.level}:${sceneState.stage}`;
-      if (key !== current) {
-        current = key;
-        setLevel({ no: sceneState.level, name: sceneState.stage });
-      }
-      if (killsRef.current) killsRef.current.textContent = String(sceneState.kills).padStart(4, "0");
-      if (boomsRef.current) boomsRef.current.textContent = String(sceneState.booms).padStart(4, "0");
-    }, 120);
-    return () => window.clearInterval(id);
-  }, []);
-  if (!sceneState.canvas) return null;
-  return (
-    <div ref={rootRef} className="hud-telemetry">
-      <span>Level {String(level.no).padStart(2, "0")}</span>
-      {level.name ? <ScrambleText key={`${level.no}-${level.name}`} text={level.name} trigger="mount" duration={500} className="hud-telemetry__val" /> : null}
-      <span className="hud-telemetry__extra">
-        <span className="hud-dot" />
-        Kills <span ref={killsRef} className="tabular-nums">0000</span>
-        <span className="hud-dot" />
-        Booms <span ref={boomsRef} className="tabular-nums">0000</span>
-      </span>
-    </div>
-  );
-}
-
-/** P1–P8: badge, role, health in six segments and score, live from the scene. */
-function Squad() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const root = rootRef.current;
-      if (!root || getComputedStyle(root).display === "none") return;
-      root.querySelectorAll<HTMLElement>(".pcard").forEach((card, i) => {
-        const p = sceneState.players[i];
-        card.toggleAttribute("data-down", !p.alive);
-        const hp = card.querySelector<HTMLElement>(".pcard__hp i");
-        if (hp) hp.style.transform = `scaleX(${Math.round(p.hp * 6) / 6})`;
-        const score = card.querySelector<HTMLElement>(".pcard__score");
-        const text = scoreText(p.score);
-        if (score && score.textContent !== text) score.textContent = text;
-      });
-    }, 150);
-    return () => window.clearInterval(id);
-  }, []);
-  if (!sceneState.canvas) return null;
-  return (
-    <div ref={rootRef} className="hud-squad">
-      {SQUAD.map((m) => (
-        <div key={m.player} className="pcard" style={{ "--pc": m.color } as CSSProperties}>
-          <span className="pcard__badge">P{m.player}</span>
-          <span className="pcard__name">{m.short}</span>
-          <span className="pcard__hp">
-            <i />
-          </span>
-          <span className="pcard__score tabular-nums">000000</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** Scroll progress: a ten-segment bar plus a 000–100 % counter. */
 function ScrollMeter() {
@@ -151,9 +74,9 @@ function ScrollMeter() {
 
 /**
  * Fixed chrome on every page: frame corners; a top bar with the brand, current section
- * and nav (a full-screen menu on small screens); and a bottom bar like a co-op game's: the
- * stage with the squad's totals, the four player cards and the scroll progress. Off the home
- * page, nav links go home first.
+ * and nav (a full-screen menu on small screens); and a bottom bar with the shortcuts hint and
+ * the scroll progress (the game's stats stay out of the way: the scene speaks for itself).
+ * Off the home page, nav links go home first.
  */
 export default function Hud() {
   const { sectionIndex, sectionLabel, menuOpen } = useStore(ui, (s) => s);
@@ -251,13 +174,11 @@ export default function Hud() {
 
       <div className="hud-bottom" aria-hidden="true">
         <div className="hud-bottom__left">
-          <Telemetry />
           {/* Keyboard users only (hidden on touch screens by CSS) */}
           <span className="hud-keys">
             <kbd>?</kbd> Shortcuts
           </span>
         </div>
-        <Squad />
         <ScrollMeter />
       </div>
 

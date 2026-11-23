@@ -66,20 +66,116 @@ four domains, P5 to P7 are project specialisations, and P8 is the LLM and agents
   reinforcements, river patrol boats, drone swarms, helicopters, crawlers, paratroopers,
   bombing jets, artillery, meteors, silo launches, lava, fuel tankers, barrels and ammo
   crates that chain-react, alien eggs that hatch, and blocks that break. Players who go
-  down parachute back in.
+  down are flown back in by a transport plane and parachuted out over the squad; enemy
+  reinforcements arrive the same way. Armoured cars, APCs, self-propelled guns and
+  hovercraft fight for the enemy, scout cars for the allies; the sky fortress and some
+  bombers drop huge bombs that level whole blocks.
 - **A battle in the distance:** behind the hills things keep going off: explosions on the
   horizon, flak, anti-aircraft tracers, smoke columns from fires far away, planes (some
   hit and trailing smoke), flocks of birds, and searchlights sweeping the sky at night.
-- **Spectate:** below the contact section is open ground to leave running. Scroll right down
-  and the battle fills the screen. A panel follows the level in play: objective, progress
-  to the stronghold, the boss, enemies down, hostiles in sight, conditions, levels
-  cleared, battle time, and the last few levels. The scene keeps its full frame rate there,
-  the screen is kept awake (where the browser supports it), and at the end of each level
-  the HUD fades out with the white-out so the whole screen goes white. "Watch" in the menu
-  goes straight there. On phones the panel starts folded away.
+- **Spectate:** below the contact section is open ground, nothing over it, to leave the battle
+  running in. The scene keeps its full frame rate there, the screen is kept awake (where the
+  browser supports it), and the scene controls appear: pause, resume, speed from ½× to 8×, and
+  zoom. "Watch" in the menu goes straight there.
 - **You can join in:** click anywhere off the buttons to call in a blast; hold on the
   intro for an airstrike; hover a domain or specialisation tab to point out its player.
-- **Co-op HUD:** live P1–P8 cards (health, score), the level number and name, kills and booms.
+- **Mountainous, endless terrain:** every level's land comes from seeded fractal noise, like a
+  voxel game's world generator: lowlands, rolling hills and whole mountain ranges with rocky
+  summits, rock strata and winding caves underground, different on every level and visit.
+  Behind it, shaded mountain ranges (lit faces, shadowed faces, snow caps, haze) in five
+  parallax layers.
+- **Props everywhere:** 44 hand-painted props dressing each kind of land (crates, oil drums,
+  sandbags, radios, generators, camo nets, POW cages, tiki torches, stone idols, wells, cactus,
+  fuel pumps, cones, hydrants, phone booths, wrecks, tank traps and more), big ones standing in
+  shadow behind the ground (water towers, radio masts, billboards, crashed helicopters), and
+  ladders, chain-link fences and tin roofs on the towers and buildings. Blasts smash them;
+  jerrycans, fuel pumps and toxic drums go off; lit propane tanks rocket up before they burst.
+- **Towns and cities:** 120 kinds of building, each its own: offices, banks, a stock exchange,
+  diners, pizzerias, sushi and noodle bars, pubs, clubs, supermarkets, pharmacies, record
+  stores, barbers, laundromats, gas stations, hospitals, dentists, police and fire stations,
+  libraries, museums, schools, cinemas, arcades, casinos, gyms, hotels, motels, apartments,
+  farmhouses and barns, factories, breweries, power stations, train stations, airports,
+  lighthouses, barracks and more. They're cut away so every floor shows, with its own walls,
+  windows, roof (domes, spires, sawtooth skylights, rooftop gardens, helipads, water tanks,
+  neon), sign and awning, and the right furniture on every floor (desks, computers and water
+  coolers in an office; ovens, tables and menu boards in a pizzeria; beds, drips and heart
+  monitors in a hospital). Streets of asphalt and paving between them, with traffic lights, bus
+  stops, benches, hydrants, parked cars, taxis, police cars, vans and buses.
+- **Under the ground:** coal, iron and gold veins in the rock, and buried rooms to blast into:
+  mines with pit props, rails and carts; crypts with sarcophagi and treasure; bunkers; sewers;
+  subway platforms with a train; caverns with a pool; secret labs; vaults.
+- **Water:** rivers and waterfalls in most lands, and harbours: deep water under a long pier,
+  docks with containers and cranes, and an enemy battleship riding in the basin, shelling the
+  squad from its turrets until it breaks up and sinks.
+- **306 props in all**, 16 new kinds of block (glass, marble, plaster, siding, stucco, tiles,
+  dark brick, parquet, carpet, asphalt, paving, coal, iron, gold, rail, sewer brick), gas
+  canisters and oxygen cylinders that rocket off when they're hit.
+- **Mayhem:** half as many enemies again, helicopters three at a time, armoured personnel
+  carriers that unload troops and light tanks rolling in, jetpack troopers swooping over, and
+  landmines underfoot. Eight more kinds of trooper (jetpackers, minigunners, officers who call
+  artillery, dynamiters, machete rushers, mine-laying engineers, laser troopers, exosuits) and
+  three more bosses (a sky fortress, a doom cannon, a spider tank).
+- **Full-scale war:** an allied column fights alongside the squad: main battle tanks, infantry
+  fighting vehicles, rocket artillery, flak tanks, attack helicopters and a supply lifter (blue-
+  grey with white stars and a blue marker). Against them: carriers, light, medium and heavy
+  (twin-gun) tanks, flame tanks, rocket tanks, flak tanks and missile launchers; gunships,
+  attack helicopters, twin-rotor transports dropping paratroopers, scouts. Bombers, fighters
+  and ground-attack jets fly for both sides. Munitions of every kind: shells, flame, rockets,
+  flak, napalm, carpet bombs, and missiles from small rockets through tactical and cruise
+  missiles to enormous warheads that blow craters in the land and wreck the vehicles. Bunker
+  lines of sunken pillboxes, missile launch pads, and manholes that enemies climb out of.
+- **Zoom out** (the − and + by the speed buttons, or - and + on the keyboard) for a wider view
+  of the battlefield in smaller pixels: more of the level, more allies, more enemies at once.
+- **A competent enemy, and twice as much of it:** troopers lead their shots, close to their
+  best range and hold it, jump obstacles, fall back when badly hurt, lob grenades at bunched-up
+  squad members, and fire faster with more health. They come small and quick, large, or as
+  giant brutes, and some carry explosive packs that go off when they die. Dug-in gun
+  emplacements (flak guns, howitzers, SAM sites, rocket batteries), enemy missile strikes from
+  small salvos to huge warheads, rocket troopers with guided missiles, jets crossing the view
+  every few seconds, twice the explosive barrels plus TNT, and open oceans crossed on a
+  causeway, with battleships riding in them and submarines that surface to fire missiles.
+- **Fourteen weapons:** each player starts with their own (rifle, shotgun, plasma, rockets,
+  sniper, flamethrower, grenades, minigun) and picks up the rest from supply crates that
+  parachute in: a laser, a tesla gun whose lightning jumps between enemies, dual pistols, an
+  explosive crossbow, ricocheting saw blades, a mortar. Some crates hold jetpacks, and the
+  squad takes big climbs on them too.
+- **Controls:** in the spectator space, pause, resume and play the background at ½×, 1×, 2×, 4×
+  or 8× (or P, [ and ] on the keyboard). The camera keeps the squad a third of the way across,
+  and enemies hold fire until they're on screen, so the fighting stays in view.
+- **Seamless levels:** the land runs straight on from one biome into the next (across a river,
+  the sky and backdrop crossfading), and that's the next level. The stronghold and its finale
+  come once every 20 levels; switch on **Endless** (in the scene controls) and they never come.
+  Biomes are dealt from a shuffled deck (every one comes up once before any comes up again, so
+  there's no bias), and each is varied as it's dealt: dawn, dusk or night, rain, snow, storms or
+  fog, flatter or more mountainous, a different mix of features. Among the 28: savanna, autumn
+  woods, a blossom valley, tundra, badlands, farmland, suburbs, a megacity, an airbase, an
+  archipelago and mangroves.
+- **Cities:** dense city blocks shoulder to shoulder with side streets, traffic and street
+  furniture: hospitals, fuel stations, police and fire stations, schools, shops, hotels, banks,
+  offices and flats, defended by machine-gun nests and armoured cars. Also highways with stopped
+  traffic and convoys, and airfields with a runway, control tower, hangars and parked aircraft.
+- **Tougher ground:** soils and rocks in layers (loam, clay, gravel, basalt, chalk) and hard
+  granite country that no blast can dig; ordinary explosions take a bite rather than a crater,
+  so the fighting isn't always in a wasteland. Fewer caves, more mineshafts with headframes.
+- **The wider world:** open oceans as deep as the world, swum by the squad and the troops (the
+  vehicles wait at the shore) with reefs, islands, battleships (three turrets, anti-aircraft
+  mounts, radar, lifeboats), submarines and patrol boats; deep lakes, many more rivers and
+  waterfalls; forests and far more trees; rail yards with an armoured train; nuclear plants
+  with cooling towers and a reactor hall; and buildings in the old styles of many lands
+  (pagodas, a Japanese castle, temple halls, stupas, palaces with onion domes, a domed hall with
+  a minaret, riads and bazaars, a pyramid, Greek temples, Roman villas, palazzos, haciendas and
+  missions, azulejo houses, mansard apartments, canal houses with stepped gables, guild halls,
+  Tudor houses, clock towers, castles, chalets, stave and onion-domed churches, brutalist blocks,
+  brownstones, art deco towers, favelas, igloos, gers, shophouses and more).
+- **Random endings:** every level ends a different way, never the same twice running: an ICBM
+  salvo, one enormous nuke, low cruise missiles, the enemy's own silos firing, or a MIRV
+  bursting into a dozen warheads. The last ones always land on the squad, throwing them
+  through the air on fire. The "Level complete" card's title and bonus are random too.
+- **Explosions:** lumpy, outlined fireball clusters that swell, rise and cool to smoke;
+  spark streaks, burning cinders, dust rolling along the ground, enemies flung on fire.
+- **Quiet HUD:** just the section, the menu and the scroll meter; the game's stats stay
+  in the spectator panel. The intro shows "Portfolio Website" and the eight players in a slim
+  column down the side; the name is the page's heading for screen readers only.
 - **Design:** Press Start 2P, Silkscreen and Pixelify Sans fonts, notched pixel frames,
   press-down buttons, inventory-slot skills, stat bars, an ID-card portrait, an 8-player
   title-screen line-up, a squad select on the Domains cards, a diagonal block wipe between

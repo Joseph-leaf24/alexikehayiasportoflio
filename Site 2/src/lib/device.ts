@@ -22,11 +22,11 @@ export interface Quality {
 export function qualityFor(tier: Tier): Quality {
   switch (tier) {
     case "high":
-      return { tier, enemies: 70, particles: 2600, clouds: 12, wipeCols: 12 };
+      return { tier, enemies: 200, particles: 3400, clouds: 12, wipeCols: 12 };
     case "mid":
-      return { tier, enemies: 45, particles: 1500, clouds: 9, wipeCols: 10 };
+      return { tier, enemies: 130, particles: 2000, clouds: 9, wipeCols: 10 };
     default:
-      return { tier: "low", enemies: 24, particles: 600, clouds: 6, wipeCols: 8 };
+      return { tier: "low", enemies: 64, particles: 800, clouds: 6, wipeCols: 8 };
   }
 }
 

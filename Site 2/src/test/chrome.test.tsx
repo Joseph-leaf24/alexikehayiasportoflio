@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Hud from "@/components/chrome/Hud";
+import SceneControls from "@/components/chrome/SceneControls";
 import Cursor from "@/components/chrome/Cursor";
 import Loader from "@/components/chrome/Loader";
 import { TLink, TransitionProvider } from "@/components/chrome/Transition";
@@ -50,34 +51,18 @@ describe("HUD", () => {
     expect(screen.getByTestId("location").textContent).toBe("/");
   });
 
-  it("shows the level, the squad's totals, the eight player cards, the scroll meter and the current section", () => {
+  it("keeps the game's stats out of the way: just the scroll meter and the current section", () => {
     useAnimationTimers();
     sceneState.level = 4;
     sceneState.stage = "Refinery";
     sceneState.kills = 42;
-    sceneState.booms = 7;
     sceneState.players[1].score = 1300;
-    // (after hours of play a score still fits its six characters)
-    sceneState.players[4].score = 1_254_000;
-    sceneState.players[2].alive = false;
-    sceneState.players[2].hp = 0;
-    sceneState.players[3].hp = 0.5;
     renderRoute(<Hud />);
     advance(300);
-    expect(screen.getAllByText("Refinery").length).toBeGreaterThan(0);
-    const telemetry = document.querySelector(".hud-telemetry")?.textContent ?? "";
-    expect(telemetry).toMatch(/Level 04/);
-    expect(telemetry).toMatch(/Kills 0042/);
-    expect(telemetry).toMatch(/Booms 0007/);
-    const cards = Array.from(document.querySelectorAll<HTMLElement>(".pcard"));
-    expect(cards.map((c) => c.querySelector(".pcard__badge")?.textContent)).toEqual(["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8"]);
-    expect(cards.map((c) => c.querySelector(".pcard__name")?.textContent)).toEqual(["Engineer", "Analyst", "Scientist", "ML Eng", "Vision", "Language", "Research", "Agents"]);
-    expect(cards[1].querySelector(".pcard__score")?.textContent).toBe("001300");
-    expect(cards[4].querySelector(".pcard__score")?.textContent).toBe(" 1.25M");
-    expect(cards[2]).toHaveAttribute("data-down");
-    expect(cards[0]).not.toHaveAttribute("data-down");
-    // Health in whole segments (six of them)
-    expect((cards[3].querySelector(".pcard__hp i") as HTMLElement).style.transform).toBe("scaleX(0.5)");
+    // No level readout, kill counts or player cards
+    expect(screen.queryByText("Refinery")).toBeNull();
+    expect(document.querySelector(".hud-bottom")?.textContent).not.toMatch(/Kills|Booms|Level|001300/);
+    expect(document.querySelectorAll(".pcard")).toHaveLength(0);
     vi.spyOn(document.documentElement, "scrollHeight", "get").mockReturnValue(3000);
     act(() => {
       window.dispatchEvent(new Event("resize"));
@@ -91,12 +76,28 @@ describe("HUD", () => {
     act(() => ui.set({ sectionLabel: "Toolbox", sectionIndex: "02" }));
     expect(document.querySelector(".hud-section__idx")?.textContent).toBe("02");
   });
+});
 
-  it("hides the stage readout and player cards when the scene can't draw (no canvas)", () => {
-    sceneState.canvas = false;
-    renderRoute(<Hud />);
-    expect(document.querySelector(".hud-telemetry")).toBeNull();
-    expect(document.querySelector(".hud-squad")).toBeNull();
+describe("Scene controls", () => {
+  it("show up only in the spectator space, and pause, resume and set the background's speed (up to 8×)", () => {
+    render(<SceneControls />);
+    expect(screen.queryByRole("group", { name: "Background animation" })).toBeNull();
+    act(() => {
+      sceneState.watching = true;
+      window.dispatchEvent(new Event("scenewatch"));
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pause the background" }));
+    expect(sceneState.paused).toBe(true);
+    expect(screen.getByRole("button", { name: "Resume the background" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(window, { key: "p" });
+    expect(sceneState.paused).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Background speed 2 times" }));
+    expect(sceneState.speed).toBe(2);
+    expect(screen.getByRole("button", { name: "Background speed 2 times" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(window, { key: "[" });
+    expect(sceneState.speed).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: "Background speed 8 times" }));
+    expect(sceneState.speed).toBe(8);
   });
 });
 

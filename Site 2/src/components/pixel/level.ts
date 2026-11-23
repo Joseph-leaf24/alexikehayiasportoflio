@@ -1,23 +1,32 @@
 /**
  * One level of the run-and-gun behind the site: a side-scrolling stretch of 8×8 blocks
- * generated a chunk at a time just ahead of the camera, in a theme (themes.ts). Every level
+ * generated a chunk at a time just ahead of the camera, in a theme (themes.ts). The lie of
+ * the land comes from seeded fractal noise (noise.ts), like a voxel game's world generator:
+ * lowlands, rolling hills and whole mountain ranges, different on every level and every
+ * visit, with rock strata and winding caves under the ground. Every level
  * opens on a landing zone, may have a boss arena half way, and ends at an enemy stronghold
  * that the squad flattens with ICBMs before moving on to the next, random level. Blocks
  * live in a ring buffer of columns, so a level of any length never grows in memory.
  * Pure data and maths: game.ts plays it, PixelScene draws it.
  */
 import { int, rng } from "./rng";
+import { fbm1, noise2, ridged1, smoothstep } from "./noise";
+import { asset, pickAsset, type AssetId } from "./assets";
+import { buildingsFor, SPEC_BY_KEY, type BuildingSpec, type Material } from "./buildings";
 import type { BossKind, Theme, Troop } from "./themes";
 
 /** Edge of one block, in scene pixels. */
 export const TILE = 8;
-/** Rows of blocks: deep enough for tunnels under the ground and tall structures over it. */
-export const ROWS = 64;
+/** Rows of blocks: room for mountains over the ground, and tunnels and caves under it. */
+export const ROWS = 112;
 /** Columns kept in memory (a power of two). */
 export const RING = 512;
 export const MASK = RING - 1;
-/** Where the ground usually is. */
-export const BASE_ROW = 44;
+/** Where the lowland ground is (the landing zone, the plains between the hills). */
+export const BASE_ROW = 80;
+/** The highest a mountain top gets, and the lowest a valley floor. */
+export const PEAK_ROW = BASE_ROW - 38;
+export const VALLEY_ROW = BASE_ROW + 6;
 export const LEVEL_H = ROWS * TILE;
 
 /* Block kinds (the foreground grid; the back-wall grid reuses the same ids) */
@@ -56,18 +65,57 @@ export const MOSS = 30;
 export const VINE = 31;
 export const WATER = 32;
 export const BAMBOO = 33;
-export const KINDS = 34;
+/** Ladders up towers and between floors, chain-link fencing, corrugated tin roofs */
+export const LADDER = 34;
+export const FENCE = 35;
+export const TIN = 36;
+/** Building materials, roads, and what's underground: ore, rails, sewers */
+export const GLASS = 37;
+export const MARBLE = 38;
+export const PLASTER = 39;
+export const SIDING = 40;
+export const STUCCO = 41;
+export const TILES = 42;
+export const DARKBRICK = 43;
+export const ASPHALT = 44;
+export const PAVEMENT = 45;
+export const COAL = 46;
+export const IRON = 47;
+export const GOLD = 48;
+export const RAIL = 49;
+export const SEWER = 50;
+export const PARQUET = 51;
+export const CARPET = 52;
+/** The world's old architecture: half-timbering, adobe, roof tiles, glazed green tiles, slate, paper screens, painted tiles, limestone */
+export const TIMBER = 53;
+export const ADOBE = 54;
+export const TERRACOTTA = 55;
+export const JADE = 56;
+export const SLATE = 57;
+export const SHOJI = 58;
+export const AZULEJO = 59;
+export const LIMESTONE = 60;
+/** More soils and rocks: clay, gravel, granite (it doesn't break), basalt, loam, chalk; and autumn and blossom leaves */
+export const CLAY = 61;
+export const GRAVEL = 62;
+export const GRANITE = 63;
+export const BASALT = 64;
+export const LOAM = 65;
+export const CHALK = 66;
+export const REDLEAF = 67;
+export const PINKLEAF = 68;
+export const KINDS = 69;
 
-/** What stops people and bullets. Leaves, trunks, pine boughs, vines, bamboo, water and lava don't. */
+/** What stops people and bullets. Leaves, trunks, pine boughs, vines, bamboo, water, lava, ladders and fences don't. */
 export const SOLID = new Uint8Array(KINDS).map((_, k) =>
-  k === AIR || k === LEAF || k === TRUNK || k === LAVA || k === PINE || k === VINE || k === WATER || k === BAMBOO ? 0 : 1
+  k === AIR || k === LEAF || k === TRUNK || k === LAVA || k === PINE || k === VINE || k === WATER || k === BAMBOO || k === LADDER || k === FENCE || k === RAIL || k === REDLEAF || k === PINKLEAF ? 0 : 1
 );
 /** Hits a block takes before it breaks (255: never, so blasts can't drain rivers or lava). */
-export const TILE_HP = Uint8Array.from([0, 2, 2, 4, 255, 3, 5, 1, 2, 1, 6, 1, 1, 1, 4, 2, 5, 6, 255, 3, 3, 1, 3, 1, 3, 1, 3, 2, 2, 4, 5, 1, 255, 1]);
+export const TILE_HP = Uint8Array.from([0, 2, 2, 4, 255, 3, 5, 1, 2, 1, 6, 1, 1, 1, 4, 2, 5, 6, 255, 3, 3, 1, 3, 1, 3, 1, 3, 2, 2, 4, 5, 1, 255, 1, 1, 1, 3, 1, 5, 2, 2, 3, 3, 4, 4, 3, 4, 5, 5, 1, 4, 2, 2, 3, 3, 2, 3, 3, 1, 3, 4, 2, 1, 255, 8, 2, 2, 1, 1]);
 
 /** Something the generator placed for game.ts to bring to life. x, y: world px (y = feet; a boat's y is the water line). */
 export interface Spawn {
-  kind: Troop | "mortar" | "mg" | "turret" | "jeep" | "truck" | "boat" | "barrel" | "fuel" | "tanker" | "ammo" | "egg";
+  kind: Troop | "mortar" | "mg" | "turret" | "jeep" | "truck" | "boat" | "barrel" | "fuel" | "tanker" | "ammo" | "egg" | "propane" | "canister" | "cylinder" | "battleship" | "apc" | "lighttank" | "mine" | "medtank" | "heavytank" | "flametank" | "rockettank" | "aatank" | "launcher" | "manhole" | "tnt" | "submarine" | "flakgun" | "howitzer" | "samsite" | "rocketpod" | "train" | "armoredcar" | "artytruck" | "hovercraft";
   x: number;
   y: number;
 }
@@ -91,7 +139,13 @@ export type Prop =
   | { kind: "tent"; x: number; y: number }
   /** Rope handrails over a bridge deck at y, `w` px long */
   | { kind: "rope"; x: number; y: number; w: number }
-  | { kind: "brazier"; x: number; y: number };
+  | { kind: "brazier"; x: number; y: number }
+  /** One of the props in assets.ts, centred on x, standing at y; `back`: in shadow behind the ground */
+  | { kind: "sprite"; id: AssetId; x: number; y: number; flip: boolean; back: boolean }
+  /** A building's sign, centred on x with its bottom at y (`neon`: it glows) */
+  | { kind: "sign"; x: number; y: number; text: string; ink: string; board: string; neon: boolean }
+  /** A striped awning over a door, sticking out left of x */
+  | { kind: "awning"; x: number; y: number; w: number; color: string };
 
 /** The shape of a level: how long, where the boss waits, where the stronghold is. */
 export interface Plan {
@@ -112,6 +166,17 @@ export interface Level {
   hp: Uint8Array;
   /** Scorch level 0–3 */
   burn: Uint8Array;
+  /** Seamless levels: the stretch being generated (1, 2, …), every how many a stronghold and finale comes, whether never (endless), or forced */
+  segment: number;
+  every: number;
+  endless: boolean;
+  forceFort: boolean;
+  /** Where the land runs on into the next biome: the column, the new theme, its boss */
+  borders: { col: number; theme: Theme; boss: BossKind | null }[];
+  /** Boss arenas placed, waiting for the squad */
+  bossQueue: { col: number; kind: BossKind }[];
+  /** Picks the next biome (the game sets it; levels on their own keep their theme) */
+  pickTheme?: (current: Theme) => Theme;
   /** Ground row of each stored column */
   ground: Int16Array;
   /** Oldest column still stored, and the next one to generate (absolute column numbers) */
@@ -119,6 +184,8 @@ export interface Level {
   next: number;
   /** The generator's current ground row */
   h: number;
+  /** The level's world seed (the noise the hills and caves come from) */
+  seed: number;
   theme: Theme;
   plan: Plan;
   /** Multiplies how many enemies the generator places (set by the game) */
@@ -134,11 +201,17 @@ export interface LevelOptions {
   /** Force a boss (or none) instead of rolling for one */
   boss?: BossKind | null;
   length?: number;
+  /** End this first stretch at a stronghold (the finale) whatever the count */
+  stronghold?: boolean;
+  /** A stronghold and finale every this many stretches (default 20) */
+  every?: number;
+  /** Never: the land runs on from biome to biome for ever */
+  endless?: boolean;
 }
 
 export function createLevel(theme: Theme, seed = 1, opts: LevelOptions = {}): Level {
   const rand = rng(seed);
-  const length = opts.length ?? 150 + int(rand, 100);
+  const length = opts.length ?? 240 + int(rand, 160);
   const kind = opts.boss !== undefined ? opts.boss : theme.bosses.length && rand() < 0.8 ? theme.bosses[int(rand, theme.bosses.length)] : null;
   return {
     fg: new Uint8Array(RING * ROWS),
@@ -149,8 +222,15 @@ export function createLevel(theme: Theme, seed = 1, opts: LevelOptions = {}): Le
     start: 0,
     next: 0,
     h: BASE_ROW,
+    seed: Math.floor(rand() * 1e9),
     theme,
     plan: { length, boss: kind ? { col: Math.floor(length * 0.48), kind } : null, bossPlaced: false, stronghold: length, fortPlaced: false, targets: [] },
+    segment: 1,
+    every: opts.every ?? 20,
+    endless: !!opts.endless,
+    forceFort: !!opts.stronghold,
+    borders: [],
+    bossQueue: [],
     intensity: 1,
     rand,
     props: [],
@@ -249,6 +329,24 @@ function backWall(L: Level, c0: number, r0: number, w: number, h: number, k: num
     }
 }
 
+/**
+ * The ground row the land wants at column `c`: broad lowlands and mountain ranges (a slow
+ * noise decides which), ridged peaks inside the ranges, rolling hills everywhere, a little
+ * roughness on top. The landing zone is flat and the hills grow in after it.
+ */
+export function terrainAt(L: Level, c: number) {
+  const s = L.seed;
+  const relief = L.theme.relief * smoothstep(40, 120, c);
+  if (relief <= 0) return BASE_ROW;
+  // 0 lowlands … 1 the heart of a range (about 600 columns from one range to the next)
+  const range = smoothstep(-0.15, 0.45, fbm1(s + 11, c / 300, 2));
+  const peaks = ridged1(s + 23, c / 70, 3, 0.45) * (6 + 30 * range);
+  const hills = (fbm1(s + 37, c / 34, 3) * 0.5 + 0.5) * 9;
+  const rough = fbm1(s + 51, c / 7, 2) * 1.4;
+  const lift = (peaks + hills + rough) * relief - 4 * (1 - range) * relief;
+  return Math.max(PEAK_ROW, Math.min(VALLEY_ROW, Math.round(BASE_ROW - lift)));
+}
+
 /** Write one fresh column of ground with its top at row `h` (dropping the oldest stored column if the ring is full). */
 function column(L: Level, c: number, h: number) {
   if (c - L.start >= RING) L.start = c - RING + 1;
@@ -258,10 +356,52 @@ function column(L: Level, c: number, h: number) {
     const i = r * RING + sc;
     L.fg[i] = L.bg[i] = L.hp[i] = L.burn[i] = 0;
   }
+  // Cliffs show bare earth; high summits bare rock (snow stays snow)
+  const left = c > L.start ? L.ground[(c - 1) & MASK] : h;
+  const steep = Math.abs(left - h) >= 2;
+  const summit = h < BASE_ROW - 24 && t.top !== SNOW;
+  const top = summit ? t.deep : steep ? t.fill : t.top;
+  // Hard country: granite under the soil, which no blast can dig through
+  const hard = noise2(L.seed + 71, c / 45, 0.5) > 0.6;
+  // The soil gets thinner up a mountain, and rock shows through in seams
+  const soil = summit ? 1 : 3 + Math.round(noise2(L.seed + 3, c / 9, 0) * 3);
   for (let r = h; r < ROWS; r++) {
-    const k = r >= ROWS - 2 ? BEDROCK : r === h ? t.top : r < h + 4 ? t.fill : t.deep;
-    put(L, c, r, k, r < h + 4 ? t.fill : t.deep);
+    let k = r >= ROWS - 2 ? BEDROCK : r === h ? top : r <= h + soil ? t.fill : t.deep;
+    if (k === t.fill && r > h) {
+      // Pockets of other soils in the topsoil: loam, clay, gravel
+      const soilN = noise2(L.seed + 81, c / 12, r / 5);
+      if (soilN > 0.74) k = GRAVEL;
+      else if (soilN > 0.64) k = t.fill === DIRT || t.fill === LOAM ? CLAY : LOAM;
+    }
+    if (k === t.deep && r < ROWS - 2) {
+      // The rock beneath: granite where the country's hard (it won't break), bands of basalt and chalk elsewhere
+      if (hard && r > h + soil + 1) k = GRANITE;
+      else {
+        const rockN = noise2(L.seed + 91, c / 10, r / 6);
+        if (rockN > 0.72) k = BASALT;
+        else if (rockN < 0.16) k = CHALK;
+      }
+    }
+    if (k === t.deep && r < ROWS - 2 && noise2(L.seed + 7, c / 6, r / 3) > 0.78) k = t.fill;
+    else if (k === t.deep && r < ROWS - 3) {
+      // Veins of ore: coal fairly near the top, iron deeper, a little gold deepest of all
+      const ore = noise2(L.seed + 41, c / 3.5, r / 2.5);
+      if (ore > 0.86) k = r > h + 22 && noise2(L.seed + 43, c / 9, r / 9) > 0.6 ? GOLD : r > h + 12 ? IRON : COAL;
+    }
+    put(L, c, r, k, r <= h + soil ? t.fill : t.deep);
   }
+  // Caves: winding tunnels and the odd cavern, well under the surface (blast down to find them)
+  if (!t.ceiling && c >= 40)
+    for (let r = h + 7; r < ROWS - 4; r++) {
+      const worm = Math.abs(noise2(L.seed + 13, c / 11, r / 6) - 0.5);
+      const hall = noise2(L.seed + 17, c / 26, r / 9);
+      // (only now and then: the ground is mostly solid, with mineshafts dug into it instead)
+      if (worm < 0.01 || hall > 0.92) {
+        const i = cell(c, r);
+        L.fg[i] = L.hp[i] = 0;
+        L.bg[i] = t.deep;
+      }
+    }
   if (t.ceiling) {
     // A cave roof with stalactites, crystals along its underside
     const roof = Math.max(3, h - 22 + Math.round(Math.sin(c * 0.5) * 2 + L.rand() * 3));
@@ -276,6 +416,419 @@ const pick = <K extends string>(weights: Partial<Record<K, number>>, r: () => nu
   for (const [f, w] of entries) if ((x -= w) < 0) return f;
   return entries[0][0];
 };
+
+const MATERIAL: Record<Material, number> = {
+  brick: BRICK,
+  darkbrick: DARKBRICK,
+  concrete: CONCRETE,
+  glass: GLASS,
+  marble: MARBLE,
+  plaster: PLASTER,
+  siding: SIDING,
+  stucco: STUCCO,
+  tiles: TILES,
+  wood: WOOD,
+  steel: STEEL,
+  tin: TIN,
+  sandstone: SANDSTONE,
+  stone: STONE,
+  metal: METAL,
+  parquet: PARQUET,
+  carpet: CARPET,
+  moss: MOSS,
+  timber: TIMBER,
+  adobe: ADOBE,
+  terracotta: TERRACOTTA,
+  jade: JADE,
+  slate: SLATE,
+  shoji: SHOJI,
+  azulejo: AZULEJO,
+  limestone: LIMESTONE,
+  snow: SNOW,
+  gold: GOLD,
+};
+
+/**
+ * Stand a prop on a floor: the top of row `row`, columns from c (`lift`: raised off the floor,
+ * for things on the wall or hanging from the ceiling). Only where it's open above that floor
+ * and it doesn't stand on the last thing put there.
+ */
+function placeAt(L: Level, id: AssetId, c: number, row: number, lift = 0) {
+  const a = asset(id);
+  const cols = Math.ceil(a.w / TILE);
+  for (let k = 0; k < cols; k++) {
+    const above = L.fg[cell(c + k, row - 1)];
+    if (above !== AIR && above !== LADDER) return false;
+  }
+  const x = c * TILE + (cols * TILE) / 2;
+  const y = row * TILE - lift;
+  for (let i = L.props.length - 1; i >= Math.max(0, L.props.length - 8); i--) {
+    const q = L.props[i];
+    if (q.kind === "sprite" && Math.abs(q.y - y) < 4 && Math.abs(q.x - x) < (asset(q.id).w + a.w) / 2 + 1) return false;
+  }
+  L.props.push({ kind: "sprite", id, x, y, flip: L.rand() < 0.5, back: false });
+  return true;
+}
+
+/**
+ * Build one of the hundred-odd kinds of building (buildings.ts) on flat ground from column c0,
+ * cut away so every storey shows: walls with doors right through the ground floor (the squad
+ * runs through), floors, a ladder up through them all, windows in the back wall, furniture on
+ * every floor, its roof and what's on it, a sign, an awning. Returns the columns it took.
+ */
+function building(L: Level, c0: number, spec: BuildingSpec, out: Spawn[], troop: () => Spawn["kind"]) {
+  const r = L.rand;
+  const t = L.theme;
+  const g = L.h;
+  const wall = MATERIAL[spec.wall];
+  const back = MATERIAL[spec.back];
+  const slab = spec.floor ? MATERIAL[spec.floor] : wall;
+  const fh = spec.fh;
+  const bw = spec.width[0] + int(r, spec.width[1] - spec.width[0] + 1);
+  const room = 12;
+  const floors = Math.max(1, Math.min(spec.floors[0] + int(r, spec.floors[1] - spec.floors[0] + 1), Math.floor((g - room) / fh)));
+  const w = bw + 2;
+  const x0 = c0 + 1;
+  const x1 = x0 + bw - 1;
+  for (let c = c0; c < c0 + w; c++) column(L, c, g);
+  const top = g - floors * fh;
+  const spawnAt = (c: number, row: number) => out.push({ kind: troop(), x: c * TILE + TILE / 2, y: row * TILE });
+  const pickItem = (list: string[]) => list[int(r, list.length)];
+  for (let f = 0; f < floors; f++) {
+    const base = g - f * fh;
+    const ceil = base - fh;
+    // The storey: back wall with its windows, side walls, the floor above
+    for (let row = ceil + 1; row < base; row++) {
+      const y = row - ceil;
+      for (let c = x0 + 1; c < x1; c++) {
+        const i = cell(c, row);
+        L.fg[i] = AIR;
+        L.hp[i] = 0;
+        const k = c - x0;
+        let win = false;
+        switch (spec.windows) {
+          case "grid":
+            win = y >= 2 && y <= 3 && k % 3 === 1;
+            break;
+          case "pairs":
+            win = y >= 1 && y <= 2 && k % 4 !== 0 && k % 4 !== 3;
+            break;
+          case "strip":
+            win = y === 2;
+            break;
+          case "glass":
+            win = true;
+            break;
+          case "arched":
+            win = (y === 2 || y === 3) && k % 3 === 1;
+            break;
+          case "porthole":
+            win = y === 2 && k % 3 === 1;
+            break;
+          case "slits":
+            win = y === 1 && k % 4 === 2;
+            break;
+          case "shop":
+            win = f === 0 ? y >= 1 && y <= 3 && k > 1 && k < bw - 2 : y === 2 && k % 3 === 1;
+            break;
+          default:
+            win = false;
+        }
+        L.bg[i] = win ? (spec.windows === "glass" ? GLASS : WINDOW) : back;
+      }
+      for (const c of [x0, x1]) put(L, c, row, wall, back);
+    }
+    // Doors right through the ground floor (the squad runs through); a window up the side upstairs
+    if (f === 0)
+      for (const c of [x0, x1])
+        for (let row = base - 3; row < base; row++) {
+          const i = cell(c, row);
+          L.fg[i] = AIR;
+          L.hp[i] = 0;
+          L.bg[i] = back;
+        }
+    else if (r() < 0.6) put(L, r() < 0.5 ? x0 : x1, base - 2, WINDOW, back);
+    fill(L, x0, ceil, bw, 1, slab, back);
+    // What's in it
+    const list = f > 0 && spec.upper ? spec.upper : spec.items;
+    for (let k = Math.max(2, Math.round(bw / 4)) + int(r, 2); k > 0; k--) placeAt(L, pickItem(list), x0 + 1 + int(r, Math.max(1, bw - 3)), base);
+    if (spec.walls?.length)
+      for (let k = 1 + int(r, 2); k > 0; k--) {
+        const id = pickItem(spec.walls);
+        const a = asset(id);
+        const lift = a.hang ? (fh - 1) * TILE - a.h - 1 : Math.min((fh - 1) * TILE - a.h - 2, 12);
+        if (lift >= 0) placeAt(L, id, x0 + 1 + int(r, Math.max(1, bw - 3)), base, lift);
+      }
+    for (const id of list) {
+      const a = asset(id);
+      if (a.hang && r() < 0.5) placeAt(L, id, x0 + 1 + int(r, Math.max(1, bw - 3)), base, (fh - 1) * TILE - a.h - 1);
+    }
+    // Who's in it
+    for (let k = (spec.guards ?? 1) * (f === 0 ? 0.6 : 1) * (0.4 + r()) * t.enemies * L.intensity * 0.25; k >= 1; k--) spawnAt(x0 + 2 + int(r, Math.max(1, bw - 4)), base);
+  }
+  // A ladder all the way up, through every floor to the roof
+  ladder(L, x1 - 1, top, g);
+  // The roof
+  const cx = x0 + (bw >> 1);
+  let roofTop = top;
+  switch (spec.roof) {
+    case "parapet":
+      put(L, x0, top - 1, wall);
+      put(L, x1, top - 1, wall);
+      break;
+    case "pitched": {
+      const roofK = spec.wall === "wood" || spec.wall === "siding" ? WOOD : spec.wall === "tin" ? TIN : t.build === WOOD ? WOOD : BRICK;
+      for (let k = 1; k <= 5; k++) {
+        const from = x0 - 1 + k;
+        const width = bw + 2 - k * 2;
+        if (width <= 0) break;
+        fill(L, from, top - k, width, 1, roofK, roofK);
+        roofTop = top - k;
+      }
+      break;
+    }
+    case "dome": {
+      const rad = Math.min(5, bw >> 1);
+      for (let dy = 1; dy <= rad; dy++) {
+        const half = Math.round(Math.sqrt(rad * rad - (dy - 0.5) ** 2));
+        fill(L, cx - half, top - dy, half * 2 + (bw % 2), 1, dy === rad ? GOLD : spec.roofMat ? MATERIAL[spec.roofMat] : MARBLE, MARBLE);
+      }
+      roofTop = top - rad;
+      break;
+    }
+    case "spire": {
+      fill(L, cx - 1, top - 6, 3, 6, wall, back);
+      put(L, cx, top - 4, WINDOW, back);
+      fill(L, cx - 2, top - 7, 5, 1, wall);
+      for (let k = 1; k <= 3; k++) put(L, cx, top - 7 - k, k === 3 ? GOLD : TIN);
+      placeAt(L, "bellframe", cx - 1, top - 5);
+      roofTop = top - 10;
+      break;
+    }
+    case "sawtooth":
+      for (let c = x0; c <= x1; c++) {
+        const k = (c - x0) % 4;
+        if (k < 3) put(L, c, top - 1 - Math.min(k, 1), k === 0 ? wall : GLASS);
+        if (k === 1) put(L, c, top - 1, GLASS);
+      }
+      break;
+    case "stepped":
+      fill(L, x0 + 2, top - 3, bw - 4, 3, wall, back);
+      fill(L, x0 + 4, top - 5, Math.max(1, bw - 8), 2, wall, back);
+      roofTop = top - 5;
+      break;
+    case "garden":
+      put(L, x0, top - 1, wall);
+      put(L, x1, top - 1, wall);
+      placeAt(L, "roofgarden", x0 + 1, top);
+      placeAt(L, "hedge", x0 + 4, top);
+      placeAt(L, "treeplanter", x1 - 2, top);
+      break;
+    case "helipad":
+      placeAt(L, "helipad", x0 + 1, top);
+      break;
+    case "tank":
+      placeAt(L, "roofwatertank", x0 + 1 + int(r, Math.max(1, bw - 3)), top);
+      break;
+    case "billboard":
+      placeAt(L, "billboardroof", x0 + int(r, Math.max(1, bw - 4)), top);
+      break;
+    case "antenna":
+      L.props.push({ kind: "antenna", x: (x1 - 2) * TILE + 4, y: top * TILE, h: 30 + int(r, 30) });
+      break;
+    case "chimney":
+      placeAt(L, "chimney", x0 + 1, top);
+      if (bw > 9) placeAt(L, "chimney", x1 - 2, top);
+      break;
+    case "solar":
+      placeAt(L, "solarpanels", x0 + 1, top);
+      break;
+    case "bell":
+      placeAt(L, "bellframe", cx - 1, top);
+      break;
+    case "neon":
+      break;
+    case "pagoda": {
+      // Stacked roofs flaring out at the eaves, a finial on top
+      const roofK = spec.roofMat ? MATERIAL[spec.roofMat] : JADE;
+      let y = top;
+      for (let tier = 0, half = (bw >> 1) + 2; tier < 3 && half > 1; tier++, half -= 2) {
+        fill(L, cx - half, y - 1, half * 2 + 1, 1, roofK);
+        put(L, cx - half - 1, y - 2, roofK);
+        put(L, cx + half + 1, y - 2, roofK);
+        fill(L, cx - half + 2, y - 3, Math.max(1, half * 2 - 3), 2, wall, back);
+        y -= 3;
+      }
+      fill(L, cx, y - 3, 1, 3, GOLD);
+      roofTop = y - 3;
+      break;
+    }
+    case "onion": {
+      // A drum, an onion dome, a gilt cross-less spire
+      const domeK = spec.roofMat ? MATERIAL[spec.roofMat] : GOLD;
+      fill(L, cx - 1, top - 4, 3, 4, wall, back);
+      const rows = [3, 5, 5, 5, 3, 1];
+      rows.forEach((wd, k) => fill(L, cx - (wd >> 1), top - 5 - k, wd, 1, domeK));
+      fill(L, cx, top - 13, 1, 2, GOLD);
+      for (const side of [x0 + 1, x1 - 1]) {
+        fill(L, side, top - 3, 1, 3, wall, back);
+        put(L, side, top - 4, domeK);
+      }
+      roofTop = top - 13;
+      break;
+    }
+    case "minaret": {
+      // A dome over the hall and a slender tower at one corner, a balcony near its top
+      const rad = Math.min(4, bw >> 1);
+      for (let dy = 1; dy <= rad; dy++) {
+        const half = Math.round(Math.sqrt(rad * rad - (dy - 0.5) ** 2));
+        fill(L, cx - half, top - dy, half * 2 + (bw % 2), 1, spec.roofMat ? MATERIAL[spec.roofMat] : AZULEJO);
+      }
+      fill(L, x1, top - 14, 1, 14, wall, back);
+      fill(L, x1 - 1, top - 11, 3, 1, wall);
+      put(L, x1, top - 15, GOLD);
+      roofTop = top - 15;
+      break;
+    }
+    case "mansard": {
+      // A steep slate roof with dormer windows in it
+      for (let k = 1; k <= 3; k++) {
+        fill(L, x0 + k - 1, top - k, bw - (k - 1) * 2, 1, SLATE);
+        if (k === 2) for (let c = x0 + 3; c < x1 - 2; c += 3) put(L, c, top - k, WINDOW, SLATE);
+      }
+      roofTop = top - 3;
+      break;
+    }
+    case "stepgable": {
+      // A stepped gable, the way they build along the canals
+      for (let k = 1, half = bw >> 1; half > 0; k += 2, half -= 2) {
+        fill(L, cx - half, top - k - 1, half * 2 + (bw % 2), 2, wall, back);
+        roofTop = top - k - 1;
+      }
+      put(L, cx, roofTop - 1, wall);
+      break;
+    }
+    case "columns": {
+      // A temple front: an entablature and a pediment over a row of columns
+      for (let c = x0; c <= x1; c += 2) put(L, c, top - 1, LIMESTONE);
+      fill(L, x0 - 1, top - 2, bw + 2, 1, LIMESTONE);
+      for (let k = 1, half = (bw >> 1) + 1; half > 0; k++, half -= 2) fill(L, cx - half, top - 2 - k, half * 2 + (bw % 2), 1, LIMESTONE);
+      roofTop = top - 2 - Math.ceil((bw >> 1) / 2) - 1;
+      break;
+    }
+    case "pyramid": {
+      const rk = spec.roofMat ? MATERIAL[spec.roofMat] : SANDSTONE;
+      let half = (bw >> 1) + 1;
+      let y = top - 1;
+      while (half > 0 && y > 4) {
+        fill(L, cx - half, y, half * 2 + (bw % 2), 1, rk);
+        half--;
+        y--;
+      }
+      put(L, cx, y, GOLD);
+      roofTop = y;
+      break;
+    }
+    case "castle": {
+      // Battlements, and a turret at each end with a pointed cap
+      for (let c = x0; c <= x1; c += 2) put(L, c, top - 1, wall);
+      for (const tx of [x0 - 1, x1]) {
+        fill(L, tx, top - 5, 2, 5, wall, back);
+        put(L, tx, top - 3, WINDOW, back);
+        fill(L, tx, top - 6, 2, 1, spec.roofMat ? MATERIAL[spec.roofMat] : SLATE);
+        put(L, tx + (tx < cx ? 0 : 1), top - 7, spec.roofMat ? MATERIAL[spec.roofMat] : SLATE);
+      }
+      roofTop = top - 7;
+      break;
+    }
+    case "chalet": {
+      // A wide, shallow roof hanging well out past the walls
+      for (let k = 1; k <= 3; k++) fill(L, x0 - 3 + k * 2, top - k, bw + 6 - k * 4, 1, WOOD);
+      roofTop = top - 3;
+      break;
+    }
+    case "igloo": {
+      const rad = Math.min(4, (bw >> 1) + 1);
+      for (let dy = 1; dy <= rad; dy++) {
+        const half = Math.round(Math.sqrt(rad * rad - (dy - 0.5) ** 2));
+        fill(L, cx - half, top - dy, half * 2 + (bw % 2), 1, SNOW);
+      }
+      roofTop = top - rad;
+      break;
+    }
+    case "stupa": {
+      // A bell-shaped stupa with a tall gilt spire
+      [7, 7, 5, 5, 3].forEach((wd, k) => fill(L, cx - (wd >> 1), top - 1 - k, wd, 1, k > 2 ? GOLD : PLASTER));
+      fill(L, cx, top - 10, 1, 5, GOLD);
+      roofTop = top - 10;
+      break;
+    }
+    case "clock": {
+      // A clock tower: the clock high on its face, a spire over it
+      fill(L, cx - 1, top - 9, 3, 9, wall, back);
+      placeAt(L, "wallclock", cx - 1, top - 5);
+      fill(L, cx - 2, top - 10, 5, 1, wall);
+      for (let k = 0; k < 3; k++) put(L, cx, top - 11 - k, k === 2 ? GOLD : SLATE);
+      roofTop = top - 13;
+      break;
+    }
+    case "artdeco": {
+      // Setbacks, tier on tier, and a spire
+      fill(L, x0 + 1, top - 4, bw - 2, 4, wall, back);
+      fill(L, x0 + 3, top - 7, Math.max(1, bw - 6), 3, wall, back);
+      for (let c = x0 + 2; c < x1 - 1; c += 2) put(L, c, top - 2, WINDOW, back);
+      fill(L, cx, top - 13, 1, 6, METAL);
+      roofTop = top - 13;
+      break;
+    }
+    case "brutalist":
+      // A heavy slab, overhanging the walls
+      fill(L, x0 - 2, top - 2, bw + 4, 2, CONCRETE);
+      roofTop = top - 2;
+      break;
+  }
+  if (spec.roof === "flat" || spec.roof === "parapet" || spec.roof === "neon" || spec.roof === "helipad" || spec.roof === "antenna" || spec.roof === "solar" || spec.roof === "tank")
+    for (let k = int(r, 3); k > 0; k--) placeAt(L, spec.top ? spec.top[int(r, spec.top.length)] : "acunit", x0 + 1 + int(r, Math.max(1, bw - 3)), top);
+  // Sign on top, awning over the door, things out front
+  if (spec.sign) L.props.push({ kind: "sign", x: cx * TILE + (bw % 2 ? TILE / 2 : 0), y: (spec.roof === "neon" || spec.roof === "flat" || spec.roof === "parapet" ? top : roofTop) * TILE - 1, text: spec.sign, ink: spec.ink ?? "#ffffff", board: spec.board ?? "#1e1e24", neon: !!spec.neon });
+  if (spec.awning) L.props.push({ kind: "awning", x: x0 * TILE + 2, y: (g - 3) * TILE + 1, w: 14, color: spec.awning });
+  if (spec.outside) placeProp(L, spec.outside[int(r, spec.outside.length)], c0 - 3);
+  // A few up on the roof
+  if (floors > 1 && r() < 0.6) spawnAt(x0 + 2 + int(r, Math.max(1, bw - 4)), top);
+  return w;
+}
+
+/**
+ * Stand a prop on the ground at column c (`back`: in shadow behind the ground), if the ground
+ * is level under all of it, nothing's in the way and it wouldn't stand on the last one.
+ */
+function placeProp(L: Level, id: AssetId, c: number, back = false) {
+  const a = asset(id);
+  const cols = Math.ceil(a.w / TILE);
+  const gr = (k: number) => L.ground[k & MASK];
+  let g = gr(c);
+  for (let k = 1; k < cols; k++) {
+    const gk = gr(c + k);
+    if (!back && gk !== g) return false;
+    g = Math.max(g, gk);
+  }
+  if (!back) for (let k = 0; k < cols; k++) if (L.fg[cell(c + k, g - 1)] !== AIR) return false;
+  const x = c * TILE + (cols * TILE) / 2;
+  for (let i = L.props.length - 1; i >= Math.max(0, L.props.length - 4); i--) {
+    const q = L.props[i];
+    if (q.kind === "sprite" && q.back === back && Math.abs(q.x - x) < (asset(q.id).w + a.w) / 2 + 2) return false;
+  }
+  L.props.push({ kind: "sprite", id, x, y: g * TILE, flip: L.rand() < 0.5, back });
+  return true;
+}
+
+/** A ladder up column c from row `top` down to (not including) row `bottom`, through floors and open air. */
+function ladder(L: Level, c: number, top: number, bottom: number) {
+  for (let row = Math.max(0, top); row < Math.min(ROWS, bottom); row++) {
+    const k = L.fg[cell(c, row)];
+    if (k === AIR || k === L.theme.build || k === WOOD || k === METAL || k === CONCRETE) put(L, c, row, LADDER);
+  }
+}
 
 /** Generate columns until `until` (exclusive). Returns what should come to life there. */
 export function extend(L: Level, until: number): Spawn[] {
@@ -304,13 +857,134 @@ function feature(L: Level, out: Spawn[]) {
   };
   const spawn = (kind: Spawn["kind"], c: number, row = gr(c)) => out.push({ kind, x: px(c), y: row * TILE });
   const barrels = (from: number, w: number) => {
-    if (r() >= t.barrels) return;
-    const n = 1 + int(r, 3);
+    if (r() >= Math.min(0.95, t.barrels * 1.9)) return;
+    const n = 2 + int(r, 4);
     const c = from + int(r, Math.max(1, w - n));
-    for (let k = 0; k < n; k++) spawn(r() < 0.25 ? "ammo" : "barrel", c + k);
+    for (let k = 0; k < n; k++) {
+      const roll = r();
+      spawn(roll < 0.16 ? "ammo" : roll < 0.3 ? "propane" : roll < 0.41 ? "canister" : roll < 0.5 ? "cylinder" : roll < 0.62 ? "tnt" : "barrel", c + k);
+    }
+  };
+  const prop = (id: AssetId, c: number, back = false) => placeProp(L, id, c, back);
+  /** Scatter a few of the land's props over open ground. */
+  const scatter = (from: number, w: number, n: number) => {
+    for (let k = 0; k < n; k++) prop(pickAsset(r, t.backdrop), from + int(r, Math.max(1, w - 2)));
+  };
+  /** Now and then something big in the background: a water tower, a radio mast, a wreck. */
+  const standing = (from: number, w: number) => {
+    if (t.ceiling || r() > 0.5) return;
+    prop(pickAsset(r, t.backdrop, true), from + int(r, Math.max(1, w - 3)), true);
+  };
+  const climb = (c: number, top: number, bottom: number) => ladder(L, c, top, bottom);
+  /**
+   * Something buried under this stretch: a mine with pit props, rails and a mine cart; a crypt
+   * with a sarcophagus and treasure; a bunker; a sewer; a subway platform with a train in it; a
+   * cavern with a pool; a secret lab; a vault. Deep enough to leave the ground above whole.
+   */
+  const underground = (from: number, w: number) => {
+    if (t.ceiling || from < 50 || w < 12) return;
+    let low = 0;
+    for (let c = from; c < from + w; c++) low = Math.max(low, gr(c));
+    const top = low + 4;
+    const rh = 4 + int(r, 2);
+    const floor = top + rh + 1;
+    if (floor >= ROWS - 4) return;
+    const x0 = from + 1;
+    const rw = w - 2;
+    const kinds = ["mine", "mine", "mine", "crypt", "bunker", "sewer", "subway", "cavern", "lab", "vault"] as const;
+    const kind = kinds[int(r, kinds.length)];
+    const shell: Record<"mine" | "crypt" | "bunker" | "sewer" | "subway" | "cavern" | "lab" | "vault", number> = { mine: t.deep, crypt: STONE, bunker: CONCRETE, sewer: SEWER, subway: TILES, cavern: t.deep, lab: STEEL, vault: STEEL };
+    const k = shell[kind];
+    fill(L, x0, top, rw, rh + 2, k, k);
+    fill(L, x0 + 1, top + 1, rw - 2, rh, AIR, kind === "cavern" || kind === "mine" ? t.deep : k);
+    if (kind === "cavern") {
+      // Ragged, not a box
+      for (let c = x0 + 1; c < x0 + rw - 1; c++) {
+        if (r() < 0.4) put(L, c, top + 1, t.deep, t.deep);
+        if (r() < 0.25) put(L, c, floor - 1, t.deep, t.deep);
+      }
+    }
+    const item = (list: string[], n: number, lift = 0) => {
+      for (let j = 0; j < n; j++) {
+        const id = list[int(r, list.length)];
+        const a = asset(id);
+        placeAt(L, id, x0 + 1 + int(r, Math.max(1, rw - 3)), floor, a.hang ? rh * TILE - a.h - 1 : lift);
+      }
+    };
+    switch (kind) {
+      case "mine": {
+        // A shaft from the surface: a headframe over it, a ladder all the way down
+        const sx = x0 + 2;
+        const sg = gr(sx);
+        for (let row = sg; row < floor; row++) {
+          const i = cell(sx, row);
+          L.fg[i] = LADDER;
+          L.hp[i] = TILE_HP[LADDER];
+          L.bg[i] = t.deep;
+          const j = cell(sx + 1, row);
+          if (row >= sg + 1) {
+            L.fg[j] = AIR;
+            L.hp[j] = 0;
+            L.bg[j] = t.deep;
+          }
+        }
+        placeProp(L, "headframe", sx - 1, true);
+        for (let c = x0 + 1; c < x0 + rw - 1; c++) put(L, c, floor - 1, RAIL);
+        for (let c = x0 + 2; c < x0 + rw - 2; c += 5) placeAt(L, "pitprops", c, floor);
+        item(["minecart", "orepile", "toolsrack", "orepile"], 3);
+        item(["minelantern"], 2);
+        break;
+      }
+      case "crypt":
+        item(["sarcophagus", "amphora", "treasurechest", "skeleton", "amphora"], 4);
+        item(["fossilfish"], 1, 14);
+        L.props.push({ kind: "brazier", x: (x0 + 2) * TILE, y: floor * TILE });
+        break;
+      case "bunker":
+        item(["bunkerbed", "radio", "weaponrack", "maptable", "ammocrate", "crates"], 4);
+        item(["tunnellamp"], 1);
+        if (t.enemies > 0) for (let j = 1 + int(r, 2); j > 0; j--) out.push({ kind: troop(), x: (x0 + 2 + int(r, rw - 4)) * TILE + 4, y: floor * TILE });
+        break;
+      case "sewer":
+        for (let c = x0 + 1; c < x0 + rw - 1; c++) put(L, c, floor - 1, WATER, k);
+        put(L, x0, floor - 1, SEWER);
+        item(["sewerpipe"], 1, 8);
+        item(["roots"], 1);
+        break;
+      case "subway":
+        for (let c = x0 + 1; c < x0 + rw - 1; c++) put(L, c, floor - 1, RAIL);
+        if (rw > 10) placeAt(L, "subwaycar", x0 + 2, floor);
+        item(["tunnellamp"], 2);
+        item(["platformbench", "ticketmachine"], 1);
+        break;
+      case "cavern":
+        if (rw > 6) placeAt(L, "undergroundpool", x0 + 2, floor);
+        item(["stalagmites", "crystals", "orepile", "skeleton", "mushrooms"], 3);
+        item(["roots"], 1);
+        break;
+      case "lab":
+        item(["labbench", "serverrack", "controlpanel", "toxicdrum", "microscope"], 4);
+        item(["tunnellamp"], 1);
+        break;
+      case "vault":
+        item(["safe", "treasurechest", "orepile", "safe"], 3);
+        item(["tunnellamp"], 1);
+        break;
+    }
   };
   const ground = (from: number, w: number, h = L.h) => {
     for (let c = from; c < from + w; c++) column(L, c, h);
+  };
+  /**
+   * Open country: the ground follows the noise, climbing at most two blocks a column (a
+   * jump) and dropping at most two (so a slope never reads as a pit).
+   */
+  const natural = (from: number, w: number) => {
+    for (let c = from; c < from + w; c++) {
+      const d = terrainAt(L, c) - L.h;
+      L.h += d > 0 ? Math.min(2, d) : Math.max(-2, d);
+      column(L, c, L.h);
+    }
   };
   const night = t.night > 0.3;
   /** Big ruined structures in the background: depth behind the fight */
@@ -355,13 +1029,14 @@ function feature(L: Level, out: Spawn[]) {
     put(L, c - 3, g - 7, LEAF);
     put(L, c + 3, g - 7, LEAF);
   };
-  /** A rainforest giant: a tall trunk, a wide crown, vines hanging from it. */
+  /** A rainforest giant: a tall trunk, a wide crown, vines hanging from it (in autumn red, in a blossom valley pink). */
+  const crown = t.decor === "autumn" ? REDLEAF : t.decor === "sakura" ? PINKLEAF : LEAF;
   const bigTree = (c: number, g: number, lo: number, hi: number) => {
     const th = 9 + int(r, 6);
     fill(L, c, g - th, 1, th, TRUNK);
     const top = g - th - 2;
     [3, 7, 9, 7].forEach((cw, k) => {
-      for (let x = c - (cw >> 1); x <= c + (cw >> 1); x++) soft(x, top + k, LEAF, lo, hi);
+      for (let x = c - (cw >> 1); x <= c + (cw >> 1); x++) soft(x, top + k, crown === LEAF || r() < 0.75 ? crown : LEAF, lo, hi);
     });
     for (const dx of [-4, -3, 2, 4]) {
       if (r() > 0.55) continue;
@@ -377,7 +1052,10 @@ function feature(L: Level, out: Spawn[]) {
     const c = from + 2 + int(r, Math.max(1, w - 4));
     const g = gr(c);
     if (t.decor === "palms" && r() < 0.6) palm(c, g);
-    else if (t.decor === "jungle") {
+    else if (t.decor === "autumn" || t.decor === "sakura") {
+      if (r() < 0.7) bigTree(c, g, from, from + w);
+      else fern(c, g, from, from + w);
+    } else if (t.decor === "jungle") {
       const n = r();
       if (n < 0.45) bigTree(c, g, from, from + w);
       else if (n < 0.75) fern(c, g, from, from + w);
@@ -386,7 +1064,11 @@ function feature(L: Level, out: Spawn[]) {
     else if (t.decor === "deadwood" && r() < 0.6) deadTree(c, g);
     else if (t.decor === "fires" && r() < 0.5) L.props.push({ kind: "fire", x: px(c), y: g * TILE });
     else if (t.decor === "crystals" && r() < 0.6) put(L, c, g - 1, CRYSTAL);
-    else if (t.decor === "rubble" && r() < 0.6) {
+    else if ((t.decor === "none" || t.decor === "rubble" || t.decor === "fires") && t.top === GRASS && r() < 0.7) {
+      // Grassy land with nothing of its own: woods
+      if (r() < 0.55) bigTree(c, g, from, from + w);
+      else pine(c, g);
+    } else if (t.decor === "rubble" && r() < 0.6) {
       put(L, c, g - 1, t.wall);
       if (r() < 0.5) put(L, c + 1, g - 1, CRATE);
     }
@@ -403,6 +1085,8 @@ function feature(L: Level, out: Spawn[]) {
     w = 40 - c0;
     ground(c0, w);
     deco(c0 + 6, w - 6);
+    scatter(c0 + 4, w - 6, 4);
+    standing(c0 + 10, w - 12);
     L.next = c0 + w;
     return;
   }
@@ -412,6 +1096,7 @@ function feature(L: Level, out: Spawn[]) {
     ground(c0, w);
     plan.boss.col = c0 + 14;
     plan.bossPlaced = true;
+    L.bossQueue.push({ col: c0 + 14, kind: plan.boss.kind });
     barrels(c0 + 4, 8);
     barrels(c0 + 26, 10);
     skyline(c0, 20);
@@ -419,7 +1104,31 @@ function feature(L: Level, out: Spawn[]) {
     return;
   }
   if (!plan.fortPlaced && c0 >= plan.stronghold) {
-    stronghold(L, c0, out, troop, night);
+    // The end of this stretch: once in so many (unless endless), the enemy stronghold and the
+    // finale; otherwise the land just runs on across a river into the next biome
+    if (L.forceFort || (!L.endless && L.segment % L.every === 0)) {
+      stronghold(L, c0, out, troop, night);
+      return;
+    }
+    const rw = 6 + int(r, 6);
+    w = rw + 4;
+    ground(c0, 2);
+    const g = L.h;
+    ground(c0 + 2, rw, g + 2);
+    for (let c = c0 + 2; c < c0 + 2 + rw; c++) {
+      put(L, c, g + 2, MUD);
+      put(L, c, g + 1, WATER);
+    }
+    ground(c0 + 2 + rw, 2);
+    for (const c of [c0 + 1, c0 + 2 + rw]) soft(c, g - 1, LEAF, c0, c0 + w);
+    L.next = c0 + w;
+    const next = L.pickTheme ? L.pickTheme(t) : t;
+    const length = 240 + int(r, 160);
+    const kind = next.bosses.length && r() < 0.7 ? next.bosses[int(r, next.bosses.length)] : null;
+    L.segment++;
+    L.theme = next;
+    L.plan = { length, boss: kind ? { col: L.next + Math.floor(length * 0.48), kind } : null, bossPlaced: false, stronghold: L.next + length, fortPlaced: false, targets: [] };
+    L.borders.push({ col: c0 + 2 + (rw >> 1), theme: next, boss: kind });
     return;
   }
   if (plan.fortPlaced) {
@@ -430,31 +1139,344 @@ function feature(L: Level, out: Spawn[]) {
     return;
   }
 
-  switch (pick(t.features, r)) {
+  // Hill country between the set pieces: the more mountainous the theme, the more of it.
+  // (Where the land climbs steeply and the theme has them, a stream pours over the cliff.)
+  let choice = pick(t.features, r);
+  if (t.features.waterfall && L.h - terrainAt(L, c0 + 10) >= 4 && r() < 0.5) choice = "waterfall";
+  else if (r() < 0.3 * t.relief * smoothstep(40, 120, c0)) {
+    w = 12 + int(r, 18);
+    natural(c0, w);
+    for (let k = 2 + int(r, 4); k > 0; k--) deco(c0, w);
+    if (t.top === GRASS) for (let k = int(r, 3); k > 0; k--) prop((["hedge", "flowers", "stump", "logs", "boulders"] as const)[int(r, 5)], c0 + int(r, w - 2));
+    scatter(c0, w, 2 + int(r, 3));
+    standing(c0, w);
+    if (r() < 0.35) underground(c0, w);
+    if (t.enemies > 0 && c0 > 70 && r() < 0.3) for (let k = 1 + int(r, 3); k > 0; k--) spawn("mine", c0 + 2 + int(r, w - 4));
+    enemies(c0, w);
+    barrels(c0, w);
+    L.next = c0 + w;
+    return;
+  } else if (!t.ceiling && t.enemies > 0 && c0 > 50 && r() < 0.1) {
+    // A gun emplacement: a sandbagged pit with heavy weapons in it, their crews, ammunition
+    w = 12;
+    ground(c0, w);
+    const g = L.h;
+    fill(L, c0 + 1, g - 1, 1, 1, SANDBAG);
+    fill(L, c0 + w - 2, g - 1, 1, 1, SANDBAG);
+    const guns: Spawn["kind"][] = ["flakgun", "howitzer", "samsite", "rocketpod"];
+    spawn(guns[int(r, 4)], c0 + 4);
+    if (r() < 0.6) spawn(guns[int(r, 4)], c0 + 8);
+    prop(r() < 0.5 ? "ammocrate" : "camonet", c0 + 2);
+    enemies(c0 + 2, w - 4, -1, 1.2);
+    L.next = c0 + w;
+    return;
+  } else if (!t.ceiling && t.enemies > 0 && c0 > 50 && r() < 0.06) {
+    // A bunker line: concrete pillboxes sunk into the ground, machine guns behind the slits, a trench between
+    w = 22;
+    ground(c0, w);
+    const g = L.h;
+    for (const bx of [c0 + 2, c0 + 13]) {
+      fill(L, bx, g - 3, 7, 6, CONCRETE, CONCRETE);
+      fill(L, bx + 1, g - 2, 5, 4, AIR, CONCRETE);
+      // the firing slit, facing the way the squad comes
+      put(L, bx, g - 1, AIR, CONCRETE);
+      fill(L, bx, g - 4, 7, 1, SANDBAG);
+      out.push({ kind: "mg", x: (bx + 3) * TILE + 4, y: (g + 2) * TILE });
+      if (r() < 0.6) out.push({ kind: troop(), x: (bx + 5) * TILE, y: (g + 2) * TILE });
+      L.props.push({ kind: "lamp", x: (bx + 3) * TILE + 4, y: (g - 2) * TILE + 1 });
+    }
+    fill(L, c0 + 9, g, 4, 2, AIR, t.fill);
+    fill(L, c0 + 9, g + 2, 4, 1, WOOD);
+    L.props.push({ kind: "wire", x: c0 * TILE, y: g * TILE, w: 2 * TILE });
+    enemies(c0 + 9, 4, g + 2, 1.2);
+    L.next = c0 + w;
+    return;
+  } else if (!t.ceiling && t.enemies > 0 && c0 > 80 && r() < 0.04) {
+    // A missile launch pad: a concrete apron, a gantry, a missile on it fuelled and ready, and a launcher truck
+    w = 18;
+    ground(c0, w);
+    const g = L.h;
+    fill(L, c0 + 1, g, w - 2, 1, CONCRETE);
+    fill(L, c0 + 3, g - 1, 4, 1, HAZARD);
+    for (let row = g - 10; row < g; row++) put(L, c0 + 8, row, LADDER);
+    fill(L, c0 + 8, g - 11, 3, 1, METAL);
+    placeProp(L, "missiletrailer", c0 + 11);
+    L.props.push({ kind: "silo", x: (c0 + 5) * TILE, y: g * TILE }, { kind: "antenna", x: (c0 + 9) * TILE + 4, y: (g - 11) * TILE, h: 24 }, { kind: "alarm", x: (c0 + 10) * TILE, y: (g - 11) * TILE });
+    spawn("launcher", c0 + 14);
+    enemies(c0 + 1, w - 2, -1, 1.2);
+    L.next = c0 + w;
+    return;
+  } else if (!t.ceiling && t.enemies > 0 && c0 > 60 && r() < 0.07) {
+    // A lone outpost: a tall watchtower with a ladder and a tin roof, fenced, guarded
+    w = 12;
+    ground(c0, w);
+    const g = L.h;
+    const tx = c0 + 4;
+    const ht = 8 + int(r, 3);
+    fill(L, tx, g - ht, 4, 1, WOOD);
+    fill(L, tx - 1, g - ht - 5, 6, 1, TIN);
+    put(L, tx, g - ht - 1, SANDBAG);
+    put(L, tx + 3, g - ht - 1, SANDBAG);
+    L.props.push({ kind: "legs", x: tx * TILE, y: (g - ht + 1) * TILE, w: 4 * TILE, h: (ht - 1) * TILE });
+    L.props.push({ kind: "support", x: tx * TILE + 1, y: (g - ht - 4) * TILE, h: 4 * TILE }, { kind: "support", x: (tx + 4) * TILE - 1, y: (g - ht - 4) * TILE, h: 4 * TILE });
+    climb(tx + 1, g - ht, g);
+    spawn(r() < 0.5 ? "sniper" : troop(), tx + 2, g - ht);
+    if (night) L.props.push({ kind: "searchlight", x: (tx + 4) * TILE, y: (g - ht) * TILE - 3 });
+    for (const c of [c0, c0 + 1, c0 + w - 2, c0 + w - 1]) fill(L, c, g - 2, 1, 2, FENCE);
+    prop(r() < 0.5 ? "radio" : "generator", c0 + 9);
+    prop("crates", c0 + 2);
+    enemies(c0 + 2, w - 4);
+    L.next = c0 + w;
+    return;
+  }
+
+  switch (choice) {
+    case "metropolis": {
+      // City blocks: buildings shoulder to shoulder, side streets between them with their
+      // traffic and street furniture, everything a city has (a hospital, a fuel station, police,
+      // a fire station, a school, shops, offices, flats...), defended street by street
+      const ESSENTIAL = ["hospital", "gasstation", "police", "firestation", "school", "supermarket", "apartments", "officetower", "bank", "diner", "cinema", "hotel", "parkinggarage", "pharmacy", "postoffice", "library", "skyscraper", "pizzeria", "convenience", "tenement", "brownstone", "decotower", "neontenement", "busdepot", "garage", "clinic", "townhouse", "haussmann", "cafe", "gym", "bakery", "pub", "trainstation", "stockexchange", "museum"];
+      const specs = buildingsFor(t.backdrop);
+      let c = c0;
+      const street = (from: number, n: number) => {
+        ground(from, n);
+        for (let k = from; k < from + n; k++) put(L, k, L.h, ASPHALT, t.fill);
+      };
+      street(c, 4);
+      c += 4;
+      for (let n = 4 + int(r, 5); n > 0; n--) {
+        const spec = r() < 0.65 ? SPEC_BY_KEY.get(ESSENTIAL[int(r, ESSENTIAL.length)]) : specs[int(r, specs.length)];
+        if (!spec || L.h - spec.fh * spec.floors[0] < 12) continue;
+        const bw = building(L, c, spec, out, troop);
+        for (let k = c; k < c + bw; k++) put(L, k, L.h, PAVEMENT, t.fill);
+        c += bw;
+        if (r() < 0.55) continue;
+        // A side street
+        const gap = 3 + int(r, 4);
+        street(c, gap);
+        for (let j = 1 + int(r, 2); j > 0; j--) prop((["trafficlight", "busstop", "bench", "trashbin", "hydrant", "treeplanter", "streetlamp", "newsbox", "mailbox", "dumpster", "sedan", "taxi", "van", "policecar", "ambulance"] as const)[int(r, 15)], c + int(r, Math.max(1, gap - 2)));
+        if (r() < 0.5) spawn("manhole", c + 1 + int(r, Math.max(1, gap - 2)));
+        if (r() < 0.35) {
+          // Sandbags and a machine gun at the corner
+          put(L, c + 1, L.h - 1, SANDBAG);
+          spawn("mg", c + 2);
+        } else if (r() < 0.3) spawn(r() < 0.5 ? "apc" : "armoredcar", c + (gap >> 1));
+        c += gap;
+      }
+      street(c, 3);
+      c += 3;
+      w = c - c0;
+      if (w >= 14 && r() < 0.5) underground(c0, w);
+      enemies(c0, w, -1, 0.6);
+      break;
+    }
+    case "highway": {
+      // A highway: asphalt with lane markings, lamps along it, traffic stopped on it, signs, a convoy
+      w = 32 + int(r, 22);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g, ASPHALT, t.fill);
+      for (let c = c0 + 2; c < c0 + w; c += 8) prop("streetlamp", c);
+      for (let k = 2 + int(r, 3); k > 0; k--) prop((["sedan", "sedanblue", "hatchback", "taxi", "van", "deliverytruck", "pickup", "bus", "carwreck", "jerseybarrier", "trafficbarrels"] as const)[int(r, 11)], c0 + 3 + int(r, w - 8));
+      standing(c0, w);
+      if (r() < 0.6) prop("billboard", c0 + int(r, w - 4), true);
+      spawn(r() < 0.5 ? "armoredcar" : "apc", c0 + w - 6);
+      if (r() < 0.5) spawn((["truck", "medtank", "artytruck", "jeep"] as const)[int(r, 4)], c0 + w - 14);
+      enemies(c0, w, -1, 0.8);
+      break;
+    }
+    case "airfield": {
+      // An airfield: a long runway, a control tower and hangars, aircraft parked on the apron,
+      // runway lights, a windsock, its flak and its guards
+      w = 56 + int(r, 24);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g, ASPHALT, t.fill);
+      let c = c0 + 1;
+      const tower = SPEC_BY_KEY.get("controltower");
+      if (tower && g - tower.fh * tower.floors[0] > 12) c += building(L, c, tower, out, troop);
+      for (let k = c + 2; k < c0 + w - 4; k += 6) prop("runwaylight", k);
+      for (let k = 2 + int(r, 3); k > 0; k--) prop(r() < 0.6 ? "parkedjet" : "parkedheli", c + 3 + int(r, Math.max(1, c0 + w - c - 24)));
+      prop("cargoplane", c + 10 + int(r, 20), true);
+      prop("windsock", c0 + w - 20);
+      const hangar = SPEC_BY_KEY.get("hangar");
+      if (hangar && g - hangar.fh * hangar.floors[0] > 12) building(L, c0 + w - 18, hangar, out, troop);
+      spawn(r() < 0.5 ? "flakgun" : "samsite", c0 + (w >> 1));
+      spawn("aatank", c0 + w - 24);
+      enemies(c0, w, -1, 0.9);
+      break;
+    }
+    case "downtown": {
+      // A street: road and pavement, a row of buildings with the street furniture between them,
+      // parked cars, and maybe a sewer or a subway under it all
+      const specs = buildingsFor(t.backdrop);
+      let c = c0;
+      const road = (from: number, n: number) => {
+        ground(from, n);
+        for (let k = from; k < from + n; k++) put(L, k, L.h, ASPHALT, t.fill);
+      };
+      road(c, 3);
+      c += 3;
+      for (let n = 1 + int(r, t.backdrop === "city" ? 3 : 2); n > 0; n--) {
+        const spec = specs[int(r, specs.length)];
+        if (L.h - spec.fh * spec.floors[0] < 12) break;
+        const bw = building(L, c, spec, out, troop);
+        for (let k = c; k < c + bw; k++) put(L, k, L.h, PAVEMENT, t.fill);
+        c += bw;
+        const gap = 4 + int(r, 5);
+        road(c, gap);
+        if (r() < 0.6) spawn("manhole", c + 1 + int(r, Math.max(1, gap - 2)));
+        for (let j = 1 + int(r, 2); j > 0; j--) prop(pickAsset(r, t.backdrop), c + int(r, Math.max(1, gap - 2)));
+        c += gap;
+      }
+      w = c - c0;
+      if (w >= 14 && r() < 0.55) underground(c0, w);
+      enemies(c0, 3);
+      break;
+    }
+    case "ocean": {
+      // Open sea, as deep as the world: everyone but the vehicles swims it. Reefs and islands,
+      // battleships, submarines and patrol boats out on it.
+      const ow = 120 + int(r, 120);
+      w = ow + 8;
+      ground(c0, 4);
+      const g = L.h;
+      const bed = ROWS - 4;
+      let island = 30 + int(r, 30);
+      for (let c = c0 + 4; c < c0 + 4 + ow; c++) {
+        const k = c - c0 - 4;
+        const isle = k >= island && k < island + 8;
+        const floor = isle ? g : Math.min(ROWS - 3, Math.max(g + 6, bed - Math.round((noise2(L.seed + 61, c / 8, 0) - 0.4) * 10)));
+        column(L, c, floor);
+        put(L, c, floor, isle ? t.top : SAND);
+        for (let row = g + 1; row < floor; row++) put(L, c, row, WATER, 0);
+        if (k === island + 8) island += 50 + int(r, 40);
+      }
+      for (let c = c0 + 10; c < c0 + ow; c += 3 + int(r, 6)) {
+        const floor = L.ground[c & MASK];
+        if (floor > g + 6) placeAt(L, r() < 0.6 ? "seaweed" : "coral", c, floor);
+        else if (floor === g && r() < 0.5) deco(c - 2, 5);
+      }
+      for (let c = c0 + 16; c < c0 + ow - 10; c += 28 + int(r, 14)) out.push({ kind: L.ground[c & MASK] > g ? "battleship" : "flakgun", x: c * TILE, y: (g + 1) * TILE });
+      for (let k = 2 + int(r, 3); k > 0; k--) out.push({ kind: "submarine", x: (c0 + 10 + int(r, ow - 20)) * TILE, y: (g + 1) * TILE });
+      for (let k = 1 + int(r, 3); k > 0; k--) out.push({ kind: "boat", x: (c0 + 10 + int(r, ow - 20)) * TILE, y: (g + 1) * TILE });
+      ground(c0 + 4 + ow, 4);
+      prop("lighthousebig", c0 + 5 + ow, true);
+      break;
+    }
+    case "lake": {
+      // A deep lake: swim it, or go round on the jetpack
+      const lw = 18 + int(r, 22);
+      w = lw + 6;
+      ground(c0, 3);
+      const g = L.h;
+      for (let c = c0 + 3; c < c0 + 3 + lw; c++) {
+        const k = c - c0 - 3;
+        const depth = Math.round(Math.sin((Math.PI * (k + 0.5)) / lw) * (8 + (lw >> 2)));
+        const floor = g + 1 + Math.max(1, depth);
+        column(L, c, floor);
+        put(L, c, floor, MUD);
+        for (let row = g + 1; row < floor; row++) put(L, c, row, WATER, 0);
+        if (r() < 0.3 && floor > g + 4) placeAt(L, "seaweed", c, floor);
+      }
+      ground(c0 + 3 + lw, 3);
+      for (const c of [c0 + 1, c0 + 4 + lw]) soft(c, g - 1, LEAF);
+      deco(c0, 3);
+      if (r() < 0.6) out.push({ kind: "boat", x: (c0 + 3 + (lw >> 1)) * TILE, y: (g + 1) * TILE });
+      break;
+    }
+    case "forest": {
+      // Deep woods: big trees close together, undergrowth, a few troops among them
+      w = 18 + int(r, 14);
+      natural(c0, w);
+      for (let c = c0 + 2; c < c0 + w - 2; c += 3 + int(r, 3)) {
+        if (t.decor === "pines" || t.top === SNOW) pine(c, gr(c));
+        else if (t.decor === "deadwood") deadTree(c, gr(c));
+        else bigTree(c, gr(c), c0, c0 + w);
+      }
+      for (let c = c0; c < c0 + w; c++) if (r() < 0.35) soft(c, gr(c) - 1, LEAF);
+      for (let k = 1 + int(r, 3); k > 0; k--) prop((["stump", "logs", "flowers", "hedge"] as const)[int(r, 4)], c0 + int(r, w - 2));
+      enemies(c0, w, -1, 1.1);
+      break;
+    }
+    case "railway": {
+      // A rail yard: track along the ground, freight cars on the sidings behind, a signal, a
+      // water tower, and an armoured train coming down the line
+      w = 44 + int(r, 20);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g - 1, RAIL);
+      for (let c = c0 + 3; c < c0 + w - 8; c += 7 + int(r, 6)) prop((["boxcar", "tankcar", "flatcar", "boxcar"] as const)[int(r, 4)], c, true);
+      prop("railsignal", c0 + 1);
+      prop(r() < 0.5 ? "watertower" : "crane", c0 + (w >> 1), true);
+      out.push({ kind: "train", x: (c0 + w - 12) * TILE, y: g * TILE });
+      enemies(c0, w, -1, 0.8);
+      break;
+    }
+    case "nuclear": {
+      // A nuclear plant: cooling towers steaming behind, the reactor hall, waste drums, fences, guns
+      w = 30 + int(r, 10);
+      ground(c0, w);
+      const g = L.h;
+      prop("coolingtower", c0 + 1, true);
+      prop("coolingtower", c0 + 9, true);
+      const spec = SPEC_BY_KEY.get("reactor");
+      let c = c0 + 2;
+      if (spec && g - spec.fh * spec.floors[0] > 12) c += building(L, c, spec, out, troop);
+      for (const fx of [c0, c0 + w - 1]) fill(L, fx, g - 2, 1, 2, FENCE);
+      for (let k = 2 + int(r, 3); k > 0; k--) prop(r() < 0.7 ? "toxicdrum" : "hazardsign", c + int(r, Math.max(1, c0 + w - c - 2)));
+      spawn(r() < 0.5 ? "samsite" : "flakgun", c0 + w - 4);
+      enemies(c0, w, -1, 1);
+      break;
+    }
+    case "harbour": {
+      // A harbour basin, deep water under a long pier, a battleship riding in it, docks either side
+      const hw = 18 + int(r, 8);
+      w = hw + 10;
+      ground(c0, 5);
+      const g = L.h;
+      prop(r() < 0.5 ? "containerstack" : "containerred", c0);
+      prop("capstan", c0 + 4);
+      for (let c = c0 + 5; c < c0 + 5 + hw; c++) {
+        column(L, c, g + 6);
+        put(L, c, g + 6, MUD);
+        for (let row = g + 1; row <= g + 5; row++) put(L, c, row, WATER);
+      }
+      fill(L, c0 + 5, g, hw, 1, WOOD);
+      L.props.push({ kind: "legs", x: (c0 + 5) * TILE, y: (g + 1) * TILE, w: hw * TILE, h: 5 * TILE });
+      L.props.push({ kind: "rope", x: (c0 + 5) * TILE, y: g * TILE, w: hw * TILE });
+      for (let c = c0 + 7; c < c0 + 3 + hw; c += 8) placeAt(L, "pierlamp", c, g);
+      out.push({ kind: "battleship", x: (c0 + 5 + (hw >> 1)) * TILE, y: (g + 1) * TILE });
+      ground(c0 + 5 + hw, 5);
+      prop(r() < 0.5 ? "dockcrane" : "lighthousebig", c0 + 6 + hw, true);
+      prop(pickAsset(r, t.backdrop), c0 + 6 + hw);
+      enemies(c0 + 5, hw, g, 0.6);
+      enemies(c0 + 5 + hw, 5);
+      break;
+    }
     case "flat": {
       w = 8 + int(r, 8);
-      ground(c0, w);
+      natural(c0, w);
       skyline(c0, w);
       deco(c0, w);
+      deco(c0, w);
+      scatter(c0, w, 1 + int(r, 3));
+      standing(c0, w);
+      if (r() < 0.3) underground(c0, w);
+      if (t.enemies > 0 && c0 > 70 && r() < 0.25) for (let k = 1 + int(r, 2); k > 0; k--) spawn("mine", c0 + 1 + int(r, w - 2));
       enemies(c0, w);
       barrels(c0, w);
       break;
     }
     case "slope": {
-      const dir = L.h <= BASE_ROW - 5 ? 1 : L.h >= BASE_ROW + 3 ? -1 : r() < 0.5 ? -1 : 1;
-      let c = c0;
-      for (let k = 1 + int(r, 4); k > 0; k--) {
-        const run = 2 + int(r, 2);
-        ground(c, run);
-        c += run;
-        L.h += dir;
-      }
-      ground(c, 3);
-      c += 3;
-      w = c - c0;
+      w = 12 + int(r, 10);
+      natural(c0, w);
       skyline(c0, w);
       deco(c0, w);
-      enemies(c - 4, 4);
+      deco(c0, w);
+      scatter(c0, w, 1 + int(r, 3));
+      standing(c0, w);
+      enemies(c0, w);
       break;
     }
     case "gap": {
@@ -500,6 +1522,7 @@ function feature(L: Level, out: Spawn[]) {
       w = 10;
       ground(c0, w);
       hut(c0 + 1, L.h, t.build);
+      scatter(c0 + 2, 6, 1);
       enemies(c0 + 2, 6);
       if (r() < 0.6) spawn(troop(), c0 + 5, L.h - 5);
       break;
@@ -512,6 +1535,8 @@ function feature(L: Level, out: Spawn[]) {
       fill(L, c0 + 2, floor, 8, 1, WOOD);
       hut(c0 + 2, floor, t.build);
       L.props.push({ kind: "legs", x: (c0 + 2) * TILE, y: (floor + 1) * TILE, w: 8 * TILE, h: 4 * TILE });
+      climb(c0 + 9, floor, L.h);
+      scatter(c0 + 3, 5, 1);
       enemies(c0 + 3, 6, floor, 1.4);
       break;
     }
@@ -523,6 +1548,12 @@ function feature(L: Level, out: Spawn[]) {
       fill(L, c0 + 2, g - ht, 4, 1, WOOD);
       put(L, c0 + 2, g - ht - 1, SANDBAG);
       L.props.push({ kind: "legs", x: (c0 + 2) * TILE, y: (g - ht + 1) * TILE, w: 4 * TILE, h: (ht - 1) * TILE });
+      climb(c0 + 3, g - ht, g);
+      if (r() < 0.5) {
+        // A tin roof on posts
+        fill(L, c0 + 1, g - ht - 5, 6, 1, TIN);
+        L.props.push({ kind: "support", x: (c0 + 2) * TILE + 1, y: (g - ht - 4) * TILE, h: 4 * TILE }, { kind: "support", x: (c0 + 6) * TILE - 1, y: (g - ht - 4) * TILE, h: 4 * TILE });
+      }
       spawn(r() < 0.5 ? "sniper" : troop(), c0 + 4, g - ht);
       if (night) L.props.push({ kind: "searchlight", x: (c0 + 6) * TILE - 2, y: (g - ht) * TILE - 3 });
       enemies(c0, w);
@@ -546,6 +1577,8 @@ function feature(L: Level, out: Spawn[]) {
       put(L, x0, top - 2, SANDBAG);
       put(L, x1, top - 2, SANDBAG);
       spawn("turret", x0 + (bw >> 1), top - 1);
+      climb(x1 + 1, top - 1, g);
+      scatter(x0 + 2, bw - 4, 1 + int(r, 2));
       if (r() < 0.7) spawn(troop(), x0 + 2, top - 1);
       enemies(x0 + 1, bw - 2);
       L.props.push({ kind: "lamp", x: px(x0 + (bw >> 1)), y: top * TILE + 2 });
@@ -575,6 +1608,7 @@ function feature(L: Level, out: Spawn[]) {
       fill(L, c0 + 5, g - 2, 1, 2, SANDBAG);
       spawn("mg", c0 + 3);
       L.props.push({ kind: "wire", x: c0 * TILE, y: g * TILE, w: 2 * TILE });
+      prop(r() < 0.5 ? "ammocrate" : "sandbags", c0 + 6);
       enemies(c0 + 5, 3);
       break;
     }
@@ -586,6 +1620,8 @@ function feature(L: Level, out: Spawn[]) {
       fill(L, c0 + 1, row, cw, 1, METAL);
       fill(L, c0 + 1, row - 3, cw, 1, PIPE);
       for (let c = c0 + 2; c < c0 + cw; c += 5) L.props.push({ kind: "support", x: px(c), y: (row + 1) * TILE, h: 4 * TILE });
+      climb(c0 + cw, row, L.h);
+      scatter(c0 + 2, cw - 2, 1);
       enemies(c0 + 1, cw, row);
       enemies(c0 + 1, cw);
       barrels(c0 + 1, cw);
@@ -609,13 +1645,11 @@ function feature(L: Level, out: Spawn[]) {
       break;
     }
     case "convoy": {
-      w = 16;
+      w = 18;
       ground(c0, w);
-      spawn("jeep", c0 + 4);
-      const n = r();
-      if (n < 0.4) spawn("jeep", c0 + 10);
-      else if (n < 0.75) spawn("truck", c0 + 12);
-      else spawn("tanker", c0 + 11);
+      spawn(r() < 0.5 ? "jeep" : "apc", c0 + 4);
+      const armour: Spawn["kind"][] = ["jeep", "truck", "lighttank", "medtank", "heavytank", "flametank", "rockettank", "aatank", "tanker"];
+      spawn(armour[int(r, armour.length)], c0 + 13);
       break;
     }
     case "road": {
@@ -630,15 +1664,21 @@ function feature(L: Level, out: Spawn[]) {
     case "canopy": {
       // Rainforest giants with vines, undergrowth, sometimes a lookout platform up in the trees
       w = 14 + int(r, 8);
-      ground(c0, w);
-      const g = L.h;
-      for (let c = c0 + 3; c < c0 + w - 3; c += 5 + int(r, 3)) bigTree(c, g, c0, c0 + w);
-      for (let c = c0; c < c0 + w; c++) if (r() < 0.25) soft(c, g - 1, LEAF);
+      natural(c0, w);
+      for (let c = c0 + 3; c < c0 + w - 3; c += 5 + int(r, 3)) bigTree(c, gr(c), c0, c0 + w);
+      for (let c = c0; c < c0 + w; c++) if (r() < 0.25) soft(c, gr(c) - 1, LEAF);
       if (r() < 0.55) {
         const pc = c0 + 2 + int(r, w - 7);
-        const row = g - 6 - int(r, 2);
+        // (on a slope: high enough over the higher end, its legs down to the lower)
+        let hi = ROWS;
+        let lo = 0;
+        for (let c = pc; c < pc + 4; c++) {
+          hi = Math.min(hi, gr(c));
+          lo = Math.max(lo, gr(c));
+        }
+        const row = hi - 6 - int(r, 2);
         fill(L, pc, row, 4, 1, WOOD);
-        L.props.push({ kind: "legs", x: pc * TILE, y: (row + 1) * TILE, w: 4 * TILE, h: (g - row - 1) * TILE });
+        L.props.push({ kind: "legs", x: pc * TILE, y: (row + 1) * TILE, w: 4 * TILE, h: (lo - row - 1) * TILE });
         spawn(r() < 0.6 ? "sniper" : troop(), pc + 2, row);
       }
       enemies(c0, w, -1, 1.1);
@@ -647,10 +1687,10 @@ function feature(L: Level, out: Spawn[]) {
     case "bamboo": {
       // A bamboo thicket: good cover for an ambush
       w = 12 + int(r, 6);
-      ground(c0, w);
-      const g = L.h;
+      natural(c0, w);
       for (let c = c0 + 1; c < c0 + w - 1; c++) {
         if (r() > 0.55) continue;
+        const g = gr(c);
         const ht = 5 + int(r, 6);
         fill(L, c, g - ht, 1, ht, BAMBOO);
         soft(c + (r() < 0.5 ? -1 : 1), g - ht + int(r, 2), LEAF);
@@ -682,7 +1722,7 @@ function feature(L: Level, out: Spawn[]) {
     }
     case "waterfall": {
       // A cliff to climb, a stream pouring over it into a pool at its foot
-      const rise = Math.min(4 + int(r, 3), L.h - (BASE_ROW - 9));
+      const rise = Math.min(4 + int(r, 3), L.h - (PEAK_ROW + 4));
       if (rise < 3) {
         w = 8;
         ground(c0, w);
@@ -760,6 +1800,8 @@ function feature(L: Level, out: Spawn[]) {
       L.props.push({ kind: "fire", x: px(c0 + 8), y: g * TILE });
       L.props.push({ kind: "flag", x: (c0 + 5) * TILE, y: g * TILE });
       put(L, c0 + 6, g - 1, CRATE);
+      if (r() < 0.6) prop(r() < 0.5 ? "cage" : "camonet", c0 + 9);
+      scatter(c0 + 1, w - 2, 2);
       spawn("ammo", c0 + 10);
       if (r() < 0.6) spawn("barrel", c0 + 11);
       enemies(c0 + 1, w - 2, -1, 1.4);
@@ -812,6 +1854,7 @@ function feature(L: Level, out: Spawn[]) {
         enemies(x0 + 1, bw - 2, row, 0.9);
       }
       backWall(L, x0, g - 4, bw, 4, t.build);
+      climb(x0 + bw - 2, g - floors * 5, g);
       if (r() < 0.6) spawn("sniper", x0 + bw - 2, g - floors * 5);
       enemies(x0 + 1, bw - 2, -1, 0.8);
       break;
@@ -828,15 +1871,15 @@ function feature(L: Level, out: Spawn[]) {
     }
     case "pines": {
       w = 12 + int(r, 6);
-      ground(c0, w);
-      for (let c = c0 + 2; c < c0 + w - 1; c += 4 + int(r, 3)) pine(c, L.h);
+      natural(c0, w);
+      for (let c = c0 + 2; c < c0 + w - 1; c += 4 + int(r, 3)) pine(c, gr(c));
       enemies(c0, w);
       break;
     }
     case "deadtrees": {
       w = 12 + int(r, 6);
-      ground(c0, w);
-      for (let c = c0 + 2; c < c0 + w - 1; c += 5 + int(r, 3)) deadTree(c, L.h);
+      natural(c0, w);
+      for (let c = c0 + 2; c < c0 + w - 1; c += 5 + int(r, 3)) deadTree(c, gr(c));
       enemies(c0, w);
       barrels(c0, w);
       break;
@@ -851,11 +1894,13 @@ function feature(L: Level, out: Spawn[]) {
     }
     case "spires": {
       w = 7 + int(r, 3);
-      ground(c0, w);
+      natural(c0, w);
       for (let k = 1 + int(r, 2); k > 0; k--) {
         const c = c0 + 1 + int(r, w - 3);
         const ht = 3 + int(r, 6);
-        fill(L, c, L.h - ht, r() < 0.4 ? 2 : 1, ht, t.wall);
+        const wide = r() < 0.4 && c + 1 < c0 + w ? 2 : 1;
+        const g = Math.min(gr(c), gr(c + wide - 1));
+        fill(L, c, g - ht, wide, ht, t.wall);
       }
       enemies(c0, w);
       break;
@@ -912,12 +1957,15 @@ function stronghold(L: Level, c0: number, out: Spawn[], troop: () => Spawn["kind
   put(L, c0 + 5, g - 1, SANDBAG);
   spawn("mg", c0 + 6);
   L.props.push({ kind: "wire", x: (c0 + 3) * TILE, y: g * TILE, w: 3 * TILE });
+  placeProp(L, "hedgehog", c0);
+  fill(L, c0 + 7, g - 3, 2, 3, FENCE);
   // Outer wall with a gate
   const ow = c0 + 9;
   fill(L, ow, g - 10, 3, 10, t.build, t.build);
   fill(L, ow, g - 3, 3, 3, AIR, t.build);
   for (const c of [ow, ow + 2]) put(L, c, g - 11, t.build);
   spawn("turret", ow + 1, g - 10);
+  ladder(L, ow - 1, g - 10, g);
   L.props.push({ kind: "flag", x: ow * TILE + 2, y: (g - 11) * TILE });
   if (night) L.props.push({ kind: "searchlight", x: (ow + 3) * TILE, y: (g - 10) * TILE - 3 });
   // Courtyard
@@ -926,6 +1974,9 @@ function stronghold(L: Level, c0: number, out: Spawn[], troop: () => Spawn["kind
   spawn("barrel", c0 + 21);
   spawn("ammo", c0 + 22);
   crowd(c0 + 13, 8, g, 3);
+  placeProp(L, "drums", c0 + 12);
+  placeProp(L, "loudspeaker", c0 + 23);
+  placeProp(L, "radiotower", c0 + 43, true);
   // The keep: three floors, turrets and a radar on the roof
   const kx = c0 + 24;
   const kw = 14;
@@ -934,6 +1985,7 @@ function stronghold(L: Level, c0: number, out: Spawn[], troop: () => Spawn["kind
   fill(L, kx, g - kh, 1, kh - 2, t.build, t.build);
   fill(L, kx + kw - 1, g - kh, 1, kh - 2, t.build, t.build);
   fill(L, kx, g - kh - 1, kw, 1, t.build, t.build);
+  ladder(L, kx + kw - 3, g - kh - 1, g);
   for (const row of [g - 5, g - 10]) {
     fill(L, kx + 1, row, kw - 2, 1, t.build, t.build);
     crowd(kx + 2, kw - 4, row, 2);

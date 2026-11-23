@@ -55,6 +55,10 @@ export function resetState() {
     watching: false,
     white: 0,
     burst: 0,
+    paused: false,
+    speed: 1,
+    zoom: 0,
+    endless: false,
     highlight: -1,
     formation: "village",
   });

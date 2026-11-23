@@ -1,6 +1,6 @@
 /**
  * Procedural pixel art for the levels: an 8×8 sprite per block kind (four variants each),
- * four-layer backdrops for every theme, the eight players, the enemy troops in each theme's
+ * five-layer backdrops for every theme (shaded mountain ranges, hills, silhouettes), the eight players, the enemy troops in each theme's
  * uniform, vehicles and bosses (drawn live, so their guns can aim and their legs can walk),
  * and a 3×5 pixel font. Everything is painted pixel by pixel at start-up: no image files.
  */
@@ -18,6 +18,40 @@ import {
   HIVE,
   ICE,
   KINDS,
+  BASALT,
+  CHALK,
+  CLAY,
+  GRANITE,
+  GRAVEL,
+  LOAM,
+  PINKLEAF,
+  REDLEAF,
+  ADOBE,
+  AZULEJO,
+  JADE,
+  LIMESTONE,
+  SHOJI,
+  SLATE,
+  TERRACOTTA,
+  TIMBER,
+  ASPHALT,
+  CARPET,
+  COAL,
+  DARKBRICK,
+  GLASS,
+  GOLD,
+  IRON,
+  MARBLE,
+  PARQUET,
+  PAVEMENT,
+  PLASTER,
+  RAIL,
+  SEWER,
+  SIDING,
+  STUCCO,
+  TILES,
+  FENCE,
+  LADDER,
   LAVA,
   LEAF,
   METAL,
@@ -35,6 +69,7 @@ import {
   STEEL,
   STONE,
   TILE,
+  TIN,
   TRUNK,
   VINE,
   WATER,
@@ -43,6 +78,9 @@ import {
 } from "./level";
 import type { Backdrop } from "./themes";
 import { rng } from "./rng";
+import { fbm1, hash, ridged1 } from "./noise";
+import { ASSETS, type AssetId } from "./assets";
+import { CATALOG, paintCatalog } from "./catalog";
 
 /** The outline colour used everywhere (site and scene). */
 export const INK = "#0d0b14";
@@ -50,7 +88,7 @@ export const VARIANTS = 4;
 
 /** Blocks that get a dark outline where they meet open air (not see-through ones). */
 export const OUTLINED = new Uint8Array(KINDS).map((_, k) =>
-  k === LEAF || k === STEEL || k === TRUNK || k === LAVA || k === PIPE || k === PINE || k === VINE || k === WATER || k === BAMBOO ? 0 : 1
+  k === LEAF || k === STEEL || k === TRUNK || k === LAVA || k === PIPE || k === PINE || k === VINE || k === WATER || k === BAMBOO || k === LADDER || k === FENCE || k === RAIL || k === REDLEAF || k === PINKLEAF ? 0 : 1
 );
 
 /** A representative colour per block kind, for the debris an explosion throws out. */
@@ -87,6 +125,41 @@ export const DEBRIS_COLOR: string[] = (() => {
     [VINE, "#3f9a3a"],
     [WATER, "#5ab0e0"],
     [BAMBOO, "#9ab040"],
+    [LADDER, "#9c6834"],
+    [FENCE, "#9aa1b0"],
+    [TIN, "#8a90a0"],
+    [GLASS, "#8fd3ff"],
+    [MARBLE, "#e8e4dc"],
+    [PLASTER, "#e0d4b8"],
+    [SIDING, "#5a8ab0"],
+    [STUCCO, "#e8a8a0"],
+    [TILES, "#e8eef0"],
+    [DARKBRICK, "#5a3a3a"],
+    [ASPHALT, "#3a3a40"],
+    [PAVEMENT, "#a8a8b0"],
+    [COAL, "#2a2a30"],
+    [IRON, "#c8906a"],
+    [GOLD, "#ffd23f"],
+    [RAIL, "#7a6a5a"],
+    [SEWER, "#4a5a4a"],
+    [PARQUET, "#b07a40"],
+    [CARPET, "#8a3a4a"],
+    [TIMBER, "#e8dcc0"],
+    [ADOBE, "#c08a5a"],
+    [TERRACOTTA, "#c8603a"],
+    [JADE, "#3a8a6a"],
+    [SLATE, "#4a4e5a"],
+    [SHOJI, "#f0e8d8"],
+    [AZULEJO, "#3a6ab0"],
+    [LIMESTONE, "#e0d8c0"],
+    [CLAY, "#b87a5a"],
+    [GRAVEL, "#8a8478"],
+    [GRANITE, "#7a6a70"],
+    [BASALT, "#2e2e36"],
+    [LOAM, "#5a3a22"],
+    [CHALK, "#e8e4d8"],
+    [REDLEAF, "#d8642a"],
+    [PINKLEAF, "#f0a0c8"],
   ];
   for (const [k, col] of set) c[k] = col;
   return c;
@@ -389,6 +462,168 @@ function paintBlock(ctx: CanvasRenderingContext2D, kind: number, variant: number
         return n < 0.2 ? "#1a4e6a" : "#1e5a7a";
       });
       break;
+    case LADDER:
+      // Two rails, two rungs (they line up from block to block)
+      all((x, y) => {
+        if (x === 1) return "#b07a40";
+        if (x === 6) return "#6e4520";
+        if ((y === 1 || y === 5) && x > 1 && x < 6) return y === 1 ? "#9c6834" : "#8a5a2b";
+        return null;
+      });
+      break;
+    case FENCE:
+      // Chain link on a top rail
+      all((x, y) => {
+        if (y === 0) return "#5d6578";
+        if ((x + y) % 4 === 0 || (x - y + 8) % 4 === 0) return "#9aa1b0";
+        return null;
+      });
+      break;
+    case TIN:
+      // Corrugated sheet, rusting at the edges
+      all((x, y) => {
+        if (y === 0) return "#b0b6c4";
+        if (r() < 0.07 || (y === 7 && r() < 0.5)) return "#8a4a2a";
+        return x % 2 ? "#6a7080" : "#8a90a0";
+      });
+      break;
+    case GLASS:
+      // A curtain wall: panes reflecting the sky, a streak of light across them
+      all((x, y) => {
+        if (x === 0 || y === 0) return "#3a4a5a";
+        if (x - y === variant - 1 || x - y === variant) return "#e8f8ff";
+        return y < 4 ? "#8fd3ff" : "#5aa0d0";
+      });
+      break;
+    case MARBLE:
+      all((x, y) => (r() < 0.06 ? "#b8b4ac" : (x + y * 2 + variant) % 11 === 0 ? "#c8c4bc" : y === 0 ? "#ffffff" : "#e8e4dc"));
+      break;
+    case PLASTER:
+      all(speckle("#e0d4b8", "#c8bca0", "#f0e8d0", 0.08, 0.08));
+      break;
+    case SIDING: {
+      // Painted weatherboard, a different colour per variant
+      const tone = ["#5a8ab0", "#c8a050", "#6aa070", "#c86a5a"][variant];
+      all((_, y) => (y % 3 === 2 ? mix(tone, "#000000", 0.3) : y % 3 === 0 ? mix(tone, "#ffffff", 0.2) : tone));
+      break;
+    }
+    case STUCCO:
+      all(speckle("#e8a8a0", "#d09088", "#f8c0b8", 0.1, 0.08));
+      break;
+    case TILES:
+      all((x, y) => (x === 3 || x === 7 || y === 3 || y === 7 ? "#b8c4c8" : "#e8eef0"));
+      break;
+    case DARKBRICK:
+      all((x, y) => {
+        const seam = y < 4 ? x === 0 : x === 4;
+        if (y === 3 || y === 7 || seam) return "#2a1a1a";
+        return r() < 0.2 ? "#4a2a2a" : "#5a3a3a";
+      });
+      break;
+    case ASPHALT:
+      // Road: dark, gritty, a dashed white line along the top of every other block
+      all((x, y) => {
+        if (y === 0 && variant % 2 === 0 && x > 1 && x < 6) return "#e8e4dc";
+        if (y === 0 && variant === 3 && x > 0 && x < 7) return "#ffcc33";
+        const n = r();
+        return n < 0.1 ? "#2a2a30" : n < 0.16 ? "#4a4a52" : "#3a3a40";
+      });
+      break;
+    case PAVEMENT:
+      all((x, y) => (x === 7 || y === 7 ? "#7a7a84" : y === 0 ? "#c8c8d0" : r() < 0.08 ? "#98989f" : "#a8a8b0"));
+      break;
+    case COAL:
+    case IRON:
+    case GOLD: {
+      // Ore: veins in the rock
+      const ore = kind === COAL ? ["#1e1e24", "#3a3a44"] : kind === IRON ? ["#c8906a", "#e8b090"] : ["#ffd23f", "#fff6c8"];
+      all(() => {
+        const n = r();
+        return n < 0.22 ? ore[0] : n < 0.3 ? ore[1] : n < 0.4 ? "#5a5e70" : "#6d7184";
+      });
+      break;
+    }
+    case RAIL:
+      // Track along the bottom of the block: sleepers and a steel rail
+      all((x, y) => (y === 5 ? "#9aa1b0" : y === 6 ? "#5d6578" : y === 7 && x % 3 !== 2 ? "#6e4520" : null));
+      break;
+    case SEWER:
+      all((x, y) => {
+        const seam = y < 4 ? x === 2 : x === 6;
+        if (y === 3 || y === 7 || seam) return "#2a3a2a";
+        return r() < 0.15 ? "#3a4a3a" : r() < 0.05 ? "#5a8a4a" : "#4a5a4a";
+      });
+      break;
+    case PARQUET:
+      all((x, y) => (((x >> 1) + y) % 4 === 0 ? "#8a5a2b" : y === 0 ? "#d09a5a" : "#b07a40"));
+      break;
+    case CARPET:
+      all((x, y) => (y === 0 ? "#aa5a6a" : (x + y) % 4 === 0 ? "#7a2a3a" : "#8a3a4a"));
+      break;
+    case CLAY:
+      all((x, y) => (y === 2 || y === 6 ? "#a06a4a" : speckle("#b87a5a", "#a06a4a", "#c88a68", 0.1, 0.08)()));
+      break;
+    case GRAVEL:
+      all(() => {
+        const n = r();
+        return n < 0.25 ? "#6a6458" : n < 0.45 ? "#a8a294" : n < 0.55 ? "#5a544a" : "#8a8478";
+      });
+      break;
+    case GRANITE:
+      // Hard pink-grey granite, flecked: nothing breaks it
+      all(() => {
+        const n = r();
+        return n < 0.12 ? "#c8a8a8" : n < 0.22 ? "#3a3036" : n < 0.3 ? "#f0e0e0" : "#7a6a70";
+      });
+      break;
+    case BASALT:
+      all((x, y) => ((x + y * 3 + variant) % 7 === 0 ? "#1a1a20" : r() < 0.1 ? "#46464e" : "#2e2e36"));
+      break;
+    case LOAM:
+      all(speckle("#5a3a22", "#4a2e18", "#6e4a2c", 0.14, 0.08));
+      break;
+    case CHALK:
+      all((x, y) => (r() < 0.06 ? "#2a2a30" : y % 4 === 3 ? "#d0ccc0" : "#e8e4d8"));
+      break;
+    case REDLEAF:
+    case PINKLEAF: {
+      const [a, b, c2] = kind === REDLEAF ? ["#d8642a", "#f0a03a", "#a8401a"] : ["#f0a0c8", "#ffd0e4", "#c870a0"];
+      all((x, y) => {
+        const n = r();
+        if (n < 0.12) return null;
+        return n < 0.3 ? b : n < 0.42 ? c2 : y === 0 && n < 0.6 ? b : a;
+      });
+      break;
+    }
+    case TIMBER:
+      // Half-timbering: dark beams across white plaster, a brace in every other block
+      all((x, y) => (x === 0 || y === 0 || (variant % 2 === 0 && x === y) ? "#4a3018" : r() < 0.05 ? "#d0c4a8" : "#ece4d0"));
+      break;
+    case ADOBE:
+      all((x, y) => (y === 3 || y === 7 ? "#a8744a" : speckle("#c08a5a", "#a8744a", "#d0a070", 0.1, 0.08)()));
+      break;
+    case TERRACOTTA:
+      // Curved roof tiles in rows
+      all((x, y) => ((x + (y >> 1) * 2) % 4 === 0 ? "#8a3a20" : y % 2 ? "#c8603a" : "#e0805a"));
+      break;
+    case JADE:
+      // Glazed green tiles
+      all((x, y) => ((x + (y >> 1) * 2) % 4 === 0 ? "#1e5a40" : y % 2 ? "#3a8a6a" : "#6ac09a"));
+      break;
+    case SLATE:
+      all((x, y) => (y % 3 === 2 ? "#2a2e38" : (x + (Math.floor(y / 3) % 2) * 2) % 4 === 0 ? "#3a3e4a" : "#4a4e5a"));
+      break;
+    case SHOJI:
+      // Paper screens in a wooden lattice, lit from behind
+      all((x, y) => (x === 0 || y === 0 || x === 4 || y === 4 ? "#5a3816" : "#f0e8d8"));
+      break;
+    case AZULEJO:
+      // Blue-and-white painted tiles
+      all((x, y) => (x === 0 || y === 0 ? "#c8d8e8" : (x === y || x === 8 - y) ? "#2a4a9a" : (x + y) % 4 === 0 ? "#5a8ad0" : "#f0f4f8"));
+      break;
+    case LIMESTONE:
+      all((x, y) => (y === 3 || y === 7 || (y < 4 ? x === 1 : x === 5) ? "#b8b098" : r() < 0.06 ? "#c8c0a8" : "#e0d8c0"));
+      break;
     case BAMBOO:
       all((x, y) => {
         if (x === 5 && y === (variant * 2 + 1) % 8) return "#7aa830";
@@ -535,8 +770,10 @@ function canopyTop(w: number, h: number, color: string, density: number, r: () =
   return cv;
 }
 
-/** The parallax layers of a backdrop (far → near, a foreground strip, and for jungles a canopy across the top). */
+/** The parallax layers of a backdrop (peaks → far → near, a foreground strip, and for jungles a canopy across the top). */
 export interface BackdropArt {
+  /** The furthest, palest mountains (not underground) */
+  peaks?: HTMLCanvasElement;
   far: HTMLCanvasElement;
   mid: HTMLCanvasElement;
   near: HTMLCanvasElement;
@@ -544,42 +781,138 @@ export interface BackdropArt {
   top?: HTMLCanvasElement;
 }
 
+interface RangeOpts {
+  seed: number;
+  /** Where the foot of the range is (px from the top of the strip) and how high its crests reach */
+  base: number;
+  height: number;
+  /** Ranges across the strip's width (whole number: it tiles) */
+  lumps: number;
+  /** Faces turned to the sun, and those in shadow */
+  lit: string;
+  shade: string;
+  /** Snow above this many px from the top, in this colour */
+  snow?: string;
+  snowline?: number;
+  /** The colour the range fades to near its foot (atmospheric haze), and how much */
+  haze?: string;
+  hazeAmount?: number;
+  /** Rock strata across the faces */
+  strata?: boolean;
+}
+
+/**
+ * A mountain range that tiles seamlessly: ridged fractal crests, faces lit on the sun side
+ * and in shadow on the other (the line between them slanting down from every peak), snow on
+ * the high tops, dark strata across the rock and haze thickening towards the foot. Painted
+ * straight into the pixels. Returns the crest height at each x, for placing things on it.
+ */
+function range(c: Ctx, w: number, h: number, o: RangeOpts) {
+  const T = new Int16Array(w);
+  for (let x = 0; x < w; x++) {
+    const u = (x / w) * o.lumps;
+    const crest = ridged1(o.seed, u, 4, 0.5, o.lumps) * 0.8 + (fbm1(o.seed + 5, u * 0.5, 2, 0.5, Math.max(1, o.lumps >> 1)) * 0.5 + 0.5) * 0.35;
+    T[x] = Math.round(o.base - o.height * Math.min(1, crest));
+  }
+  const slope = (x: number) => T[(x + 3) % w] - T[(x - 3 + w) % w];
+  const img = c.createImageData(w, h);
+  const d = img.data;
+  const lit = rgb(o.lit);
+  const shade = rgb(o.shade);
+  const lip = rgb(mix(o.lit, "#ffffff", 0.3));
+  const dark = rgb(mix(o.shade, "#000000", 0.18));
+  const snowLit = o.snow ? rgb(o.snow) : lit;
+  const snowShade = o.snow ? rgb(mix(o.snow, o.shade, 0.4)) : shade;
+  const haze = o.haze ? rgb(o.haze) : null;
+  const hazeAmount = o.hazeAmount ?? 0.45;
+  for (let x = 0; x < w; x++) {
+    const top = T[x];
+    // A ragged snow edge
+    const snowTo = o.snow && o.snowline !== undefined && top < o.snowline ? top + Math.round((o.snowline - top) * 0.55 + hash(o.seed, x >> 1) * 3) : -1;
+    for (let y = Math.max(0, top); y < h; y++) {
+      const depth = y - top;
+      const sunny = slope((x + Math.round(depth * 0.7)) % w) > 0;
+      let col = sunny ? lit : shade;
+      if (y < snowTo) col = sunny ? snowLit : snowShade;
+      else if (o.strata && !sunny && (y + (hash(o.seed + 1, x >> 3) * 6) | 0) % 9 === 0 && hash(o.seed + 2, x, y >> 3) < 0.7) col = dark;
+      if (depth === 0 && sunny) col = y < snowTo ? [255, 255, 255] : lip;
+      let r = col[0];
+      let g = col[1];
+      let b = col[2];
+      if (haze) {
+        // Thicker towards the foot, dithered in whole pixels
+        const f = Math.min(1, Math.max(0, (y - (o.base - o.height * 0.6)) / (o.height * 0.8))) * hazeAmount;
+        const step = f > (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16 ? Math.ceil(f * 3) / 3 : Math.floor(f * 3) / 3;
+        r += (haze[0] - r) * step;
+        g += (haze[1] - g) * step;
+        b += (haze[2] - b) * step;
+      }
+      const i = (y * w + x) * 4;
+      d[i] = r;
+      d[i + 1] = g;
+      d[i + 2] = b;
+      d[i + 3] = 255;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return (x: number) => T[((Math.round(x) % w) + w) % w];
+}
+
+/** A filled disc in a colour. */
+const c2disc = (c: Ctx, x: number, y: number, rad: number, color: string) => {
+  c.fillStyle = color;
+  disc(c, x, y, rad);
+};
+
 export function makeBackdrop(kind: Backdrop): BackdropArt {
-  const FW = 640;
-  const FH = 130;
+  const FW = 960;
+  const FH = 200;
+  const PW = 1200;
+  const PH = 240;
   const [far, f] = makeCanvas(FW, FH);
   const [mid, m] = makeCanvas(560, 110);
   const [near, n] = makeCanvas(512, 100);
   const [front, fr] = makeCanvas(480, 40);
   let top: HTMLCanvasElement | undefined;
+  let peaks: HTMLCanvasElement | undefined;
   const r = rng(kind.length * 131 + kind.charCodeAt(0));
+  const seed = kind.length * 977 + kind.charCodeAt(1) * 31;
 
-  const mountains = (c: Ctx, seed: number, body: string, edge: string, snowCol?: string) =>
-    hills(c, FW, FH, ridge(FW, seed, FH - 10, [[1, 30], [2, 22], [3, 14], [7, 9], [13, 4]]), body, edge, snowCol ? { below: 50, color: snowCol } : undefined);
-  const rolling = (c: Ctx, w: number, h: number, seed: number, body: string, edge: string, amp = 1) =>
-    hills(c, w, h, ridge(w, seed, h - 8, [[2, 14 * amp], [3, 10 * amp], [7, 6 * amp], [11, 3 * amp]]), body, edge);
-  const rubble = (c: Ctx, w: number, h: number, color: string, top = 12) => {
-    const t = ridge(w, 99, h - 2, [[5, top], [11, top / 2], [23, top / 3]]);
+  /** The furthest mountains: tall, pale, mostly haze. */
+  const distant = (lit: string, shade: string, haze: string, snow?: string) => {
+    const [cv, pc] = makeCanvas(PW, PH);
+    range(pc, PW, PH, { seed: seed + 1, base: PH, height: 190, lumps: 3, lit, shade, haze, hazeAmount: 0.7, snow, snowline: 90 });
+    peaks = cv;
+  };
+  /** The main range behind the fight. */
+  const mountains = (lit: string, shade: string, o: Partial<RangeOpts> = {}) =>
+    range(f, FW, FH, { seed: seed + 2, base: FH, height: 150, lumps: 4, lit, shade, strata: true, ...o });
+  const rolling = (c: Ctx, w: number, h: number, sd: number, body: string, edge: string, amp = 1) =>
+    hills(c, w, h, ridge(w, sd, h - 8, [[2, 14 * amp], [3, 10 * amp], [7, 6 * amp], [11, 3 * amp]]), body, edge);
+  const rubble = (c: Ctx, w: number, h: number, color: string, height = 12) => {
+    const t = ridge(w, 99, h - 2, [[5, height], [11, height / 2], [23, height / 3]]);
     for (let x = 0; x < w; x++) col(c, x, t(x), h, color);
   };
 
   switch (kind) {
     case "jungle": {
-      mountains(f, 21, "#86a0c0", "#a3b8d3", "#e8eef6");
-      rolling(m, 560, 110, 33, "#4b7a52", "#5a8a5e");
+      // Dusk: violet peaks far off, a big snow-capped range, then green hills of palms
+      distant("#b88aa8", "#8a6a94", "#e8a07a", "#f0d8e0");
+      mountains("#8aa0c4", "#5a6a98", { snow: "#eef2fa", snowline: 92, haze: "#d89a8a" });
+      rolling(m, 560, 110, 33, "#4b7a52", "#5a8a5e", 1.5);
       for (let i = 0; i < 18; i++) palm(m, 6 + Math.floor(r() * 548), 92, 16 + Math.floor(r() * 14), r() < 0.5 ? -1 : 1, "#335a40");
-      rolling(n, 512, 100, 34, "#24402e", "#2e5038", 1.3);
+      rolling(n, 512, 100, 34, "#24402e", "#2e5038", 1.6);
       for (let i = 0; i < 12; i++) palm(n, Math.floor(r() * 500), 80, 24 + Math.floor(r() * 16), r() < 0.5 ? -1 : 1, "#1a3022");
       rubble(fr, 480, 40, "#10200f", 14);
       break;
     }
     case "deepjungle": {
       // Misty peaks with waterfalls, then wall after wall of rainforest, vines hanging off it
-      const peaks = ridge(FW, 23, FH - 10, [[1, 30], [2, 22], [3, 14], [7, 9], [13, 4]]);
-      hills(f, FW, FH, peaks, "#6e8e80", "#88a898");
-      for (let i = 0; i < 4; i++) {
-        const x = 30 + Math.floor(r() * 580);
-        for (let y = peaks(x) + 6; y < FH; y++) if (y % 4) box(f, x, y, 2, 1, "#d8ece8");
+      distant("#9ab8a8", "#7a9a8e", "#e0ecd0");
+      const crest = mountains("#7a9e8a", "#4e6e62", { haze: "#c8dcc0", hazeAmount: 0.55 });
+      for (let i = 0; i < 6; i++) {
+        const x = 30 + Math.floor(r() * (FW - 60));
+        for (let y = crest(x) + 8; y < FH; y++) if (y % 4) box(f, x, y, 2, 1, "#e0f0ec");
       }
       box(f, 0, FH - 34, FW, 10, "rgba(220,240,230,0.22)");
       box(m, 0, 64, 560, 46, "#22402e");
@@ -593,10 +926,10 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "temple": {
-      // Dusk haze over the hills, temple tops breaking the canopy, broken pillars up close
-      const hillsTop = ridge(FW, 29, FH - 12, [[1, 22], [2, 16], [5, 8], [9, 4]]);
-      hills(f, FW, FH, hillsTop, "#9a7a8a", "#b08e98");
-      for (const x of [120, 420]) stepped(f, x, hillsTop(x) + 8, 4, 60, 7, "#8a6a7a", "#a8889a");
+      // Dusk haze over the ranges, temple tops on the ridges, broken pillars up close
+      distant("#c09aa8", "#9a7a90", "#f0b890");
+      const crest = mountains("#b08e98", "#7a5a72", { height: 120, haze: "#e0a890" });
+      for (const x of [180, 640]) stepped(f, x, crest(x) + 10, 4, 60, 7, "#8a6a7a", "#a8889a");
       crowns(m, 560, 110, 76, 8, 14, "#3a4a36", "#4a5c44", r);
       stepped(m, 300, 84, 5, 110, 9, "#4a5040", "#6a7058");
       box(m, 297, 84 - 5 * 9 - 5, 6, 4, "#ffb060");
@@ -613,8 +946,9 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "monsoon": {
-      // Low, rain-dark hills, palms and stilt villages along the river
-      hills(f, FW, FH, ridge(FW, 37, FH - 14, [[1, 18], [2, 14], [4, 8], [9, 3]]), "#3a4a50", "#4a5a60");
+      // Rain-dark ranges under the cloud, palms and stilt villages along the river
+      distant("#5a6a74", "#46545e", "#8a9aa4");
+      mountains("#4e6068", "#36464e", { height: 110, haze: "#7a8a94", hazeAmount: 0.6 });
       box(f, 0, FH - 40, FW, 12, "rgba(160,180,190,0.18)");
       crowns(m, 560, 110, 80, 7, 12, "#26383a", "#30464a", r);
       for (let i = 0; i < 10; i++) palm(m, Math.floor(r() * 550), 84, 18 + Math.floor(r() * 12), r() < 0.5 ? -1 : 1, "#1e2e30");
@@ -634,12 +968,16 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
     case "canyon": {
       const desert = kind === "desert";
       if (desert) {
-        hills(f, FW, FH, ridge(FW, 41, FH - 12, [[1, 18], [2, 12], [5, 6]]), "#e0b880", "#ecc890");
-        for (let i = 0; i < 5; i++) {
-          const x = Math.floor(r() * 600);
-          box(f, x, FH - 60, 30 + Math.floor(r() * 30), 50, "#d0a070");
+        // Heat-hazed sandstone ranges, then dunes, derricks and cactus
+        distant("#f0caa0", "#d8aa80", "#fff0d0");
+        mountains("#ecc890", "#c09060", { height: 110, lumps: 5, haze: "#f8e0b0" });
+        for (let i = 0; i < 6; i++) {
+          const x = Math.floor(r() * (FW - 60));
+          const h = 30 + Math.floor(r() * 30);
+          box(f, x, FH - h, 30 + Math.floor(r() * 30), h, "#d0a070");
+          box(f, x, FH - h, 30, 2, "#e0b880");
         }
-        hills(m, 560, 110, ridge(560, 42, 100, [[2, 20], [3, 12], [7, 5]]), "#c89a60", "#d8aa70");
+        hills(m, 560, 110, ridge(560, 42, 100, [[2, 26], [3, 16], [7, 6]]), "#c89a60", "#d8aa70");
         for (let i = 0; i < 6; i++) {
           // Distant oil derricks
           const x = 20 + Math.floor(r() * 520);
@@ -650,7 +988,7 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
             if (y % 6 === 0) box(m, x - half, 70 - y, half * 2 + 1, 1, "#8a6a40");
           }
         }
-        rolling(n, 512, 100, 43, "#9a6a3a", "#aa7a4a", 1.2);
+        rolling(n, 512, 100, 43, "#9a6a3a", "#aa7a4a", 1.4);
         for (let i = 0; i < 10; i++) {
           // Cactus silhouettes
           const x = Math.floor(r() * 500);
@@ -663,13 +1001,16 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
         }
         rubble(fr, 480, 40, "#4a3018", 10);
       } else {
-        // Buttes and mesas with striped walls
+        // Red peaks, then buttes and mesas with striped walls
+        distant("#e8a890", "#c07a6a", "#ffd0a8");
+        mountains("#d88a6a", "#a05a48", { height: 90, lumps: 6, haze: "#f0b090", hazeAmount: 0.35 });
         for (let x = 0; x < FW; ) {
           const w = 30 + Math.floor(r() * 60);
           const h = 30 + Math.floor(r() * 60);
           box(f, x, FH - h, w, h, "#d8987a");
           for (let y = FH - h + 6; y < FH; y += 9) box(f, x, y, w, 2, "#c8846a");
-          x += w + Math.floor(r() * 50);
+          box(f, x, FH - h, w, 2, "#f0b090");
+          x += w + Math.floor(r() * 80);
         }
         for (let x = 0; x < 560; ) {
           const w = 20 + Math.floor(r() * 40);
@@ -690,7 +1031,9 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "snow": {
-      mountains(f, 51, "#a8b8d0", "#d8e4f0", "#ffffff");
+      // Alps: great snowfields far off, a jagged snowy range, pine forest below
+      distant("#d8e4f4", "#a8b8d4", "#eef2fa", "#ffffff");
+      mountains("#c8d4e8", "#7a8cac", { height: 170, lumps: 5, snow: "#ffffff", snowline: 150, haze: "#e0e8f4", hazeAmount: 0.35 });
       for (let x = 0; x < 560; x += 6 + Math.floor(r() * 8)) pineTree(m, x, 100, 18 + Math.floor(r() * 16), "#4a6a7a", "#e8eef6");
       box(m, 0, 98, 560, 12, "#d8e4f0");
       for (let x = 0; x < 512; x += 10 + Math.floor(r() * 12)) pineTree(n, x, 92, 30 + Math.floor(r() * 24), "#1e3a44", "#c8d8e8");
@@ -700,7 +1043,10 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
     }
     case "fort":
     case "silo": {
-      mountains(f, 61, kind === "fort" ? "#7a8aa8" : "#b87a6a", kind === "fort" ? "#98a8c0" : "#d08a70");
+      const fort = kind === "fort";
+      if (fort) distant("#8a94b4", "#6a7494", "#a0a0c0", "#c8d0e4");
+      else distant("#d8a090", "#b07a70", "#f0b8a0");
+      mountains(fort ? "#98a8c0" : "#d08a70", fort ? "#5a6a88" : "#9a5a4a", { height: 130, haze: fort ? "#8a90b0" : "#e0a088", snow: fort ? "#dce4f0" : undefined, snowline: 80 });
       box(m, 0, 76, 560, 34, "#3c4660");
       for (let x = 0; x < 560; x += 8) box(m, x, 72, 4, 4, "#3c4660");
       for (let i = 0; i < 7; i++) {
@@ -710,7 +1056,7 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
         for (let k = 0; k < 18; k += 6) box(m, x + k, 72 - h, 4, 4, "#343d55");
         box(m, x + 7, 82 - h, 3, 5, "#ffd479");
       }
-      if (kind === "silo") {
+      if (!fort) {
         for (let i = 0; i < 5; i++) {
           // Radar domes and missiles on their gantries
           const x = Math.floor(r() * 480);
@@ -734,7 +1080,9 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "factory": {
-      box(f, 0, 104, FW, 26, "#3a2a3a");
+      // Smog-brown hills behind a skyline of stacks
+      distant("#6a5060", "#54404e", "#8a6a6a");
+      box(f, 0, FH - 26, FW, 26, "#3a2a3a");
       for (let x = 0; x < FW; ) {
         const w = 14 + Math.floor(r() * 30);
         const h = 20 + Math.floor(r() * 60);
@@ -757,6 +1105,8 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "city": {
+      // Dark hills ringing the city, then towers, then the shelled blocks
+      distant("#2a2e48", "#22253c", "#3a3a5a");
       for (let x = 0; x < FW; ) {
         const w = 16 + Math.floor(r() * 26);
         const h = 40 + Math.floor(r() * 80);
@@ -779,8 +1129,20 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "volcano": {
-      hills(f, FW, FH, ridge(FW, 71, FH - 6, [[1, 50], [2, 26], [5, 10], [11, 4]]), "#2a1014", "#3a161a");
-      for (let x = 0; x < FW; x += 53) col(f, x, 40, 100, "#b8321a");
+      // Black volcanic peaks with lava running down their flanks
+      distant("#4a1a1e", "#3a1216", "#8a2a1a");
+      const crest = mountains("#4a1c20", "#2a1014", { height: 170, lumps: 3, haze: "#6a2016", hazeAmount: 0.3 });
+      // (from the highest crests only, each running a little way down and cooling as it goes)
+      for (let x = 20; x < FW; x += 60 + Math.floor(r() * 50)) {
+        const y0 = crest(x) + 3;
+        if (y0 > FH - 70) continue;
+        const len = 24 + Math.floor(r() * 46);
+        let lx = x;
+        for (let y = y0; y < Math.min(FH, y0 + len); y++) {
+          if (y % 5 === 0) lx += r() < 0.5 ? -1 : 1;
+          box(f, lx, y, 1, 1, y < y0 + 5 ? "#ffd23f" : y < y0 + len * 0.6 ? "#d8481a" : "#7a2414");
+        }
+      }
       for (let x = 0; x < 560; ) {
         const w = 3 + Math.floor(r() * 7);
         const h = 20 + Math.floor(r() * 50);
@@ -794,9 +1156,10 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "hive": {
+      distant("#3a1a54", "#2a1240", "#5a2a6a");
       for (let x = 0; x < FW; ) {
         const w = 10 + Math.floor(r() * 20);
-        const h = 40 + Math.floor(r() * 80);
+        const h = 40 + Math.floor(r() * 110);
         for (let k = 0; k < w; k++) col(f, x + k, FH - h + Math.round((Math.abs(k - w / 2) / (w / 2)) ** 2 * 30), FH, "#2a1440");
         for (let k = 0; k < 4; k++) box(f, x + Math.floor(r() * w), FH - h + 20 + Math.floor(r() * (h - 30)), 2, 2, "#c84aff");
         x += w + Math.floor(r() * 20);
@@ -811,7 +1174,9 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       break;
     }
     case "swamp": {
-      rolling(f, FW, FH, 81, "#5a7a64", "#6a8a74", 1.4);
+      // Low, misty ridges over the bog, dead trees standing in the water
+      distant("#7a9488", "#62807a", "#a8c0b0");
+      mountains("#6a8a74", "#4a6a5a", { height: 90, lumps: 5, haze: "#98b0a0", hazeAmount: 0.6 });
       for (let x = 0; x < 560; x += 12 + Math.floor(r() * 20)) deadTree(m, x, 104, 30 + Math.floor(r() * 30), "#2e4436", r);
       box(m, 0, 100, 560, 10, "#2e4436");
       for (let x = 0; x < 512; x += 20 + Math.floor(r() * 30)) deadTree(n, x, 96, 40 + Math.floor(r() * 40), "#16241c", r);
@@ -819,10 +1184,176 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       for (let x = 0; x < 480; x += 2) col(fr, x, 26 - ((x * 7) % 11), 40, "#0c160e");
       break;
     }
+    case "savanna": {
+      // Heat-hazed hills, golden grassland, flat-topped acacias
+      distant("#e8c890", "#c8a070", "#fff0d0");
+      mountains("#d8a868", "#a87848", { height: 100, lumps: 5, haze: "#ffe0b0" });
+      rolling(m, 560, 110, 51, "#c8a050", "#d8b868", 1.2);
+      for (let i = 0; i < 10; i++) {
+        const x = 20 + Math.floor(r() * 520);
+        col(m, x, 72, 96, "#5a4028");
+        box(m, x - 10, 68, 21, 3, "#6a7a30");
+        box(m, x - 7, 66, 15, 2, "#7a8a3a");
+      }
+      rolling(n, 512, 100, 52, "#8a7040", "#9a8050", 1.4);
+      for (let x = 0; x < 512; x += 3) col(n, x, 74 - Math.floor(r() * 6), 82, "#7a6034");
+      rubble(fr, 480, 40, "#4a3a20", 10);
+      break;
+    }
+    case "autumn": {
+      // Purple hills, and woods turned red and gold
+      distant("#9a8aa8", "#7a6a90", "#e8c0a0");
+      mountains("#a8a0b8", "#6a6080", { height: 120, haze: "#e8b090" });
+      crowns(m, 560, 110, 70, 8, 14, "#c86a2a", "#e08a3a", r);
+      for (let x = 0; x < 560; x += 13 + Math.floor(r() * 20)) c2disc(m, x, 66 + Math.floor(r() * 10), 6, "#e8a040");
+      crowns(n, 512, 100, 62, 10, 18, "#8a3a1a", "#a84a22", r);
+      rubble(fr, 480, 40, "#3a1e10", 12);
+      ferns(fr, 480, 40, "#3a1e10", r);
+      break;
+    }
+    case "sakura": {
+      // Snow-capped peaks, and hillsides of cherry blossom
+      distant("#c8b8d8", "#a898c0", "#ffe8f0", "#ffffff");
+      mountains("#b8b0d0", "#8078a8", { snow: "#ffffff", snowline: 80, haze: "#ffd8e8" });
+      crowns(m, 560, 110, 72, 8, 13, "#f0a8c8", "#ffd0e0", r);
+      for (const x of [140, 400]) stepped(m, x, 74, 3, 40, 6, "#5a4a5a", "#7a6a7a");
+      crowns(n, 512, 100, 64, 10, 16, "#c8709a", "#e890b8", r);
+      rubble(fr, 480, 40, "#3a2a30", 10);
+      break;
+    }
+    case "tundra": {
+      // Low, white country under a pale sky, a few dark spruce
+      distant("#c8d4e4", "#a8b8cc", "#f4f8ff", "#ffffff");
+      mountains("#d8e0ec", "#9aa8bc", { height: 70, lumps: 6, snow: "#ffffff", snowline: 160, haze: "#eef2f8" });
+      box(m, 0, 96, 560, 14, "#e8eef6");
+      for (let x = 0; x < 560; x += 30 + Math.floor(r() * 40)) pineTree(m, x, 98, 14 + Math.floor(r() * 10), "#3a5a6a", "#e8eef6");
+      rolling(n, 512, 100, 53, "#e8eef6", "#ffffff", 0.6);
+      for (let x = 0; x < 512; x += 40 + Math.floor(r() * 50)) pineTree(n, x, 92, 24 + Math.floor(r() * 12), "#1e3a44", "#c8d8e8");
+      rubble(fr, 480, 40, "#e8eef6", 10);
+      break;
+    }
+    case "badlands": {
+      // Banded buttes and hoodoos under a hot sky
+      distant("#e8a888", "#c07a68", "#ffd0a8");
+      for (let x = 0; x < FW; ) {
+        const w = 40 + Math.floor(r() * 70);
+        const h = 40 + Math.floor(r() * 80);
+        box(f, x, FH - h, w, h, "#c8805a");
+        for (let y = FH - h + 4; y < FH; y += 7) box(f, x, y, w, 3, y % 14 < 7 ? "#e0a070" : "#a8603a");
+        box(f, x, FH - h, w, 2, "#f0c090");
+        x += w + Math.floor(r() * 40);
+      }
+      for (let x = 0; x < 560; ) {
+        const w = 8 + Math.floor(r() * 12);
+        const h = 40 + Math.floor(r() * 50);
+        for (let k = 0; k < w; k++) col(m, x + k, 110 - h + Math.abs(k - w / 2), 110, "#8a4a2e");
+        box(m, x - 2, 110 - h - 3, w + 4, 4, "#a8603a");
+        x += w + 16 + Math.floor(r() * 30);
+      }
+      rolling(n, 512, 100, 54, "#6a3420", "#7a4028", 1.2);
+      rubble(fr, 480, 40, "#3a1a0e", 12);
+      break;
+    }
+    case "farmland": {
+      // Gentle hills, a patchwork of fields, hedgerows and the odd wood
+      distant("#a8c0d8", "#8aa0c0", "#e8f4ff");
+      mountains("#90b0a0", "#6a8a7a", { height: 80, haze: "#d8ecf0" });
+      const fields = ridge(560, 55, 100, [[2, 14], [3, 8], [7, 4]]);
+      for (let x = 0; x < 560; x++) {
+        const top = fields(x);
+        col(m, x, top, 110, Math.floor(x / 46) % 3 === 0 ? "#d8c060" : Math.floor(x / 46) % 3 === 1 ? "#7ab050" : "#9ac868");
+        col(m, x, top, top + 1, "#b8d880");
+      }
+      for (let x = 0; x < 560; x += 46) col(m, x, fields(x) - 2, 110, "#3a6a2a");
+      rolling(n, 512, 100, 56, "#4a8a3a", "#5a9a48", 1.1);
+      crowns(n, 512, 100, 74, 6, 10, "#2e6a2a", "#3a7a34", r);
+      ferns(fr, 480, 40, "#1e3a14", r);
+      break;
+    }
+    case "megacity": {
+      // A wall of towers, thousands of lit windows, neon, aircraft lights on the masts
+      distant("#2a2040", "#201a34", "#3a2a50");
+      for (let x = 0; x < FW; ) {
+        const w = 12 + Math.floor(r() * 26);
+        const h = 70 + Math.floor(r() * 120);
+        box(f, x, FH - h, w, h, "#16142a");
+        if (r() < 0.4) col(f, x + (w >> 1), FH - h - 14, FH - h, "#16142a");
+        for (let y = FH - h + 3; y < FH - 3; y += 4) for (let k = 2; k < w - 2; k += 3) if (r() < 0.35) box(f, x + k, y, 1, 2, r() < 0.15 ? "#ff6fae" : "#ffd479");
+        x += w + 1 + Math.floor(r() * 4);
+      }
+      for (let x = 0; x < 560; ) {
+        const w = 20 + Math.floor(r() * 30);
+        const h = 50 + Math.floor(r() * 50);
+        box(m, x, 110 - h, w, h, "#0e0c1c");
+        for (let y = 110 - h + 4; y < 108; y += 5) for (let k = 3; k < w - 3; k += 4) if (r() < 0.25) box(m, x + k, y, 2, 2, r() < 0.2 ? "#5ff0e0" : "#ffb84a");
+        if (r() < 0.5) box(m, x + 3, 110 - h + 6, w - 6, 3, r() < 0.5 ? "#ff6fae" : "#5ab0ff");
+        x += w + 3 + Math.floor(r() * 10);
+      }
+      rubble(n, 512, 100, "#08080f", 14);
+      rubble(fr, 480, 40, "#050508", 12);
+      break;
+    }
+    case "airbase": {
+      // Far hills, hangars and a control tower along the field, the perimeter fence
+      distant("#9ab0c8", "#7a90a8", "#d8e8f4");
+      mountains("#8aa0b8", "#5a7088", { height: 90, haze: "#c8d8e8" });
+      box(m, 0, 92, 560, 18, "#4a5a48");
+      for (let x = 20; x < 560; x += 110 + Math.floor(r() * 40)) {
+        for (let k = -24; k <= 24; k++) col(m, x + k, 92 - Math.round(Math.sqrt(576 - k * k) * 0.8), 92, "#3a4450");
+        box(m, x - 8, 80, 16, 12, "#2a3038");
+      }
+      box(m, 300, 50, 8, 42, "#3a4450");
+      box(m, 294, 44, 20, 8, "#3a4450");
+      box(m, 296, 46, 16, 3, "#8fd3ff");
+      box(n, 0, 84, 512, 16, "#2e3a2c");
+      for (let x = 0; x < 512; x += 10) col(n, x, 74, 84, "#3a3f4f");
+      for (let x = 0; x < 512; x += 2) box(n, x, 76 + (x % 4 === 0 ? 0 : 3), 1, 1, "#5d6578");
+      rubble(fr, 480, 40, "#1a2018", 8);
+      break;
+    }
+    case "archipelago": {
+      // A bright sea out to the horizon, islands on it, palms close by
+      distant("#a8d8f0", "#88c0e0", "#e8fcff");
+      box(f, 0, FH - 50, FW, 50, "#3a8ac8");
+      box(f, 0, FH - 50, FW, 2, "#8ad0f0");
+      for (let i = 0; i < 6; i++) {
+        const x = Math.floor(r() * (FW - 80));
+        const w = 30 + Math.floor(r() * 60);
+        for (let k = 0; k < w; k++) col(f, x + k, FH - 50 - Math.round(Math.sin((k / w) * Math.PI) * (8 + r() * 0.5 + w / 8)), FH - 49, "#5a9a6a");
+      }
+      box(m, 0, 90, 560, 20, "#2a7ab8");
+      for (let i = 0; i < 4; i++) {
+        const x = Math.floor(r() * 480);
+        for (let k = 0; k < 60; k++) col(m, x + k, 90 - Math.round(Math.sin((k / 60) * Math.PI) * 14), 91, "#3a7a4a");
+        for (let j = 0; j < 3; j++) palm(m, x + 12 + j * 14, 82, 14 + Math.floor(r() * 8), r() < 0.5 ? -1 : 1, "#2a5a34");
+      }
+      box(n, 0, 88, 512, 12, "#1e5a8a");
+      for (let i = 0; i < 8; i++) palm(n, Math.floor(r() * 500), 88, 24 + Math.floor(r() * 14), r() < 0.5 ? -1 : 1, "#1a3a22");
+      rubble(fr, 480, 40, "#c8a870", 8);
+      break;
+    }
+    case "mangrove": {
+      // Green haze over the delta, mangroves standing on their roots in the water
+      distant("#7aa090", "#5a8070", "#b8d8c0");
+      mountains("#6a9080", "#4a6a5a", { height: 60, lumps: 6, haze: "#a8c8b0", hazeAmount: 0.6 });
+      box(m, 0, 96, 560, 14, "#3a6a5a");
+      for (let x = 0; x < 560; x += 18 + Math.floor(r() * 20)) {
+        for (let k = -4; k <= 4; k += 2) col(m, x + k, 88, 98, "#2a3a2a");
+        c2disc(m, x, 82, 9, "#2e5a3a");
+      }
+      crowns(m, 560, 110, 84, 6, 10, "#2e5a3a", "#3e6a4a", r);
+      box(n, 0, 90, 512, 10, "#244a3a");
+      for (let x = 0; x < 512; x += 26 + Math.floor(r() * 26)) {
+        for (let k = -6; k <= 6; k += 3) col(n, x + k, 76, 92, "#16241a");
+        c2disc(n, x, 66, 14, "#16301e");
+      }
+      for (let x = 0; x < 480; x += 3) col(fr, x, 26 - ((x * 5) % 9), 40, "#0c160e");
+      break;
+    }
     default: {
       // Cave: a rock wall, stalagmites and columns
       box(f, 0, 0, FW, FH, "#141220");
-      for (let i = 0; i < 180; i++) box(f, Math.floor(r() * FW), Math.floor(r() * FH), 3 + Math.floor(r() * 8), 2 + Math.floor(r() * 4), "#1c1a2c");
+      for (let i = 0; i < 260; i++) box(f, Math.floor(r() * FW), Math.floor(r() * FH), 3 + Math.floor(r() * 8), 2 + Math.floor(r() * 4), "#1c1a2c");
       for (let x = 0; x < 560; ) {
         const w = 4 + Math.floor(r() * 8);
         const h = 14 + Math.floor(r() * 40);
@@ -834,7 +1365,7 @@ export function makeBackdrop(kind: Backdrop): BackdropArt {
       rubble(fr, 480, 40, "#050408", 12);
     }
   }
-  return { far, mid, near, front, top };
+  return { peaks, far, mid, near, front, top };
 }
 
 /* ------------------------------------------------------------------ */
@@ -865,6 +1396,12 @@ const GUNS = [
   ["YY", "YY.....SWWWXF", "YY.....SW", "YY"], // flamethrower and its tank
   ["", ".......SWWWWW", "......SWOOWW", "........WW"], // grenade launcher with a drum
   ["", "......SWWwWwWw", "......SWWWWWWW", ".....SSWWwWwW"], // minigun
+  ["", ".......SWWWVVVv", ".......SWWW", "........W"], // laser
+  ["........XX", ".......SWWXwX", ".......SWWX", "........W"], // tesla gun with its coil
+  ["", ".......SWW", "", ".......SWW"], // dual pistols
+  ["..........w", ".......SWWWWWwR", "..........w", ""], // crossbow
+  ["", ".......SWWOOO", ".......SWWOwO", "..........OOO"], // saw-blade launcher
+  ["...........WW", ".......SWWWW", "......SWW", ""], // mortar tube
 ];
 /** Legs (rows 12–17): idle, four running frames, jumping. */
 const LEGS = [
@@ -947,12 +1484,23 @@ function playerPalette(id: number, color: string): Pal {
   };
 }
 
-/** One player's sprite (16×20 with outline), for the scene and the portraits on the page. */
-export function playerSprite(id: number, color: string, frame = 0, flip = false) {
+/** One player's sprite (16×20 with outline) holding `weapon` (their own by default), for the scene and the portraits on the page. */
+export function playerSprite(id: number, color: string, frame = 0, flip = false, weapon = id) {
   const pal = playerPalette(id, color);
   // (the flamethrower's back tank is red)
-  if (id === 5) pal.Y = "#c8302a";
-  return paintMap(bodyMap(HEADS[id], GUNS[id], LEGS[frame]), pal, flip);
+  if (weapon === 5) pal.Y = "#c8302a";
+  return paintMap(bodyMap(HEADS[id], GUNS[weapon], LEGS[frame]), pal, flip);
+}
+
+/** Each player's frames with each weapon, painted the first time they're needed: get(id, weapon)[frame][facing]. */
+export function makeLoadouts(colors: string[]) {
+  const cache = new Map<number, HTMLCanvasElement[][]>();
+  return (id: number, weapon: number) => {
+    const key = id * 32 + weapon;
+    let frames = cache.get(key);
+    if (!frames) cache.set(key, (frames = LEGS.map((_, f) => [playerSprite(id, colors[id], f, false, weapon), playerSprite(id, colors[id], f, true, weapon)])));
+    return frames;
+  };
 }
 
 /** sprites[player][frame][facing: 0 right, 1 left] */
@@ -977,6 +1525,16 @@ const LOOKS: Record<Backdrop, { helmet: string; uniform: string; legs: string }>
   hive: { helmet: "#3a1a4a", uniform: "#6a3a8a", legs: "#2a1a3a" },
   swamp: { helmet: "#2e3a24", uniform: "#4e5a3a", legs: "#2a3220" },
   cave: { helmet: "#2a1e3a", uniform: "#4e3a6a", legs: "#2a2040" },
+  savanna: { helmet: "#6a5a30", uniform: "#b89858", legs: "#6a5030" },
+  autumn: { helmet: "#4a3a20", uniform: "#7a5a30", legs: "#3a2a18" },
+  sakura: { helmet: "#3a3a4a", uniform: "#5a5a7a", legs: "#2a2a3a" },
+  tundra: { helmet: "#c8d0dc", uniform: "#e8ecf2", legs: "#8a94a4" },
+  badlands: { helmet: "#7a4a30", uniform: "#b8704e", legs: "#5a3020" },
+  farmland: { helmet: "#3a4a2a", uniform: "#5a6a3a", legs: "#2a3220" },
+  megacity: { helmet: "#101018", uniform: "#2a2a34", legs: "#18181e" },
+  airbase: { helmet: "#3a4a5a", uniform: "#6a7a8a", legs: "#3a4450" },
+  archipelago: { helmet: "#3a5a4a", uniform: "#5a8a6a", legs: "#2a4a3a" },
+  mangrove: { helmet: "#2e3a24", uniform: "#4e5a3a", legs: "#2a3220" },
 };
 
 const HEAVY = (legs: number) => [
@@ -1039,6 +1597,14 @@ const DOG = [
 const SHIELD_PLATE = [".qq.", "qQzq", "qQzq", "qQQq", "qQQq", "qQQq", "qQQq", "qQQq", "qQQq", "qQQq", "qQQq", ".qq."];
 /** A sidearm, for the shield trooper. */
 const PISTOL = ["", ".......SWW", "", ""];
+/** The new units' heads and kit */
+const OFFICER_HEAD = ["....DDDD", "...DDDDDD", "...HHHHHHH", "....FFFRF", "....FfFFF", ".....FF"];
+const HARDHAT = ["....ZZZZ", "...ZZZZZZ", "..ZZZZZZZZ", "....FFFRF", "....FfFFF", ".....FF"];
+const BANDANA = ["....DDDD", "...DDDDDDD.D", "....FFFRF", "....FfFFF", "....FFFF", ".....FF"];
+const DYNAMITE = ["", ".......SDDk", ".......SDD", ""];
+const MACHETE = ["......ww", ".......Sw", ".......S", ""];
+const LASER_GUN = ["", ".......SWWWVVv", ".......SWW", ""];
+const JETPACK = ["JJ", "JJ", "JJ", "jj"];
 
 /** Lay `patch` over a character map at column x, row y (dots in the patch leave the map alone). */
 function overlay(rows: string[], x: number, y: number, patch: string[]) {
@@ -1079,7 +1645,14 @@ export function makeTroops(look: Backdrop) {
     Q: "#7a8698",
     q: "#2e3442",
     z: "#c8d0dc",
+    J: "#6a7080",
+    j: "#3a3f4f",
+    Z: "#ffcc33",
+    D: "#c8302a",
+    V: "#5ff0e0",
+    v: "#e6fffc",
   };
+  const exoPal: Pal = { ...pal, C: "#6a7080", c: "#4a5060", T: "#3a3f4f", L: "#5d6578", l: "#3a3f4f" };
   const both = (rows: string[], palette = pal) => [paintMap(rows, palette, false), paintMap(rows, palette, true)];
   const gun = (i: number) => GUNS[i];
   const turretPal: Pal = { T: "#6a7080", t: "#8a90a0", B: "#4a4f5f", b: "#ff3b3b", G: "#2e3240" };
@@ -1098,6 +1671,14 @@ export function makeTroops(look: Backdrop) {
     turret: both(TURRET, turretPal),
     crawler: CRAWLER.map((rows) => both(rows, bug)),
     dog: DOG.map((rows) => both(rows, dogPal)),
+    jetpacker: LEGS.map((legs) => both(overlay(bodyMap(HEADS[8], gun(0), legs), 0, 6, JETPACK))),
+    minigunner: [0, 1].map((k) => both(overlay(HEAVY(k), 12, 7, ["WWWWWW", "wwwwww", "WWWWWW", "..ZZ"]))),
+    officer: LEGS.map((legs) => both(bodyMap(OFFICER_HEAD, PISTOL, legs))),
+    dynamiter: LEGS.map((legs) => both(overlay(bodyMap(HEADS[8], DYNAMITE, legs), 3, 10, ["DDDDD"]))),
+    rusher: LEGS.map((legs) => both(bodyMap(BANDANA, MACHETE, legs))),
+    engineer: LEGS.map((legs) => both(overlay(bodyMap(HARDHAT, PISTOL, legs), 3, 10, ["ZZZZZ"]))),
+    laser: LEGS.map((legs) => both(bodyMap(HEADS[8], LASER_GUN, legs))),
+    exosuit: [0, 1].map((k) => both(overlay(HEAVY(k), 2, 4, ["JJJJ", "RRRJ"]), exoPal)),
   };
 }
 
@@ -1115,7 +1696,17 @@ export function makeProps() {
     { E: "#7a3a8a", e: "#b87ad0", G: "#8aff6a", d: "#3a1a4a" },
     false
   );
-  return { barrel, fuel, ammo, egg };
+  const propane = paintMap(
+    ["..KK..", ".SSSS.", "SsSSSS", "SsSRSS", "SsRRRS", "SsSRSS", "SsSSSS", "SsSSSS", "SsSSSS", ".SSSS.", ".K..K."],
+    { S: "#d8dce4", s: "#ffffff", R: "#c8302a", K: "#3a3f4f" },
+    false
+  );
+  const canister = paintMap(["..KKK.", ".RRRRK", "RrRRRR", "RRrRRR", "RRRrRR", "RRRRRR"], { R: "#c8302a", r: "#e8584a", K: "#3a3f4f" }, false);
+  const cylinder = paintMap(["..K.", ".KK.", ".GG.", "GgGG", "GgGG", "GgGG", "GgGG", "WWWW", "GgGG", "GgGG", "GgGG", ".GG."], { G: "#3a7a4a", g: "#6aba7a", K: "#3a3f4f", W: "#e8e4dc" }, false);
+  const mine = paintMap(["..KK..", ".MMMMM", "MMMMMMM"], { M: "#4a5030", K: "#3a3f4f" }, false);
+  const crate = paintMap(["WWWWWWWWWW", "WwwwwwwwwW", "WwYYYYYYwW", "WwYKKKKYwW", "WwYYYYYYwW", "WwwwwwwwwW", "WWWWWWWWWW"], { W: "#5a6a3a", w: "#7a8a4a", Y: "#ffcc33", K: "#1e1e24" }, false);
+  const tnt = paintMap(["WWWWWWW", "WRRRRRW", "WRYYYRW", "WRYRYRW", "WRYYYRW", "WRRRRRW", "WWWWWWW", "WRRRRRW"], { W: "#8a5a2b", R: "#c8302a", Y: "#ffcc33" }, false);
+  return { barrel, fuel, ammo, egg, propane, canister, cylinder, mine, crate, tnt };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1284,6 +1875,290 @@ export function drawTruck(c: Ctx, x: number, y: number, anim: number, look: Back
  * A river patrol boat at the water line y: a grey hull with its bow pointing the way it goes, a
  * cabin, a gunner on the stern, a wake. `sink` (0..1) as it goes down.
  */
+/** A boxy shape with an ink outline (the vehicle and boss painters below build from these). */
+function hull(c: Ctx, x: number, y: number, w: number, h: number, col: string, hi?: string) {
+  c.fillStyle = INK;
+  c.fillRect(x - 1, y - 1, w + 2, h + 2);
+  c.fillStyle = col;
+  c.fillRect(x, y, w, h);
+  if (hi) {
+    c.fillStyle = hi;
+    c.fillRect(x, y, w, 1);
+  }
+}
+/** A gun barrel from (x, y) along `aim`, `len` long, `t` thick. */
+function barrel(c: Ctx, x: number, y: number, aim: number, len: number, col: string, t = 1) {
+  const ux = Math.cos(aim);
+  const uy = Math.sin(aim);
+  c.fillStyle = INK;
+  for (let k = 0; k < len; k++) c.fillRect(Math.round(x + ux * k) - 1, Math.round(y + uy * k) - 1, t + 2, t + 2);
+  c.fillStyle = col;
+  for (let k = 0; k < len; k++) c.fillRect(Math.round(x + ux * k), Math.round(y + uy * k), t, t);
+}
+const wheels = (c: Ctx, x: number, y: number, n: number, gap: number, r: number, anim: number) => {
+  for (let k = 0; k < n; k++) {
+    c.fillStyle = INK;
+    disc(c, x + k * gap, y, r + 1);
+    c.fillStyle = "#26262e";
+    disc(c, x + k * gap, y, r);
+    c.fillStyle = "#6a6a74";
+    const a = anim + k;
+    c.fillRect(Math.round(x + k * gap + Math.cos(a) * (r - 1)), Math.round(y + Math.sin(a) * (r - 1)), 1, 1);
+  }
+};
+
+/** An armoured personnel carrier: eight wheels, a sloped glacis on the left, a little MG turret. */
+export function drawApc(c: Ctx, x: number, y: number, anim: number, aim: number, hit: boolean) {
+  const body = hit ? "#c8ced9" : "#5a6a3a";
+  const hi = hit ? "#ffffff" : "#7a8a4a";
+  hull(c, x - 20, y - 14, 42, 9, body, hi);
+  c.fillStyle = INK;
+  for (let k = 0; k < 6; k++) c.fillRect(x - 22 - k + 6, y - 14 + k, 1, 1);
+  hull(c, x - 6, y - 19, 12, 5, body, hi);
+  barrel(c, x - 2, y - 17, aim, 12, "#3a3f4f");
+  c.fillStyle = "#2a3020";
+  c.fillRect(x + 8, y - 12, 6, 4);
+  c.fillRect(x - 14, y - 11, 3, 2);
+  wheels(c, x - 15, y - 3, 4, 10, 3, anim);
+}
+
+/** A light tank: tracks, a hull, a turret whose gun trains on the target. */
+export function drawLightTank(c: Ctx, x: number, y: number, anim: number, aim: number, hit: boolean) {
+  const body = hit ? "#c8ced9" : "#6a5a3a";
+  const hi = hit ? "#ffffff" : "#8a7a4a";
+  hull(c, x - 20, y - 7, 40, 7, "#2a2a30");
+  wheels(c, x - 16, y - 3, 5, 8, 2, anim);
+  hull(c, x - 18, y - 12, 36, 5, body, hi);
+  hull(c, x - 8, y - 18, 16, 6, body, hi);
+  barrel(c, x - 4, y - 15, aim, 18, "#3a3f4f", 2);
+  c.fillStyle = "#c8302a";
+  c.fillRect(x + 4, y - 17, 2, 2);
+}
+
+/** The sky fortress: a long armoured airship, fins at the back, a gondola with guns underneath, props turning. */
+export function drawAirship(c: Ctx, x: number, y: number, t: number, hit: boolean) {
+  const skin = hit ? "#e8eef6" : "#7a7266";
+  const lite = hit ? "#ffffff" : "#9a9284";
+  const dark = "#4a443c";
+  c.fillStyle = INK;
+  for (let k = -15; k <= 15; k++) {
+    const half = Math.round(Math.sqrt(1 - (k / 15.5) ** 2) * 46);
+    c.fillRect(x - half - 1, y + k - 1, half * 2 + 2, 3);
+  }
+  for (let k = -14; k <= 14; k++) {
+    const half = Math.round(Math.sqrt(1 - (k / 15) ** 2) * 45);
+    c.fillStyle = k < -8 ? lite : k > 8 ? dark : skin;
+    c.fillRect(x - half, y + k, half * 2, 1);
+  }
+  c.fillStyle = dark;
+  for (let k = -36; k < 40; k += 9) c.fillRect(x + k, y - 13, 1, 26);
+  // Fins
+  c.fillStyle = INK;
+  c.fillRect(x + 34, y - 22, 12, 9);
+  c.fillRect(x + 34, y + 13, 12, 9);
+  c.fillStyle = "#c8302a";
+  c.fillRect(x + 35, y - 21, 10, 7);
+  c.fillRect(x + 35, y + 14, 10, 7);
+  // Gondola
+  hull(c, x - 16, y + 15, 30, 7, "#3a3f4f", "#5d6578");
+  c.fillStyle = "#ffd479";
+  for (let k = -12; k < 12; k += 5) c.fillRect(x + k, y + 17, 2, 2);
+  // Props
+  for (const px of [x - 20, x + 16]) {
+    const blade = Math.round(Math.sin(t * 40 + px) * 4);
+    c.fillStyle = INK;
+    c.fillRect(px - 1, y + 21 - Math.abs(blade), 3, Math.abs(blade) * 2 + 1);
+  }
+  c.fillStyle = "#ffcc33";
+  c.fillRect(x - 30, y - 3, 14, 5);
+  c.fillStyle = INK;
+  c.fillRect(x - 28, y - 2, 10, 3);
+}
+
+/** The doom cannon: a huge mortar on a wheeled carriage, its stubby triple barrel raised. */
+export function drawCannon(c: Ctx, x: number, y: number, aim: number, hit: boolean, recoil: number) {
+  const body = hit ? "#e8eef6" : "#7a4a2a";
+  const hi = hit ? "#ffffff" : "#a86a40";
+  hull(c, x - 30, y - 12, 60, 12, "#3a3f4f", "#5d6578");
+  wheels(c, x - 22, y - 3, 4, 15, 4, 0);
+  hull(c, x - 20, y - 30, 40, 18, body, hi);
+  c.fillStyle = "#c8302a";
+  c.fillRect(x + 6, y - 26, 10, 10);
+  c.fillStyle = INK;
+  c.fillRect(x + 10, y - 24, 2, 6);
+  c.fillRect(x + 8, y - 22, 6, 2);
+  const a = Math.min(-0.5, Math.max(-2.6, aim));
+  const back = recoil * 16;
+  for (const dy of [-6, 0, 6]) barrel(c, x - 6 - Math.cos(a) * back + dy * 0.3, y - 34 + dy * 0.4 - Math.sin(a) * back, a, 26, "#3a2a20", 3);
+  c.fillStyle = "#ffcc33";
+  c.globalAlpha = 0.8;
+  c.fillRect(x - 6, y - 42, 6, 6);
+  c.globalAlpha = 1;
+}
+
+/** The spider tank: a domed body on six jointed legs that step in turn, a plasma cannon in front. */
+export function drawSpider(c: Ctx, x: number, y: number, anim: number, aim: number, hit: boolean, t: number) {
+  const body = hit ? "#e8eef6" : "#4a3a5a";
+  const hi = hit ? "#ffffff" : "#6a5a8a";
+  const bodyY = y - 30 + Math.round(Math.sin(anim * 2) * 1.5);
+  for (let k = 0; k < 6; k++) {
+    const side = k < 3 ? -1 : 1;
+    const i = k % 3;
+    const hipX = x + (i - 1) * 10;
+    const lift = Math.max(0, Math.sin(anim * Math.PI + k * 1.05)) * 4;
+    const footX = hipX + side * (16 + i * 4) + Math.sin(anim * Math.PI + k) * 3;
+    const kneeX = (hipX + footX) / 2 + side * 3;
+    const kneeY = bodyY - 12;
+    for (const [ax, ay, bx, by] of [[hipX, bodyY, kneeX, kneeY], [kneeX, kneeY, footX, y - lift]] as const) {
+      const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay), 1);
+      for (let s = 0; s <= n; s++) {
+        const px = Math.round(ax + ((bx - ax) * s) / n);
+        const py = Math.round(ay + ((by - ay) * s) / n);
+        c.fillStyle = INK;
+        c.fillRect(px - 1, py - 1, 3, 3);
+        c.fillStyle = "#3a3f4f";
+        c.fillRect(px, py, 1, 1);
+      }
+    }
+  }
+  c.fillStyle = INK;
+  disc(c, x, bodyY, 15);
+  c.fillStyle = body;
+  disc(c, x, bodyY, 14);
+  c.fillStyle = hi;
+  disc(c, x - 4, bodyY - 5, 6);
+  c.fillStyle = "#ff3b3b";
+  for (const ex of [-7, -3]) c.fillRect(x + ex, bodyY - 1, 2, 2);
+  barrel(c, x - 12, bodyY + 2, aim, 14, "#8a4ac8", 2);
+  c.fillStyle = "#e0b8ff";
+  if (Math.sin(t * 8) > 0) c.fillRect(Math.round(x - 12 + Math.cos(aim) * 14), Math.round(bodyY + 2 + Math.sin(aim) * 14), 2, 2);
+}
+
+/**
+ * A battleship broadside on, bow to the left: a long hull with a raked bow and a red boot-topping
+ * at the water line, portholes and a hull number; three main turrets that train on their target
+ * (two forward, one aft); quad anti-aircraft mounts along the deck; a stepped bridge with its
+ * windows, a raked funnel, a lattice mast with a radar on it, lifeboats on their davits, a flag.
+ * `sink` 0..1 settles it into the water, listing.
+ */
+export function drawBattleship(c: Ctx, x: number, y: number, t: number, aim: number, sink: number, hit: boolean) {
+  const by = Math.round(y + Math.sin(t * 1.2) * 0.6 + sink * 22);
+  if (sink > 0) c.globalAlpha = Math.max(0, 1 - sink * 0.8);
+  const hullC = hit ? "#c8ced9" : "#6a7280";
+  const deck = hit ? "#e8eef6" : "#8a92a0";
+  const dark = "#4a525e";
+  const box2 = (bx: number, bw: number, top: number, h: number, col: string) => {
+    c.fillStyle = INK;
+    c.fillRect(x + bx - 1, by - top - 1, bw + 2, h + 2);
+    c.fillStyle = col;
+    c.fillRect(x + bx, by - top, bw, h);
+  };
+  // Hull
+  c.fillStyle = INK;
+  for (let k = 0; k < 10; k++) c.fillRect(x - 54 + k, by - 10 + Math.floor(k / 3), 110 - k, 1);
+  c.fillRect(x - 50, by - 7, 104, 11);
+  c.fillStyle = hullC;
+  for (let k = 0; k < 9; k++) c.fillRect(x - 53 + k, by - 9 + Math.floor(k / 3), 107 - k, 1);
+  c.fillRect(x - 49, by - 6, 101, 9);
+  c.fillStyle = dark;
+  c.fillRect(x - 49, by - 1, 101, 1);
+  c.fillStyle = "#a02a24";
+  c.fillRect(x - 49, by + 1, 101, 2);
+  c.fillStyle = deck;
+  c.fillRect(x - 52, by - 10, 106, 1);
+  c.fillStyle = "#2a2e3a";
+  for (let k = -44; k < 50; k += 6) c.fillRect(x + k, by - 4, 1, 1);
+  c.fillStyle = "#f4f0e8";
+  c.fillRect(x - 40, by - 6, 1, 3);
+  c.fillRect(x - 38, by - 6, 2, 1);
+  c.fillRect(x - 38, by - 4, 2, 1);
+  c.fillRect(x - 37, by - 6, 1, 3);
+  // Superstructure: a stepped bridge, the funnel, a lattice mast with a radar
+  box2(-10, 22, 19, 9, hullC);
+  box2(-7, 16, 26, 7, deck);
+  box2(-4, 10, 31, 5, deck);
+  c.fillStyle = "#8fd3ff";
+  for (let k = -6; k < 8; k += 3) c.fillRect(x + k, by - 24, 2, 2);
+  c.fillRect(x - 3, by - 29, 8, 1);
+  box2(10, 8, 38, 19, dark);
+  c.fillStyle = "#1e1e24";
+  c.fillRect(x + 10, by - 38, 8, 2);
+  c.fillStyle = "#c8302a";
+  c.fillRect(x + 10, by - 34, 8, 1);
+  c.fillStyle = INK;
+  c.fillRect(x, by - 52, 1, 21);
+  for (let k = 0; k < 20; k += 4) c.fillRect(x - 2 + (k % 8 ? 1 : 0), by - 50 + k, 5, 1);
+  c.fillStyle = "#c8ced9";
+  const sweep = Math.round(Math.cos(t * 2) * 4);
+  c.fillRect(x - Math.abs(sweep), by - 53, Math.abs(sweep) * 2 + 1, 2);
+  c.fillStyle = "#c8302a";
+  c.fillRect(x + 1, by - 52, 5, 3);
+  // Lifeboats on their davits
+  for (const lx of [-20, 22]) {
+    box2(lx, 7, 13, 3, "#e8e4dc");
+    c.fillStyle = "#c8302a";
+    c.fillRect(x + lx, by - 11, 7, 1);
+  }
+  // Main turrets, guns trained on the target: two forward, one aft
+  const ux = Math.cos(aim);
+  const uy = Math.sin(aim);
+  for (const tx of [-36, -24, 38]) {
+    box2(tx - 5, 11, 15, 5, deck);
+    for (const dy of [-1, 1]) {
+      c.fillStyle = INK;
+      for (let k = 0; k < 14; k++) c.fillRect(Math.round(x + tx + ux * k) - 1, Math.round(by - 13 + dy + uy * k) - 1, 3, 2);
+      c.fillStyle = dark;
+      for (let k = 0; k < 14; k++) c.fillRect(Math.round(x + tx + ux * k), Math.round(by - 13 + dy + uy * k), 1, 1);
+    }
+  }
+  // Quad anti-aircraft mounts, barrels raised
+  for (const ax of [-14, 14, 28]) {
+    box2(ax - 2, 5, 13, 3, dark);
+    c.fillStyle = INK;
+    for (let k = 0; k < 4; k++) c.fillRect(x + ax - 2 + k, by - 17 - k, 1, 4);
+  }
+  if (!sink) {
+    c.fillStyle = "#e8f8ff";
+    for (let k = 0; k < 10; k++) if (Math.sin(t * 6 + k) > 0) c.fillRect(x - 56 - k, by + 1 - (k % 2), 1, 1);
+  }
+  c.globalAlpha = 1;
+}
+
+/** An armoured train: an engine at the front, then a flak car, a gun car with its slits, a rocket car. */
+export function drawTrain(c: Ctx, x: number, y: number, anim: number, hit: boolean) {
+  const body = hit ? "#e8eef6" : "#4a5040";
+  const hi = hit ? "#ffffff" : "#6a7058";
+  // Engine
+  hull(c, x - 64, y - 16, 26, 12, body, hi);
+  hull(c, x - 46, y - 22, 8, 6, body, hi);
+  hull(c, x - 58, y - 26, 4, 10, "#2a2a30");
+  c.fillStyle = "#ffe27a";
+  c.fillRect(x - 65, y - 12, 2, 2);
+  c.fillStyle = "#c8302a";
+  c.fillRect(x - 64, y - 6, 26, 1);
+  // Cars
+  hull(c, x - 36, y - 14, 26, 10, body, hi);
+  hull(c, x - 28, y - 20, 10, 6, "#3a3f4f");
+  c.fillStyle = INK;
+  for (let k = 0; k < 3; k++) c.fillRect(x - 26 + k * 3, y - 26, 1, 6);
+  hull(c, x - 8, y - 15, 30, 11, body, hi);
+  c.fillStyle = INK;
+  for (let k = -4; k < 20; k += 5) c.fillRect(x + k, y - 11, 3, 1);
+  hull(c, x + 24, y - 13, 32, 9, body, hi);
+  hull(c, x + 28, y - 20, 22, 7, "#5d6578", "#7a8294");
+  c.fillStyle = "#c8302a";
+  for (let k = 0; k < 6; k++) c.fillRect(x + 29 + k * 3, y - 19, 2, 2);
+  // Wheels along the whole length
+  for (let k = -60; k < 56; k += 9) {
+    c.fillStyle = INK;
+    disc(c, x + k, y - 2, 3);
+    c.fillStyle = "#26262e";
+    disc(c, x + k, y - 2, 2);
+    c.fillStyle = "#6a6a74";
+    c.fillRect(Math.round(x + k + Math.cos(anim + k) * 1.5), Math.round(y - 2 + Math.sin(anim + k) * 1.5), 1, 1);
+  }
+}
+
 export function drawBoat(c: Ctx, x: number, y: number, t: number, look: Backdrop, facing: number, sink: number) {
   const L = LOOKS[look];
   const by = Math.round(y + Math.sin(t * 2.4) + sink * 5);
@@ -1580,4 +2455,875 @@ export function ring(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: n
       err += 2 * (y - x) + 1;
     }
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Props (assets.ts says what they are; these paint them)              */
+/* ------------------------------------------------------------------ */
+
+const dot = (c: Ctx, x: number, y: number, color: string) => box(c, x, y, 1, 1, color);
+/** A line of whole pixels from (x0, y0) to (x1, y1), `t` px thick. */
+function seg(c: Ctx, x0: number, y0: number, x1: number, y1: number, color: string, t = 1) {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+  for (let k = 0; k <= n; k++) box(c, Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), t, t, color);
+}
+const crate = (c: Ctx, x: number, y: number, w: number, h: number) => {
+  box(c, x, y, w, h, "#9c6834");
+  box(c, x, y, w, 1, "#c08a4a");
+  box(c, x, y, 1, h, "#c08a4a");
+  box(c, x, y + h - 1, w, 1, "#5a3816");
+  box(c, x + w - 1, y, 1, h, "#5a3816");
+  for (let k = 1; k < w - 1; k++) dot(c, x + k, y + Math.round((k * (h - 1)) / (w - 1)), "#6e4520");
+};
+const drum = (c: Ctx, x: number, y: number, body: string, light: string, band: string) => {
+  box(c, x, y, 5, 7, body);
+  box(c, x, y, 5, 1, light);
+  box(c, x, y, 1, 7, light);
+  box(c, x, y + 2, 5, 1, band);
+  box(c, x, y + 5, 5, 1, band);
+};
+const camo = ["#4a5a30", "#6a7a48", "#2e3a1e", "#8a7a4a"];
+
+const PAINT: Record<string, (c: Ctx) => void> = {
+  crates: (c) => {
+    crate(c, 0, 6, 7, 7);
+    crate(c, 7, 6, 7, 7);
+    crate(c, 3, 0, 7, 6);
+  },
+  ammocrate: (c) => {
+    box(c, 0, 1, 12, 7, "#4a5a30");
+    box(c, 0, 0, 12, 2, "#6a7a48");
+    box(c, 3, 4, 6, 1, "#ffcc33");
+    box(c, 0, 4, 1, 2, "#2e3a1e");
+    box(c, 11, 4, 1, 2, "#2e3a1e");
+    box(c, 5, 1, 2, 1, "#3a3f4f");
+  },
+  drums: (c) => {
+    drum(c, 0, 7, "#3a6ab0", "#7ab0e8", "#2a4a80");
+    drum(c, 6, 7, "#3a6ab0", "#7ab0e8", "#2a4a80");
+    drum(c, 3, 0, "#c8302a", "#e8584a", "#7a1a16");
+  },
+  sandbags: (c) => {
+    const bag = (x: number, y: number) => {
+      box(c, x, y, 4, 3, "#c4ae78");
+      box(c, x, y, 4, 1, "#d8c890");
+      box(c, x, y + 2, 4, 1, "#9a8858");
+    };
+    for (let x = 0; x < 16; x += 4) bag(x, 3);
+    for (let x = 2; x < 14; x += 4) bag(x, 0);
+  },
+  tires: (c) => {
+    const tire = (x: number, y: number) => {
+      box(c, x, y, 6, 4, "#1e1e24");
+      box(c, x, y, 6, 1, "#3a3a44");
+      box(c, x + 2, y + 1, 2, 2, "#5d6578");
+    };
+    tire(0, 4);
+    tire(6, 4);
+    tire(3, 0);
+  },
+  jerrycans: (c) => {
+    for (const x of [0, 5]) {
+      box(c, x, 1, 5, 7, "#c8302a");
+      box(c, x, 1, 1, 7, "#e8584a");
+      box(c, x + 1, 0, 2, 1, "#7a1a16");
+      seg(c, x + 1, 3, x + 3, 6, "#9a2020");
+      seg(c, x + 3, 3, x + 1, 6, "#9a2020");
+    }
+  },
+  radio: (c) => {
+    box(c, 1, 0, 1, 8, "#3a3f4f");
+    box(c, 0, 7, 8, 9, "#4a5a30");
+    box(c, 0, 7, 8, 1, "#6a7a48");
+    box(c, 1, 9, 3, 2, "#ffcc33");
+    for (let y = 12; y < 15; y += 2) box(c, 1, y, 6, 1, "#2e3a1e");
+    box(c, 5, 9, 2, 2, "#1e1e24");
+  },
+  generator: (c) => {
+    box(c, 2, 0, 2, 3, "#3a3f4f");
+    box(c, 0, 2, 14, 7, "#5a6a3a");
+    box(c, 0, 2, 14, 1, "#7a8a5a");
+    for (let x = 2; x < 9; x += 2) box(c, x, 4, 1, 4, "#3a4a24");
+    box(c, 10, 3, 3, 3, "#2a2e24");
+    box(c, 1, 9, 3, 1, "#1e1e24");
+    box(c, 10, 9, 3, 1, "#1e1e24");
+  },
+  dish: (c) => {
+    box(c, 7, 8, 1, 7, "#5d6578");
+    box(c, 4, 14, 7, 2, "#3a3f4f");
+    c.fillStyle = "#c8ced9";
+    disc(c, 6, 6, 5.5);
+    c.fillStyle = "#9aa1b0";
+    disc(c, 7, 5, 3.5);
+    seg(c, 6, 6, 11, 1, "#5d6578");
+    dot(c, 11, 1, "#ff3b3b");
+  },
+  watertower: (c) => {
+    box(c, 4, 0, 10, 1, "#5a3816");
+    box(c, 2, 1, 14, 1, "#5a3816");
+    box(c, 1, 2, 16, 1, "#5a3816");
+    box(c, 1, 3, 16, 12, "#8a5a2b");
+    for (let x = 2; x < 17; x += 3) box(c, x, 3, 1, 12, "#6e4520");
+    box(c, 1, 5, 16, 1, "#3a3f4f");
+    box(c, 1, 12, 16, 1, "#3a3f4f");
+    box(c, 1, 3, 1, 12, "#b07a40");
+    for (const x of [2, 7, 10, 15]) box(c, x, 15, 1, 21, "#5a3816");
+    for (let y = 17; y < 34; y += 6) {
+      seg(c, 2, y, 7, y + 5, "#6e4520");
+      seg(c, 15, y, 10, y + 5, "#6e4520");
+    }
+    for (let y = 16; y < 36; y += 2) box(c, 12, y, 2, 1, "#9a9aa0");
+  },
+  streetlamp: (c) => {
+    box(c, 1, 2, 1, 21, "#3a3f4f");
+    box(c, 1, 2, 5, 1, "#3a3f4f");
+    box(c, 4, 2, 3, 2, "#5d6578");
+    dot(c, 5, 4, "#ffe27a");
+    box(c, 0, 22, 3, 2, "#2a2e3a");
+  },
+  dangersign: (c) => {
+    box(c, 4, 8, 1, 5, "#8a5a2b");
+    for (let y = 0; y < 8; y++) {
+      const half = Math.floor((y * 4) / 7);
+      box(c, 4 - half, y, half * 2 + 1, 1, y === 7 ? "#c89a20" : "#ffcc33");
+    }
+    box(c, 4, 2, 1, 3, "#0d0b14");
+    dot(c, 4, 6, "#0d0b14");
+  },
+  signpost: (c) => {
+    box(c, 5, 2, 2, 12, "#6e4520");
+    box(c, 1, 2, 9, 3, "#b07a40");
+    dot(c, 0, 3, "#b07a40");
+    box(c, 3, 6, 8, 3, "#9c6834");
+    dot(c, 11, 7, "#9c6834");
+    for (const x of [3, 5, 7]) dot(c, x, 3, "#5a3816");
+    for (const x of [5, 7, 9]) dot(c, x, 7, "#5a3816");
+  },
+  hedgehog: (c) => {
+    seg(c, 0, 7, 8, 0, "#5d6578", 2);
+    seg(c, 3, 0, 10, 7, "#5d6578", 2);
+    box(c, 1, 5, 10, 2, "#4a5264");
+    seg(c, 1, 7, 8, 1, "#9aa1b0");
+  },
+  carwreck: (c) => {
+    box(c, 0, 4, 24, 4, "#8a4a2a");
+    box(c, 0, 4, 24, 1, "#a86a40");
+    box(c, 5, 0, 12, 4, "#6a3a22");
+    box(c, 7, 1, 3, 3, "#1e1e24");
+    box(c, 12, 1, 4, 3, "#1e1e24");
+    box(c, 9, 5, 5, 2, "#3a2a20");
+    box(c, 19, 5, 3, 1, "#3a2a20");
+    box(c, 3, 8, 5, 2, "#1e1e24");
+    box(c, 17, 8, 4, 2, "#1e1e24");
+  },
+  heliwreck: (c) => {
+    box(c, 4, 5, 18, 7, "#4a5a30");
+    box(c, 4, 5, 18, 1, "#6a7a48");
+    box(c, 2, 7, 3, 4, "#4a5a30");
+    box(c, 3, 5, 5, 3, "#2a3040");
+    box(c, 21, 7, 7, 2, "#3e4c28");
+    box(c, 27, 3, 2, 5, "#3e4c28");
+    seg(c, 6, 4, 18, 0, "#3a3f4f");
+    seg(c, 13, 4, 10, 2, "#3a3f4f");
+    box(c, 5, 13, 16, 1, "#3a3f4f");
+    box(c, 7, 12, 1, 1, "#3a3f4f");
+    box(c, 18, 12, 1, 1, "#3a3f4f");
+    box(c, 10, 7, 6, 3, "#2a2e20");
+    box(c, 12, 8, 2, 1, "#1e1e24");
+  },
+  cage: (c) => {
+    box(c, 6, 4, 2, 2, "#e0a878");
+    box(c, 5, 6, 4, 4, "#a89868");
+    box(c, 5, 10, 1, 3, "#5a4a30");
+    box(c, 8, 10, 1, 3, "#5a4a30");
+    box(c, 9, 3, 1, 3, "#e0a878");
+    box(c, 0, 0, 14, 2, "#5a3816");
+    box(c, 0, 13, 14, 2, "#5a3816");
+    for (let x = 0; x < 14; x += 3) box(c, x, 2, 1, 11, "#8a8a92");
+    box(c, 13, 2, 1, 11, "#8a8a92");
+  },
+  tikitorch: (c) => {
+    box(c, 1, 3, 1, 11, "#8a5a2b");
+    box(c, 0, 1, 3, 3, "#5a3816");
+    dot(c, 1, 1, "#ffcc33");
+  },
+  idol: (c) => {
+    box(c, 1, 0, 10, 15, "#7a7a84");
+    box(c, 2, 0, 8, 1, "#a0a0aa");
+    box(c, 1, 1, 1, 14, "#a0a0aa");
+    box(c, 10, 1, 1, 14, "#4a4a54");
+    box(c, 1, 4, 10, 1, "#4a4a54");
+    box(c, 2, 5, 3, 2, "#2a2a32");
+    box(c, 7, 5, 3, 2, "#2a2a32");
+    box(c, 5, 7, 2, 4, "#5a5a64");
+    box(c, 3, 12, 6, 2, "#2a2a32");
+    for (const x of [4, 6]) dot(c, x, 12, "#a0a0aa");
+    box(c, 0, 15, 12, 1, "#4a4a54");
+    for (const [x, y] of [[2, 2], [9, 9], [3, 10], [8, 1]]) dot(c, x, y, "#5a7a4a");
+  },
+  bunting: (c) => {
+    box(c, 0, 0, 2, 14, "#6e4520");
+    box(c, 24, 0, 2, 14, "#6e4520");
+    const flags = ["#c8302a", "#ffcc33", "#3a6ab0", "#5bbf3a"];
+    for (let x = 2; x < 24; x++) {
+      const y = 1 + Math.round(Math.sin((Math.PI * (x - 2)) / 21) * 4);
+      dot(c, x, y, "#c8c0a8");
+      if (x % 3 === 0) {
+        const f = flags[(x / 3) % 4];
+        box(c, x, y + 1, 2, 1, f);
+        box(c, x, y + 2, 2, 1, f);
+        dot(c, x, y + 3, f);
+      }
+    }
+  },
+  well: (c) => {
+    box(c, 4, 0, 6, 1, "#8a3e2c");
+    box(c, 2, 1, 10, 1, "#8a3e2c");
+    box(c, 0, 2, 14, 1, "#6a2e20");
+    box(c, 1, 3, 1, 5, "#6e4520");
+    box(c, 12, 3, 1, 5, "#6e4520");
+    box(c, 4, 4, 6, 1, "#5a3816");
+    box(c, 7, 5, 1, 3, "#c8b888");
+    box(c, 1, 8, 12, 5, "#7a7a84");
+    box(c, 1, 8, 12, 1, "#a0a0aa");
+    for (const [x, y] of [[4, 10], [9, 10], [2, 11], [7, 12], [11, 12]]) box(c, x, y, 1, 1, "#4a4a54");
+  },
+  boulders: (c) => {
+    c.fillStyle = "#6d7184";
+    disc(c, 4, 4, 3.6);
+    c.fillStyle = "#5a5e70";
+    disc(c, 10, 5, 2.8);
+    box(c, 2, 2, 2, 1, "#81869a");
+    box(c, 9, 3, 1, 1, "#81869a");
+  },
+  cactus: (c) => {
+    box(c, 3, 0, 3, 16, "#4a8a3a");
+    box(c, 3, 0, 1, 16, "#6aaa4a");
+    box(c, 1, 7, 2, 2, "#4a8a3a");
+    box(c, 0, 3, 2, 5, "#4a8a3a");
+    box(c, 6, 9, 2, 2, "#4a8a3a");
+    box(c, 7, 5, 2, 5, "#4a8a3a");
+    for (const [x, y] of [[5, 3], [3, 8], [5, 12], [0, 4], [8, 6]]) dot(c, x, y, "#c8e0a0");
+    dot(c, 4, 0, "#ff6fae");
+  },
+  logs: (c) => {
+    const log = (x: number, y: number, w: number) => {
+      box(c, x, y, w, 3, "#7a5230");
+      box(c, x, y, w, 1, "#9a7250");
+      box(c, x + w - 2, y, 2, 3, "#c8a070");
+      dot(c, x + w - 1, y + 1, "#7a5230");
+    };
+    log(0, 4, 14);
+    log(2, 1, 10);
+  },
+  cone: (c) => {
+    box(c, 2, 0, 1, 2, "#ff8a1a");
+    box(c, 1, 2, 3, 1, "#f4f0e8");
+    box(c, 1, 3, 3, 2, "#ff8a1a");
+    box(c, 0, 5, 5, 1, "#ff8a1a");
+    box(c, 0, 6, 5, 1, "#3a3a44");
+  },
+  hydrant: (c) => {
+    box(c, 1, 0, 3, 1, "#e8584a");
+    box(c, 1, 1, 3, 6, "#c8302a");
+    box(c, 1, 1, 1, 6, "#e8584a");
+    box(c, 0, 3, 1, 2, "#a02020");
+    box(c, 4, 3, 1, 2, "#a02020");
+    box(c, 0, 7, 5, 1, "#7a1a16");
+  },
+  phonebooth: (c) => {
+    box(c, 0, 0, 8, 18, "#c8302a");
+    box(c, 1, 1, 6, 2, "#1e1e24");
+    box(c, 1, 4, 6, 11, "#7ab0e8");
+    box(c, 1, 8, 6, 1, "#a02020");
+    box(c, 1, 12, 6, 1, "#a02020");
+    box(c, 4, 4, 1, 11, "#a02020");
+    box(c, 0, 0, 1, 18, "#e8584a");
+    box(c, 0, 16, 8, 2, "#7a1a16");
+  },
+  billboard: (c) => {
+    box(c, 5, 14, 2, 8, "#3a3f4f");
+    box(c, 19, 14, 2, 8, "#3a3f4f");
+    box(c, 3, 0, 3, 2, "#5d6578");
+    box(c, 20, 0, 3, 2, "#5d6578");
+    box(c, 0, 2, 26, 12, "#5d6578");
+    box(c, 1, 3, 24, 10, "#3a6ab0");
+    c.fillStyle = "#ffcc33";
+    disc(c, 7, 8, 3);
+    box(c, 13, 5, 10, 2, "#f4f0e8");
+    box(c, 13, 8, 7, 1, "#f4f0e8");
+    box(c, 13, 10, 9, 1, "#f4f0e8");
+    for (const [x, y] of [[4, 4], [17, 11], [22, 6]]) dot(c, x, y, "#1e1e24");
+  },
+  missiletrailer: (c) => {
+    box(c, 0, 8, 30, 2, "#3a3f4f");
+    for (const x of [3, 10, 22]) box(c, x, 10, 4, 2, "#1e1e24");
+    box(c, 8, 7, 2, 1, "#5d6578");
+    box(c, 18, 7, 2, 1, "#5d6578");
+    box(c, 2, 4, 24, 3, "#c8ced9");
+    box(c, 2, 4, 24, 1, "#e8eef6");
+    box(c, 26, 5, 2, 2, "#c8ced9");
+    dot(c, 28, 5, "#c8302a");
+    box(c, 0, 2, 3, 2, "#c8302a");
+    box(c, 0, 7, 3, 1, "#c8302a");
+    box(c, 12, 4, 1, 3, "#c8302a");
+    box(c, 16, 5, 6, 1, "#5d6578");
+  },
+  fuelpump: (c) => {
+    box(c, 0, 0, 6, 2, "#e8584a");
+    box(c, 0, 2, 6, 11, "#c8302a");
+    box(c, 1, 3, 4, 2, "#ffe27a");
+    box(c, 1, 7, 4, 3, "#a02020");
+    box(c, 6, 4, 1, 7, "#1e1e24");
+    box(c, 5, 10, 2, 1, "#3a3f4f");
+    box(c, 0, 13, 7, 1, "#7a1a16");
+  },
+  outhouse: (c) => {
+    box(c, 0, 0, 9, 2, "#5a3816");
+    box(c, 1, 2, 7, 14, "#8a5a2b");
+    box(c, 2, 4, 5, 12, "#9c6834");
+    for (let x = 3; x < 7; x += 2) box(c, x, 4, 1, 12, "#7a4a22");
+    box(c, 4, 5, 2, 1, "#1e1e24");
+    dot(c, 4, 6, "#1e1e24");
+    dot(c, 6, 10, "#3a3f4f");
+  },
+  loudspeaker: (c) => {
+    box(c, 4, 3, 2, 17, "#5d6578");
+    box(c, 2, 20, 6, 2, "#3a3f4f");
+    box(c, 2, 4, 6, 1, "#5d6578");
+    box(c, 0, 0, 4, 4, "#9aa1b0");
+    box(c, 0, 0, 1, 4, "#5d6578");
+    box(c, 6, 0, 4, 4, "#9aa1b0");
+    box(c, 9, 0, 1, 4, "#5d6578");
+    box(c, 3, 8, 1, 6, "#1e1e24");
+  },
+  valve: (c) => {
+    box(c, 0, 5, 12, 3, "#5a7a6a");
+    box(c, 0, 5, 12, 1, "#7a9a8a");
+    box(c, 3, 4, 1, 5, "#3a4a40");
+    box(c, 8, 4, 1, 5, "#3a4a40");
+    box(c, 5, 2, 2, 3, "#3a3f4f");
+    box(c, 3, 0, 6, 2, "#c8302a");
+    dot(c, 5, 0, "#e8584a");
+  },
+  mushrooms: (c) => {
+    box(c, 0, 1, 4, 2, "#c84aff");
+    box(c, 1, 3, 2, 3, "#e8d8f0");
+    dot(c, 1, 1, "#f0c8ff");
+    box(c, 5, 2, 5, 2, "#5ac83a");
+    box(c, 7, 4, 1, 2, "#e8d8f0");
+    dot(c, 8, 2, "#c8ff9a");
+  },
+  reeds: (c) => {
+    for (const [x, h, head] of [[1, 8, 1], [3, 11, 0], [5, 9, 1], [7, 10, 0], [9, 7, 1], [11, 9, 0]] as const) {
+      box(c, x, 11 - h, 1, h, x % 4 === 1 ? "#6a8a3a" : "#8aaa4a");
+      if (head) box(c, x, 11 - h, 1, 3, "#6a4a2a");
+    }
+  },
+  stump: (c) => {
+    box(c, 1, 1, 6, 5, "#7a5230");
+    box(c, 1, 1, 6, 1, "#c8a070");
+    dot(c, 3, 1, "#9a7250");
+    box(c, 0, 4, 1, 2, "#5a3a20");
+    box(c, 7, 4, 1, 2, "#5a3a20");
+    box(c, 2, 3, 1, 3, "#5a3a20");
+  },
+  flowers: (c) => {
+    box(c, 0, 4, 10, 2, "#3a7a3a");
+    for (const [x, y, col] of [[1, 2, "#ff6fae"], [4, 1, "#ffcc33"], [7, 2, "#c77dff"], [9, 3, "#ff6fae"]] as const) {
+      box(c, x, y + 1, 1, 4 - y, "#2c6330");
+      box(c, x - (x ? 1 : 0), y, 2, 1, col);
+      dot(c, x, y - 1 < 0 ? 0 : y - 1, col);
+    }
+  },
+  pillar: (c) => {
+    box(c, 0, 1, 3, 1, "#b8b8c2");
+    box(c, 0, 2, 6, 2, "#b8b8c2");
+    box(c, 0, 4, 6, 12, "#a0a0aa");
+    box(c, 1, 4, 1, 12, "#8a8a94");
+    box(c, 4, 4, 1, 12, "#8a8a94");
+    box(c, 5, 4, 1, 12, "#7a7a84");
+    box(c, 0, 16, 6, 2, "#7a7a84");
+    for (const [x, y] of [[0, 9], [2, 12], [5, 6], [1, 15]]) dot(c, x, y, "#5a7a4a");
+  },
+  crystals: (c) => {
+    for (const [x, h, w] of [[0, 6, 2], [3, 10, 3], [7, 5, 3]] as const) {
+      box(c, x, 10 - h + 1, w, h - 1, "#5ff0e0");
+      box(c, x, 10 - h + 1, 1, h - 1, "#c8fff8");
+      box(c, x + w - 1, 10 - h + 1, 1, h - 1, "#2a9a90");
+      dot(c, x + (w >> 1), 10 - h, "#e6fffc");
+    }
+  },
+  pod: (c) => {
+    for (let y = 0; y < 11; y++) {
+      const half = Math.max(1, Math.round(Math.sqrt(Math.max(0, 1 - ((y - 6) / 6) ** 2)) * 4.5));
+      box(c, 5 - half, y, half * 2, 1, "#7a3a8a");
+    }
+    seg(c, 2, 8, 4, 1, "#b87ad0");
+    seg(c, 8, 8, 6, 2, "#b87ad0");
+    box(c, 4, 4, 2, 3, "#8aff6a");
+    box(c, 1, 11, 8, 1, "#3a1a4a");
+  },
+  lavavent: (c) => {
+    box(c, 1, 2, 8, 4, "#3a2f33");
+    box(c, 3, 1, 4, 1, "#3a2f33");
+    box(c, 4, 0, 2, 2, "#ffd23f");
+    seg(c, 4, 2, 2, 5, "#ff8a1a");
+    seg(c, 6, 2, 8, 5, "#d8481a");
+  },
+  toxicdrum: (c) => {
+    box(c, 0, 0, 6, 9, "#d8c030");
+    box(c, 0, 0, 1, 9, "#f0e070");
+    box(c, 0, 2, 6, 1, "#8a7a20");
+    box(c, 0, 6, 6, 1, "#8a7a20");
+    box(c, 2, 3, 2, 2, "#0d0b14");
+    box(c, 1, 0, 4, 1, "#8aff6a");
+    dot(c, 4, 1, "#8aff6a");
+  },
+  camonet: (c) => {
+    box(c, 4, 5, 7, 5, "#9c6834");
+    box(c, 13, 4, 8, 6, "#4a5a30");
+    box(c, 1, 1, 1, 9, "#5a3816");
+    box(c, 24, 1, 1, 9, "#5a3816");
+    for (let x = 0; x < 26; x++) {
+      const y = 1 + (x < 2 || x > 23 ? 0 : Math.round(Math.sin(x * 0.9) + 1));
+      for (let k = 0; k < 2; k++) dot(c, x, y + k, camo[(x * 7 + k * 3 + y) % 4]);
+      if ((x < 3 || x > 22) && x % 2 === 0) for (let k = 2; k < 8; k++) if ((x + k) % 3) dot(c, x, y + k, camo[(x + k) % 4]);
+    }
+  },
+  radiotower: (c) => {
+    seg(c, 1, 45, 6, 1, "#5d6578");
+    seg(c, 12, 45, 7, 1, "#5d6578");
+    for (let y = 5; y < 45; y += 5) {
+      const half = Math.round(0.5 + ((y - 1) / 44) * 5.5);
+      box(c, 7 - half, y, half * 2, 1, "#5d6578");
+      seg(c, 7 - half, y, 7 + half, Math.min(45, y + 5), "#4a5264");
+    }
+    box(c, 6, 0, 2, 2, "#5d6578");
+    box(c, 3, 12, 8, 1, "#3a3f4f");
+  },
+};
+
+/** One prop's art: facing right and left, and the same in shadow for the background. */
+export interface AssetArt {
+  img: [HTMLCanvasElement, HTMLCanvasElement];
+  dark: [HTMLCanvasElement, HTMLCanvasElement];
+}
+
+/**
+ * Every prop's art, painted the first time it's needed: outlined in ink (by stamping its
+ * silhouette round it), mirrored, and darkened for the background.
+ */
+export function makeAssets(): (id: AssetId) => AssetArt {
+  const cache = new Map<AssetId, AssetArt>();
+  return (id) => {
+    const hit = cache.get(id);
+    if (hit) return hit;
+    const { w, h } = ASSETS[id];
+    const [src, sc] = makeCanvas(w, h);
+    if (PAINT[id]) PAINT[id](sc);
+    else if (CATALOG[id]) paintCatalog(id, sc);
+    const [sil, s] = makeCanvas(w + 2, h + 2);
+    for (const [dx, dy] of [[0, 1], [2, 1], [1, 0], [1, 2]]) s.drawImage(src, dx, dy);
+    s.globalCompositeOperation = "source-in";
+    s.fillStyle = INK;
+    s.fillRect(0, 0, w + 2, h + 2);
+    const [img, ic] = makeCanvas(w + 2, h + 2);
+    ic.drawImage(sil, 0, 0);
+    ic.drawImage(src, 1, 1);
+    const mirror = (from: HTMLCanvasElement) => {
+      const [m, mc] = makeCanvas(w + 2, h + 2);
+      mc.translate(w + 2, 0);
+      mc.scale(-1, 1);
+      mc.drawImage(from, 0, 0);
+      return m;
+    };
+    const [dark, dc] = makeCanvas(w + 2, h + 2);
+    dc.drawImage(img, 0, 0);
+    dc.globalCompositeOperation = "source-atop";
+    dc.fillStyle = "rgba(14,12,30,0.62)";
+    dc.fillRect(0, 0, w + 2, h + 2);
+    const art: AssetArt = { img: [img, mirror(img)], dark: [dark, mirror(dark)] };
+    cache.set(id, art);
+    return art;
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* The war machines: tanks, helicopters and planes on both sides        */
+/* ------------------------------------------------------------------ */
+
+export type ArmorType =
+  | "medtank"
+  | "heavytank"
+  | "flametank"
+  | "rockettank"
+  | "aatank"
+  | "launcher"
+  | "armoredcar"
+  | "artytruck"
+  | "hovercraft"
+  | "mbt"
+  | "ifv"
+  | "mlrs"
+  | "aa"
+  | "scoutcar";
+/** The enemy's paint and the allies' (blue-grey, white star, so the two sides read apart). */
+const SIDE = {
+  enemy: { body: "#5a6248", hi: "#7a8462", dark: "#3a4030", track: "#24242a" },
+  ally: { body: "#5a7a9a", hi: "#8aaac8", dark: "#3a5068", track: "#20242c" },
+};
+const star = (c: Ctx, x: number, y: number) => {
+  c.fillStyle = "#f4f0e8";
+  c.fillRect(x - 1, y, 3, 1);
+  c.fillRect(x, y - 1, 1, 3);
+};
+/** Draw in a vehicle's own frame, facing left (the enemy's way); `flip` faces it right. */
+function framed(c: Ctx, x: number, flip: boolean, fn: () => void) {
+  c.save();
+  c.translate(x, 0);
+  if (flip) c.scale(-1, 1);
+  fn();
+  c.restore();
+}
+
+/**
+ * Every kind of tank and armoured vehicle, enemy or allied: tracks or wheels, a hull, and its
+ * own weapon (one gun, twin guns, a flame nozzle, a rocket box, twin flak guns, an erector with
+ * a missile on it). `aim` is the gun's angle in the world; `raise` (0–1) lifts a launcher's missile.
+ */
+export function drawArmor(c: Ctx, x: number, y: number, type: ArmorType, anim: number, aim: number, hit: boolean, raise = 0) {
+  const ally = type === "mbt" || type === "ifv" || type === "mlrs" || type === "aa" || type === "scoutcar";
+  const P = SIDE[ally ? "ally" : "enemy"];
+  const body = hit ? "#e8eef6" : type === "flametank" ? "#6a4a30" : type === "aatank" ? "#4a5a5a" : type === "heavytank" ? "#4a5040" : P.body;
+  const hi = hit ? "#ffffff" : P.hi;
+  // (in the frame, the gun points left: an aim in the world becomes this angle)
+  const a = ally ? Math.PI - aim : aim;
+  framed(c, x, ally, () => {
+    const big = type === "heavytank";
+    const small = type === "armoredcar" || type === "scoutcar";
+    const len = big ? 50 : type === "launcher" ? 54 : type === "artytruck" ? 48 : small ? 32 : 40;
+    const half = len >> 1;
+    const wheeled = type === "launcher" || type === "ifv" || type === "artytruck" || small;
+    if (type === "hovercraft") {
+      // A rubber skirt, the hull on it, a big fan in its duct at the back
+      hull(c, -half, y - 6, len, 6, "#1e1e24");
+      hull(c, -half + 2, y - 13, len - 4, 7, body, hi);
+      c.fillStyle = INK;
+      disc(c, half - 6, y - 17, 6);
+      c.fillStyle = "#5d6578";
+      disc(c, half - 6, y - 17, 5);
+      c.fillStyle = INK;
+      const blade = Math.round(Math.sin(anim * 20) * 4);
+      c.fillRect(half - 7, y - 17 - Math.abs(blade), 2, Math.abs(blade) * 2 + 1);
+    } else if (wheeled && small) {
+      hull(c, -half, y - 11, len, 7, body, hi);
+      hull(c, -half + 4, y - 15, len - 12, 4, body, hi);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-half + 6, y - 14, 4, 2);
+      wheels(c, -half + 6, y - 3, 3, 10, 3, anim);
+    } else if (wheeled) {
+      hull(c, -half, y - 12, len, 8, body, hi);
+      wheels(c, -half + 6, y - 3, type === "launcher" ? 5 : 4, type === "launcher" ? 10 : 9, 3, anim);
+    } else {
+      hull(c, -half, y - 7, len, 7, P.track);
+      wheels(c, -half + 4, y - 3, big ? 7 : 5, big ? 7 : 8, 2, anim);
+      hull(c, -half + 2, y - (big ? 14 : 12), len - 4, big ? 7 : 5, body, hi);
+    }
+    const top = big ? y - 14 : small ? y - 15 : type === "hovercraft" ? y - 13 : y - 12;
+    switch (type) {
+      case "armoredcar":
+      case "scoutcar":
+        hull(c, -3, top - 4, 8, 4, body, hi);
+        barrel(c, -2, top - 2, a, 12, P.dark, 1);
+        break;
+      case "hovercraft":
+        hull(c, -8, top - 4, 10, 4, body, hi);
+        barrel(c, -6, top - 2, a, 12, P.dark, 1);
+        hull(c, 4, top - 5, 6, 3, "#3a3f4f");
+        break;
+      case "artytruck": {
+        // A cab, and a heavy howitzer on the bed, its barrel raised
+        hull(c, -half, y - 20, 12, 9, body, hi);
+        c.fillStyle = "#8fd3ff";
+        c.fillRect(-half + 2, y - 18, 5, 3);
+        hull(c, 2, y - 18, 12, 6, P.dark);
+        barrel(c, 6, y - 17, Math.min(-0.4, Math.max(-1.3, a)), 22, "#3a3f4f", 2);
+        break;
+      }
+      case "medtank":
+      case "mbt":
+        hull(c, -8, top - 6, 18, 6, body, hi);
+        barrel(c, -6, top - 3, a, 20, P.dark, 2);
+        break;
+      case "heavytank":
+        hull(c, -10, top - 8, 24, 8, body, hi);
+        barrel(c, -8, top - 6, a, 24, P.dark, 2);
+        barrel(c, -8, top - 2, a, 24, P.dark, 2);
+        c.fillStyle = "#c8302a";
+        c.fillRect(6, top - 6, 3, 3);
+        break;
+      case "flametank":
+        hull(c, -6, top - 6, 14, 6, body, hi);
+        barrel(c, -4, top - 3, a, 10, "#3a3f4f", 2);
+        // The fuel drums on the back
+        hull(c, 8, top - 8, 9, 8, "#c8302a", "#e8584a");
+        c.fillStyle = "#ffcc33";
+        c.fillRect(11, top - 5, 3, 1);
+        break;
+      case "rockettank":
+      case "mlrs": {
+        // A box of rockets on a raised mount
+        // (raised: the front of the box tilts up, never down into the ground)
+        c.save();
+        c.translate(2, top - 4);
+        c.rotate(0.45);
+        hull(c, -16, -8, 22, 9, body, hi);
+        c.fillStyle = "#c8302a";
+        for (let j = 0; j < 3; j++) c.fillRect(-17, -7 + j * 3, 1, 2);
+        c.restore();
+        hull(c, -4, top - 4, 10, 4, P.dark);
+        break;
+      }
+      case "aatank":
+      case "aa":
+        hull(c, -7, top - 7, 15, 7, body, hi);
+        barrel(c, -5, top - 6, Math.min(-0.6, a), 18, P.dark, 1);
+        barrel(c, -3, top - 4, Math.min(-0.6, a), 18, P.dark, 1);
+        // Radar dish
+        c.fillStyle = INK;
+        c.fillRect(8, top - 13, 1, 7);
+        c.fillStyle = "#c8ced9";
+        c.fillRect(5 + Math.round(Math.sin(anim * 2) * 2), top - 14, 7, 2);
+        break;
+      case "ifv":
+        hull(c, -half - 2, y - 10, 4, 6, body);
+        hull(c, -6, top - 5, 13, 5, body, hi);
+        barrel(c, -4, top - 3, a, 16, P.dark, 1);
+        break;
+      case "launcher": {
+        // A cab on the front, the missile on its erector behind
+        hull(c, -half, y - 20, 12, 9, body, hi);
+        c.fillStyle = "#8fd3ff";
+        c.fillRect(-half + 2, y - 18, 5, 3);
+        // (raising lifts the missile's nose up and away from the ground)
+        const ang = raise * 1.25;
+        c.save();
+        c.translate(half - 4, y - 13);
+        c.rotate(ang);
+        hull(c, -38, -4, 38, 5, "#c8ced9", "#e8eef6");
+        c.fillStyle = "#c8302a";
+        c.fillRect(-42, -3, 4, 3);
+        c.fillRect(-4, -6, 3, 2);
+        c.fillRect(-4, 2, 3, 2);
+        c.fillStyle = INK;
+        c.fillRect(-26, -4, 1, 5);
+        c.restore();
+        break;
+      }
+    }
+    if (ally) star(c, -half + 10, y - 9);
+  });
+  if (ally) {
+    // A friendly marker over it
+    c.fillStyle = "#5ab0ff";
+    c.fillRect(x - 2, y - 30, 5, 1);
+    c.fillRect(x - 1, y - 29, 3, 1);
+    c.fillRect(x, y - 28, 1, 1);
+  }
+}
+
+export type HeliType = "attackheli" | "transport" | "scoutheli" | "aheli" | "lifter";
+/** Helicopters of every kind: a sleek attack ship with stub wings and rocket pods, a twin-rotor transport, a little scout. */
+export function drawHeliType(c: Ctx, x: number, y: number, t: number, type: HeliType, hit: boolean) {
+  const ally = type === "aheli" || type === "lifter";
+  const P = SIDE[ally ? "ally" : "enemy"];
+  const body = hit ? "#e8eef6" : type === "scoutheli" ? "#6a5a3a" : P.body;
+  const hi = hit ? "#ffffff" : P.hi;
+  const blade = (bx: number, by: number, w: number) => {
+    const k = Math.abs(Math.round(Math.sin(t * 50 + bx) * w));
+    c.fillStyle = INK;
+    c.fillRect(bx - k - 1, by - 1, k * 2 + 3, 3);
+    c.fillStyle = "#9aa1b0";
+    c.fillRect(bx - k, by, k * 2 + 1, 1);
+  };
+  framed(c, x, ally, () => {
+    if (type === "transport" || type === "lifter") {
+      hull(c, -22, y - 5, 40, 10, body, hi);
+      hull(c, -24, y - 2, 4, 6, body);
+      c.fillStyle = "#8fd3ff";
+      for (let k = -14; k < 14; k += 6) c.fillRect(k, y - 3, 3, 2);
+      hull(c, -20, y - 8, 4, 3, P.dark);
+      hull(c, 14, y - 9, 4, 4, P.dark);
+      blade(-18, y - 10, 18);
+      blade(16, y - 11, 18);
+      c.fillStyle = INK;
+      c.fillRect(-12, y + 6, 22, 1);
+    } else {
+      const small = type === "scoutheli";
+      const L = small ? 22 : 30;
+      // Cockpit forward (left), tail boom back
+      hull(c, -L / 2, y - 4, small ? 12 : 16, small ? 7 : 8, body, hi);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-L / 2 + 1, y - 3, small ? 4 : 5, 3);
+      hull(c, -L / 2 + (small ? 12 : 16), y - 2, L / 2 + 2, 3, body);
+      hull(c, L / 2 + 1, y - 6, 3, 6, body);
+      blade(-L / 2 + 6, y - 6, small ? 11 : 15);
+      if (!small) {
+        // Stub wings, a rocket pod and a missile under each
+        hull(c, -6, y + 3, 12, 2, P.dark);
+        hull(c, -7, y + 5, 5, 3, "#3a3f4f");
+        hull(c, 2, y + 5, 6, 2, "#c8ced9");
+        c.fillStyle = "#c8302a";
+        c.fillRect(1, y + 5, 1, 2);
+        c.fillStyle = INK;
+        c.fillRect(-L / 2 - 2, y + 2, 2, 2);
+      }
+      c.fillStyle = INK;
+      c.fillRect(-L / 2 + 1, y + 5, small ? 10 : 14, 1);
+    }
+    if (ally) star(c, 0, y);
+  });
+  if (ally) {
+    c.fillStyle = "#5ab0ff";
+    c.fillRect(x - 2, y - 18, 5, 1);
+    c.fillRect(x - 1, y - 17, 3, 1);
+  }
+}
+
+export type PlaneType = "bomber" | "fighter" | "attacker" | "transport";
+/** Jets: a big four-engined bomber, a swept-wing fighter, a straight-winged ground-attack plane. Enemy ones fly left, allied ones right. */
+export function drawPlane(c: Ctx, x: number, y: number, type: PlaneType, ally: boolean, t: number) {
+  const P = SIDE[ally ? "ally" : "enemy"];
+  const body = ally ? P.body : "#4a5060";
+  const hi = ally ? P.hi : "#6a7080";
+  framed(c, x, ally, () => {
+    if (type === "transport") {
+      // A big high-winged transport: a fat fuselage, four props under the wing, a tall tail
+      hull(c, -32, y - 4, 62, 9, body, hi);
+      hull(c, -34, y - 2, 4, 5, body);
+      hull(c, -10, y - 8, 26, 3, P.dark);
+      for (const ex of [-6, 2, 8, 14]) {
+        hull(c, ex, y - 6, 3, 3, "#3a3f4f");
+        const k = Math.abs(Math.round(Math.sin(t * 50 + ex) * 3));
+        c.fillStyle = INK;
+        c.fillRect(ex, y - 6 - k, 1, k * 2 + 1);
+      }
+      hull(c, 24, y - 15, 5, 11, body);
+      hull(c, 20, y - 5, 12, 2, P.dark);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-31, y - 3, 4, 2);
+      c.fillStyle = INK;
+      c.fillRect(-20, y + 6, 1, 2);
+      c.fillRect(10, y + 6, 1, 2);
+    } else if (type === "bomber") {
+      hull(c, -26, y - 3, 52, 6, body, hi);
+      c.fillStyle = INK;
+      for (let k = 0; k < 7; k++) c.fillRect(-6 + k, y - 3 - k, 18, 1);
+      for (let k = 0; k < 4; k++) c.fillRect(-4 + k, y + 3 + k, 14, 1);
+      c.fillStyle = body;
+      for (let k = 0; k < 6; k++) c.fillRect(-5 + k, y - 3 - k, 16, 1);
+      for (const ex of [0, 6]) hull(c, ex, y + 2, 4, 2, P.dark);
+      hull(c, 22, y - 9, 4, 6, body);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-25, y - 2, 3, 2);
+    } else if (type === "fighter") {
+      hull(c, -14, y - 2, 28, 4, body, hi);
+      c.fillStyle = INK;
+      for (let k = 0; k < 6; k++) c.fillRect(-2 + k, y + 1 + k, 8, 1);
+      c.fillStyle = body;
+      for (let k = 0; k < 5; k++) c.fillRect(-1 + k, y + 1 + k, 6, 1);
+      hull(c, 10, y - 7, 3, 5, body);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-10, y - 3, 4, 1);
+      c.fillStyle = INK;
+      c.fillRect(-16, y, 3, 1);
+    } else {
+      hull(c, -16, y - 2, 30, 5, body, hi);
+      hull(c, -6, y - 1, 12, 2, P.dark);
+      c.fillStyle = INK;
+      c.fillRect(-4, y + 3, 1, 3);
+      c.fillRect(3, y + 3, 1, 3);
+      hull(c, 6, y - 5, 6, 3, P.dark);
+      hull(c, 12, y - 8, 3, 6, body);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-12, y - 3, 3, 1);
+    }
+    // Afterburner
+    c.fillStyle = Math.floor(t * 30) % 2 ? "#ffe27a" : "#ff8a1a";
+    c.fillRect(type === "bomber" ? 26 : type === "fighter" ? 14 : 15, y - 1, 2, 2);
+    if (ally) star(c, 0, y);
+  });
+}
+
+/** Dug-in weapon emplacements: a sandbagged ring with the gun on its mount. */
+export function drawEmplacement(c: Ctx, x: number, y: number, kind: "flakgun" | "howitzer" | "samsite" | "rocketpod", aim: number, hit: boolean, recoil: number) {
+  const metal = hit ? "#e8eef6" : "#5a6248";
+  const hi = hit ? "#ffffff" : "#7a8462";
+  // Sandbags round the pit
+  for (let k = -14; k <= 10; k += 5) hull(c, x + k, y - 5, 5, 4, "#c4ae78", "#d8c890");
+  switch (kind) {
+    case "flakgun":
+      hull(c, x - 5, y - 11, 10, 6, metal, hi);
+      barrel(c, x - 3, y - 11, Math.min(-0.5, aim), 16, "#3a3f4f", 1);
+      barrel(c, x, y - 10, Math.min(-0.5, aim), 16, "#3a3f4f", 1);
+      break;
+    case "howitzer": {
+      hull(c, x - 8, y - 10, 16, 5, metal, hi);
+      const back = recoil * 12;
+      barrel(c, x - Math.cos(aim) * back, y - 12 - Math.sin(aim) * back, Math.min(-0.3, aim), 24, "#3a3f4f", 2);
+      hull(c, x - 2, y - 16, 6, 6, metal, hi);
+      break;
+    }
+    case "samsite":
+      hull(c, x - 6, y - 10, 12, 5, metal, hi);
+      c.save();
+      c.translate(x, y - 12);
+      c.rotate(Math.max(-1.2, Math.min(-0.4, aim < -Math.PI / 2 ? -(Math.PI + aim) : aim)));
+      for (const dy of [-5, 0]) {
+        hull(c, -18, dy - 2, 18, 3, "#c8ced9", "#e8eef6");
+        c.fillStyle = "#c8302a";
+        c.fillRect(-20, dy - 2, 2, 3);
+      }
+      c.restore();
+      break;
+    default:
+      hull(c, -8 + x, y - 11, 16, 6, metal, hi);
+      hull(c, x - 9, y - 19, 16, 8, metal, hi);
+      c.fillStyle = INK;
+      for (let k = 0; k < 4; k++) for (let j = 0; j < 2; j++) c.fillRect(x - 8 + k * 4, y - 18 + j * 4, 2, 2);
+  }
+}
+
+/** A submarine: a long low hull, a conning tower; under water, just the periscope and a wake. */
+export function drawSubmarine(c: Ctx, x: number, y: number, t: number, submerged: boolean, hit: boolean, sink: number) {
+  if (submerged) {
+    c.fillStyle = INK;
+    c.fillRect(x - 2, y - 7, 3, 7);
+    c.fillStyle = "#4a525e";
+    c.fillRect(x - 1, y - 6, 1, 6);
+    c.fillRect(x - 1, y - 7, 3, 1);
+    c.fillStyle = "#e8f8ff";
+    for (let k = 0; k < 6; k++) if (Math.sin(t * 7 + k) > 0) c.fillRect(x + 3 + k * 2, y, 1, 1);
+    return;
+  }
+  const by = Math.round(y + Math.sin(t * 1.4) * 0.6 + sink * 14);
+  if (sink) c.globalAlpha = Math.max(0, 1 - sink);
+  const body = hit ? "#c8ced9" : "#2e343e";
+  c.fillStyle = INK;
+  for (let k = -3; k <= 3; k++) {
+    const half = Math.round(Math.sqrt(1 - (k / 3.6) ** 2) * 33);
+    c.fillRect(x - half - 1, by + k - 1, half * 2 + 2, 3);
+  }
+  c.fillStyle = body;
+  for (let k = -3; k <= 3; k++) {
+    const half = Math.round(Math.sqrt(1 - (k / 3.6) ** 2) * 32);
+    c.fillRect(x - half, by + k, half * 2, 1);
+  }
+  hull(c, x - 2, by - 10, 10, 7, body, hit ? "#ffffff" : "#4a525e");
+  c.fillStyle = INK;
+  c.fillRect(x + 2, by - 15, 1, 5);
+  c.fillStyle = "#c8302a";
+  c.fillRect(x - 26, by - 1, 4, 1);
+  c.globalAlpha = 1;
 }

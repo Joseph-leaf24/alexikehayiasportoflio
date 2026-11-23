@@ -136,6 +136,13 @@ export const sceneState = {
   velocity: 0,
   /** Scene has built its world and drawn its first frame. */
   ready: false,
+  /** The visitor paused the scene, and how fast it plays (0.5×–2×), from the scene controls. */
+  paused: false,
+  speed: 1,
+  /** Endless: the levels run on from biome to biome, with no finale and no "Level complete". */
+  endless: false,
+  /** Zoomed out this many steps (0: the normal view): more of the battlefield, in smaller pixels. */
+  zoom: 0,
   /** False if the 2D canvas is unavailable — the site still works without it. */
   canvas: true,
   /** Enemies down and explosions so far (filled in by the scene, shown by the HUD). */

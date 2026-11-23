@@ -880,7 +880,8 @@ html.no-canvas body {
   color: var(--muted);
   pointer-events: none;
 }
-.hud-bottom > :not(.hud-squad) {
+.hud-keys,
+.scroll-meter {
   padding: 7px 12px 6px;
   background: rgba(13, 11, 20, 0.88);
   box-shadow: 0 0 0 2px #2e3350;
@@ -904,110 +905,6 @@ html.no-canvas body {
 @media (hover: hover) and (pointer: fine) and (min-width: 1500px) {
   .hud-keys {
     display: inline-flex;
-  }
-}
-.hud-dot {
-  width: 4px;
-  height: 4px;
-  background: var(--gold);
-}
-.hud-telemetry {
-  display: none;
-  align-items: center;
-  gap: 10px;
-  white-space: nowrap;
-}
-.hud-telemetry__val {
-  color: var(--cyan);
-}
-.hud-telemetry__extra {
-  display: none;
-  align-items: center;
-  gap: 10px;
-}
-@media (min-width: 1800px) {
-  .hud-telemetry__extra {
-    display: inline-flex;
-  }
-}
-
-/* P1–P4 cards, like a co-op game's HUD */
-.hud-squad {
-  display: none;
-  gap: 8px;
-}
-.pcard {
-  display: grid;
-  grid-template-columns: auto auto auto;
-  align-items: center;
-  gap: 3px 6px;
-  padding: 4px 7px 5px 4px;
-  background: rgba(13, 11, 20, 0.9);
-  box-shadow: 0 0 0 2px #2e3350, inset 3px 0 0 var(--pc);
-}
-.pcard__badge {
-  grid-row: 1 / span 2;
-  padding: 5px 4px 4px;
-  font-family: var(--font-display);
-  font-size: 9px;
-  line-height: 1;
-  color: var(--ink);
-  background: var(--pc);
-  box-shadow: 0 0 0 2px var(--ink);
-}
-.pcard__name {
-  display: none;
-  font-size: 11px;
-  white-space: nowrap;
-  color: var(--pc);
-}
-.pcard__score {
-  display: none;
-  grid-column: 3;
-  justify-self: end;
-  font-size: 10px;
-  color: var(--text);
-}
-.pcard__hp {
-  grid-column: 2 / span 2;
-  width: 50px;
-  height: 8px;
-  padding: 1px;
-  background: var(--ink);
-  box-shadow: 0 0 0 1px #3a4160;
-}
-.pcard__hp i {
-  display: block;
-  height: 100%;
-  transform-origin: left;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 6px, var(--ink) 6px 8px),
-    linear-gradient(#a7f07e 0 2px, var(--grass) 2px);
-  transition: transform 0.2s steps(2);
-}
-/* Down: greyed out (with colours, not opacity, so the text keeps its contrast) */
-.pcard[data-down] {
-  --pc: #8a85a3;
-}
-@media (min-width: 900px) {
-  .hud-squad {
-    display: flex;
-  }
-}
-@media (min-width: 1680px) {
-  .pcard__score {
-    display: block;
-  }
-}
-@media (min-width: 1880px) {
-  .pcard__name {
-    display: block;
-    grid-column: 2;
-  }
-}
-@media (min-width: 1280px) {
-  .hud-telemetry {
-    display: flex;
   }
 }
 .scroll-meter {
@@ -1180,49 +1077,141 @@ html.no-canvas body {
   gap: 14px;
 }
 /* The eight players, like a title screen's "P1 … P8" */
+/* The eight players: a slim column down the right-hand side, out of the battle's way */
 .hero__squad {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.hero__player {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  z-index: 2;
   display: flex;
   flex-direction: column;
+  gap: 5px;
+  transform: translateY(-50%);
+}
+.hero__player {
+  display: grid;
+  grid-template-columns: auto auto;
   align-items: center;
-  gap: 4px;
-  min-width: 52px;
-  padding: 6px 5px 5px;
-  background: rgba(13, 11, 20, 0.88);
-  box-shadow: 0 0 0 2px var(--pc), 4px 4px 0 0 rgba(5, 4, 10, 0.5);
+  gap: 0 5px;
+  padding: 3px 6px 3px 3px;
+  background: rgba(13, 11, 20, 0.82);
+  box-shadow: 0 0 0 2px var(--pc), 3px 3px 0 0 rgba(5, 4, 10, 0.5);
 }
 .hero__player .portrait-px {
-  width: 32px;
-  height: 40px;
+  grid-row: 1 / span 2;
+  width: 16px;
+  height: 20px;
 }
 .hero__player b {
   font-family: var(--font-display);
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 400;
+  line-height: 1.2;
   color: var(--pc);
 }
 .hero__player span {
   font-family: var(--font-label);
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
 }
-@media (min-width: 1200px) {
-  .hero__player .portrait-px {
-    width: 40px;
-    height: 50px;
+@media (max-width: 899px) {
+  /* Phones: just the badges, a thin strip down the side */
+  .hero__squad {
+    top: 96px;
+    gap: 4px;
+    transform: none;
+  }
+  .hero__player {
+    grid-template-columns: auto;
+    padding: 2px;
+  }
+  .hero__player span {
+    display: none;
   }
 }
-@media (max-width: 899px) {
-  .hero__player {
-    min-width: 0;
-    flex: 1 0 calc(25% - 8px);
+
+/* Pause, resume and speed for the battle behind the page */
+.scene-controls {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  z-index: 62;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(13, 11, 20, 0.88);
+  box-shadow: 0 0 0 2px #2e3350;
+  transform: translateX(-50%);
+}
+.scene-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 3px 7px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  box-shadow: 0 0 0 1px #3a4160;
+  cursor: pointer;
+}
+.scene-controls button:hover {
+  color: var(--ink);
+  background: var(--gold);
+}
+.scene-controls button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.scene-controls__speed.is-on {
+  color: var(--ink);
+  background: var(--cyan);
+}
+.scene-controls__play[aria-pressed="true"],
+.scene-controls__endless[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--gold);
+}
+.scene-controls__rule {
+  width: 2px;
+  height: 16px;
+  margin: 0 3px;
+  background: #3a4160;
+}
+.scene-controls__label {
+  padding: 0 2px;
+}
+.scene-controls__zoom {
+  min-width: 34px;
+  text-align: center;
+  color: var(--text);
+}
+.scene-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.scene-controls button:disabled:hover {
+  color: var(--text);
+  background: transparent;
+}
+@media (max-width: 520px) {
+  .scene-controls__label,
+  .scene-controls__endless span,
+  .scene-controls__play span {
+    display: none;
   }
+}
+html.is-whiteout .scene-controls {
+  opacity: 0;
 }
 .portrait-px {
   display: block;
@@ -1241,7 +1230,7 @@ html.no-canvas body {
     -0.0625em 0.0625em 0 var(--ink), 0.125em 0.125em 0 var(--red), 0.1875em 0.1875em 0 var(--ink);
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.1rem, min(10vw, 16vh), 11rem);
+  font-size: clamp(1.6rem, min(5.2vw, 8.5vh), 5.25rem);
   font-weight: 400;
   line-height: 1.12;
   text-transform: uppercase;

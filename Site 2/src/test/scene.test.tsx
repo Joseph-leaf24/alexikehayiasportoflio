@@ -90,8 +90,8 @@ describe("PixelScene", () => {
     renderScene();
     advance(50);
     const start = sceneState.cam.x;
-    // (fights hold the squad up for a few seconds at a time, so give it a while)
-    advance(10_000);
+    // (fights hold the squad up for a few seconds at a time, a defended city block longer, so give it a while)
+    advance(16_000);
     expect(sceneState.cam.x).toBeGreaterThan(start + 80);
   });
 
@@ -140,7 +140,8 @@ describe("PixelScene", () => {
     pointAt(512, 768 * 0.72);
     sceneState.burst++;
     advance(20);
-    expect(sceneState.booms).toBe(before + 1);
+    // (at least the click's: with a battle this busy, something else may well go off in the same frame)
+    expect(sceneState.booms).toBeGreaterThanOrEqual(before + 1);
   });
 
   it("calls in an airstrike while the hero is held", () => {

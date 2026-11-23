@@ -56,29 +56,12 @@ describe("Hero", () => {
     expect(sceneState.press).toBe(false);
   });
 
-  it("nudges the letters of the name away from the cursor in whole-pixel steps on capable devices", () => {
-    window.history.replaceState({}, "", "/?quality=high");
-    useAnimationTimers();
-    const { container } = renderRoute(<Hero />);
-    const ch = container.querySelector(".hero__title .sc-ch") as HTMLElement;
-    Object.defineProperty(ch, "offsetParent", { configurable: true, value: container.querySelector(".hero__inner") });
-    fireEvent(window, new PointerEvent("pointermove", { pointerType: "mouse", clientX: 5, clientY: 5 }));
-    advance(20);
-    expect(ch.style.transform).toMatch(/translate3d/);
-    // Snapped to the 4 px grid, and no rotation (it would blur the pixel font)
-    const [, x, y] = ch.style.transform.match(/translate3d\((-?\d+)px, (-?\d+)px/)!.map(Number);
-    expect([x % 4, y % 4].map(Math.abs)).toEqual([0, 0]);
-    expect(ch.style.transform).not.toMatch(/rotate/);
-    fireEvent(window, new PointerEvent("pointermove", { pointerType: "touch", clientX: 900, clientY: 900 }));
-    fireEvent.mouseLeave(document.documentElement);
-    advance(20);
-    expect(ch.style.transform).toBe("");
-  });
-
   it("keeps the top plain: no role, year or airstrike hint (holding still works, see above)", () => {
     media["(pointer: coarse)"] = true;
     const { container } = renderRoute(<Hero />);
-    expect(container.querySelector(".hero__top .mono-label")?.textContent).toBe("[ 00 ] — Portfolio · 8 Players");
+    expect(container.querySelector(".hero__top .mono-label")?.textContent).toBe("Portfolio Website");
+    // The name is the page heading for screen readers, but not shown
+    expect(container.querySelector("h1")).toHaveClass("sr-only");
     // The title-screen line-up: all eight players
     expect(container.querySelectorAll(".hero__player")).toHaveLength(8);
     expect(container.textContent).not.toMatch(/student|hold|\b20\d\d\b/i);

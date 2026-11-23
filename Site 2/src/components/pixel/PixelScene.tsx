@@ -4,20 +4,33 @@ import { prefersReducedMotion } from "@/lib/smoothScroll";
 import { getQuality } from "@/lib/device";
 import { PLAYER_COLORS } from "@/data/squad";
 import { resolveBlend } from "./blend";
-import { AIR, cell, CRYSTAL, kindAt, LAVA, LEVEL_H, MASK, RING, ROWS, TILE, WATER, WINDOW } from "./level";
+import { AIR, BASE_ROW, cell, CRYSTAL, kindAt, LAVA, LEVEL_H, MASK, RING, ROWS, TILE, WATER, WINDOW } from "./level";
 import { lightOf, THEMES, WEATHER, type Backdrop, type Theme } from "./themes";
 import { rng } from "./rng";
+import { asset } from "./assets";
+import type { ArmorType, HeliType } from "./art";
 import {
   ASHFALL,
+  BIGBOMB,
   BIGSMOKE,
+  BLAZE,
+  BOLT,
   BOSS_NAMES,
   BULLET,
   CANNON,
   CASING,
+  CINDER,
   DEBRIS,
+  DUST,
+  ALLY_AIR,
+  ARMOR_KINDS,
+  ELASER,
   EMBER,
+  FLAK,
+  NAPALM,
   ENEMY_BULLET,
   FIREBALL,
+  FINALE_TEXT,
   FIREFLY,
   FLAME,
   FLAMESHOT,
@@ -32,11 +45,13 @@ import {
   PLAYER_HP,
   RAIN,
   ROCKET,
+  SAW,
   SANDGRAIN,
   SHELL,
   SMOKE,
   SNIPE,
   SNOWFLAKE,
+  SPARK,
   SPORE,
   startTheme,
   type Enemy,
@@ -46,13 +61,24 @@ import {
   BAYER,
   DEBRIS_COLOR,
   disc,
+  drawAirship,
+  drawApc,
+  drawArmor,
+  drawHeliType,
+  drawPlane,
+  drawBattleship,
   drawBoat,
+  drawCannon,
+  drawEmplacement,
+  drawSubmarine,
+  drawTrain,
+  drawLightTank,
+  drawSpider,
   drawDrone,
   drawGunship,
   drawHeli,
   drawIcbm,
   drawJeep,
-  drawJet,
   drawMech,
   drawTank,
   drawTanker,
@@ -60,12 +86,13 @@ import {
   drawWorm,
   FRAMES,
   INK,
+  makeAssets,
   makeAtlas,
+  makeLoadouts,
   makeBackdrop,
   makeCanvas,
   makeCloud,
   makeProps,
-  makeSquad,
   makeTroops,
   mix,
   OUTLINED,
@@ -81,7 +108,7 @@ const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const damp = (dt: number, rate: number) => 1 - Math.exp(-dt * rate);
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 /** The screen is about this many scene pixels tall, whatever the device: a wide view of the battle. */
-const TARGET_ROWS = 340;
+const TARGET_ROWS = 360;
 /** The squad's feet sit this far down the screen (higher on portrait screens, above the stacked hero panels). */
 const HORIZON = 0.68;
 const HORIZON_PORTRAIT = 0.5;
@@ -116,6 +143,10 @@ interface FarFx {
 }
 const JUNGLES: Backdrop[] = ["jungle", "deepjungle", "temple", "monsoon", "swamp"];
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+/** Water over what's in it, darker the deeper it is. */
+const WATER_SHADE = Array.from({ length: 13 }, (_, k) => `rgba(${Math.round(40 - k * 2.5)},${Math.round(120 - k * 7)},${Math.round(165 - k * 7)},${(0.62 + k * 0.025).toFixed(3)})`);
+/** The ground darkens with depth below its own surface (on a mountain as in a valley), down to this. */
+const DEPTH_SHADE = Array.from({ length: 16 }, (_, k) => `rgba(6,5,14,${Math.min(0.62, k * 0.045).toFixed(3)})`);
 
 /** Deterministic 0..1 hash of two integers (block variants, flicker). */
 const hash2 = (a: number, b: number) => {
@@ -158,8 +189,9 @@ export default function PixelScene() {
     /* Art                                                           */
     /* ------------------------------------------------------------ */
     const atlas = makeAtlas();
-    const squad = makeSquad(PLAYER_COLORS);
+    const loadouts = makeLoadouts(PLAYER_COLORS);
     const props = makeProps();
+    const assetArt = makeAssets();
     const troopArt = new Map<Backdrop, ReturnType<typeof makeTroops>>();
     const troops = (k: Backdrop) => troopArt.get(k) ?? troopArt.set(k, makeTroops(k)).get(k)!;
     const backdrops = new Map<Backdrop, BackdropArt>();
@@ -193,6 +225,11 @@ export default function PixelScene() {
         tctx.fillStyle = `rgba(20,10,6,${0.22 * L.burn[i]})`;
         tctx.fillRect(x, y, TILE, TILE);
       }
+      const depth = r - L.ground[c & MASK] - 5;
+      if (depth > 0) {
+        tctx.fillStyle = DEPTH_SHADE[Math.min(15, depth)];
+        tctx.fillRect(x, y, TILE, TILE);
+      }
       if (k !== AIR && OUTLINED[k]) {
         tctx.fillStyle = INK;
         if (kindAt(L, c, r - 1) === AIR) tctx.fillRect(x, y, TILE, 1);
@@ -214,6 +251,8 @@ export default function PixelScene() {
     /* ------------------------------------------------------------ */
     let W = 1;
     let H = 1;
+    /** The zoom the view was last sized for */
+    let zoomed = 0;
     let horizon = HORIZON;
     let scale = 1;
     let dpr = 1;
@@ -229,7 +268,15 @@ export default function PixelScene() {
       dpr = window.devicePixelRatio || 1;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      scale = Math.max(2, Math.round((vh * dpr) / TARGET_ROWS));
+      // Zoomed out (sceneState.zoom steps): smaller pixels, so more of the battlefield fits. Never
+      // so far that the view outgrows the level's stored columns or its height.
+      const base = Math.max(2, Math.round((vh * dpr) / TARGET_ROWS));
+      const least = Math.max(1, Math.ceil((vh * dpr) / 1000), Math.ceil((vw * dpr) / (RING * TILE - 520)));
+      const steps = Math.max(0, Math.min(sceneState.zoom, base - least));
+      scale = base - steps;
+      // (as far as this screen can go: so one press of + always zooms back in)
+      sceneState.zoom = zoomed = steps;
+      window.dispatchEvent(new CustomEvent("scenezoom", { detail: { pct: Math.round((scale / base) * 100), canIn: steps > 0, canOut: base - steps > least } }));
       W = Math.max(1, Math.ceil((vw * dpr) / scale));
       H = Math.max(1, Math.ceil((vh * dpr) / scale));
       horizon = horizonFor();
@@ -241,6 +288,7 @@ export default function PixelScene() {
       stars = Array.from({ length: Math.round((W * H) / 1100) }, (_, i) => ({ x: Math.floor(hash2(i, 7) * W), y: Math.floor(hash2(i, 8) * H * 0.6), b: hash2(i, 9) }));
       skyKey = "";
       snap = true;
+      held = false;
     };
 
     /* ------------------------------------------------------------ */
@@ -290,9 +338,13 @@ export default function PixelScene() {
     const viewRect = (): View => ({ x: camX, y: camY, w: W, h: H });
     const cameraTarget = (g: Game) => {
       const alive = g.players.filter((p) => !p.dead && !p.chute);
-      const feet = alive.length ? alive.reduce((s, p) => s + p.y, 0) / alive.length : g.level.h * TILE;
+      // (with the whole squad thrown through the air by a warhead, the camera holds where it is)
+      // (and with the whole squad up in the air, coming down by parachute, it frames the ground they're dropping onto)
+      const below = g.level.ground[((Math.floor(g.advance / TILE) % RING) + RING) % RING] * TILE;
+      const feet = alive.length ? alive.reduce((s, p) => s + p.y, 0) / alive.length : g.phase === "nuke" ? camY + H * horizon : below;
       // (never left of the oldest stored column: there's nothing to see there)
-      return { x: Math.max(g.level.start * TILE, g.advance - W * 0.42), y: Math.max(-80, Math.min(LEVEL_H - H, feet - H * horizon)) };
+      // (the squad a third of the way across: room to see what it's fighting, up ahead)
+      return { x: Math.max(g.level.start * TILE, g.advance - W * 0.32), y: Math.max(-80, Math.min(LEVEL_H - H, feet - H * horizon)) };
     };
     const pointerWorld = () => {
       const p = sceneState.pointer;
@@ -340,7 +392,7 @@ export default function PixelScene() {
     /* ------------------------------------------------------------ */
     /* Drawing                                                       */
     /* ------------------------------------------------------------ */
-    const parallaxBase = (cy: number, f: number) => Math.round(H * horizon - (cy - (44 * TILE - H * horizon)) * f);
+    const parallaxBase = (cy: number, f: number) => Math.round(H * horizon - (cy - (BASE_ROW * TILE - H * horizon)) * f);
     const motion = reduced ? 0 : 1;
 
     /* ------------------------------------------------------------ */
@@ -348,7 +400,7 @@ export default function PixelScene() {
     /* ------------------------------------------------------------ */
     const farFx: FarFx[] = [];
     /** Each plane's horizon line on screen: about where the far mountains' and the mid hills' ridges run. */
-    const farBase = (cy: number, depth: number) => (depth ? parallaxBase(cy, 0.15) - 46 : parallaxBase(cy, 0.08) - 56);
+    const farBase = (cy: number, depth: number) => (depth ? parallaxBase(cy, 0.15) - 60 : parallaxBase(cy, 0.08) - 96);
     const spawnFar = (dt: number, cx: number) => {
       const d = theme.distant;
       if (d <= 0 || farFx.length > 90) return;
@@ -528,6 +580,12 @@ export default function PixelScene() {
           return art.mortar[face];
         case "heavy":
           return art.heavy[Math.floor(e.anim) % 2][face];
+        case "minigunner":
+          return art.minigunner[Math.floor(e.anim) % 2][face];
+        case "exosuit":
+          return art.exosuit[Math.floor(e.anim) % 2][face];
+        case "jetpacker":
+          return art.jetpacker[FRAMES.jump][face];
         case "sniper":
           return art.sniper[0][face];
         case "crawler":
@@ -536,7 +594,25 @@ export default function PixelScene() {
           return art.dog[Math.floor(e.anim) % 2][face];
         default: {
           const set =
-            e.kind === "rocket" ? art.rocket : e.kind === "flamer" ? art.flamer : e.kind === "grenadier" ? art.grenadier : e.kind === "shield" ? art.shield : art.mook;
+            e.kind === "rocket"
+              ? art.rocket
+              : e.kind === "flamer"
+                ? art.flamer
+                : e.kind === "grenadier"
+                  ? art.grenadier
+                  : e.kind === "shield"
+                    ? art.shield
+                    : e.kind === "officer"
+                      ? art.officer
+                      : e.kind === "dynamiter"
+                        ? art.dynamiter
+                        : e.kind === "rusher"
+                          ? art.rusher
+                          : e.kind === "engineer"
+                            ? art.engineer
+                            : e.kind === "laser"
+                              ? art.laser
+                              : art.mook;
           return set[e.vx ? FRAMES.run[Math.floor(e.anim) % 4] : e.ground ? FRAMES.idle : FRAMES.jump][face];
         }
       }
@@ -562,31 +638,68 @@ export default function PixelScene() {
         const off = Math.round(mod(cx * f, img.width));
         const y = theme.backdrop === "cave" && img === bd.far ? 0 : parallaxBase(cy, f) - img.height + lift;
         // (the nearest hills carry on down to the bottom of the screen, so deep pits don't show the sky)
-        const below = img === bd.near ? H - (y + img.height) : 0;
+        const below = f === 0.4 ? H - (y + img.height) : 0;
         for (let x = -off; x < W; x += img.width) {
           v.drawImage(img, x, y);
           if (below > 0) v.drawImage(img, 0, img.height - 1, img.width, 1, x, y + img.height, img.width, below);
         }
       };
-      layer(bd.far, 0.08, 20);
+      if (bd.peaks) layer(bd.peaks, 0.04, 6);
+      // (crossing into a new biome: the old backdrop fades out under the new one)
+      const old = fade < 1 && prevTheme.backdrop !== theme.backdrop ? backdrop(prevTheme.backdrop) : null;
+      const pair = (pick: (b: BackdropArt) => HTMLCanvasElement | undefined, f: number, lift: number) => {
+        if (old) {
+          const o = pick(old);
+          if (o) {
+            v.globalAlpha = 1 - fade;
+            layer(o, f, lift);
+          }
+          v.globalAlpha = fade;
+        }
+        const img = pick(bd);
+        if (img) layer(img, f, lift);
+        v.globalAlpha = 1;
+      };
+      pair((b) => b.far, 0.08, 20);
       drawFar(v, 1, cx, cy, t);
-      layer(bd.mid, 0.2, 24);
-      layer(bd.near, 0.4, 30);
+      pair((b) => b.mid, 0.2, 24);
+      pair((b) => b.near, 0.4, 30);
       // Jets crossing the sky, ICBMs coming in
       for (const j of g.jets) {
         const x = Math.round(j.x - cx);
         const y = Math.round(j.y - cy);
         v.globalAlpha = 0.25;
         v.fillStyle = "#e8eef6";
-        v.fillRect(x + 21, y + 1, 60, 1);
+        v.fillRect(j.ally ? x - 80 : x + 20, y, 60, 1);
         v.globalAlpha = 1;
-        drawJet(v, x, y);
+        drawPlane(v, x, y, j.kind, j.ally, t);
       }
       for (const m of g.missiles) {
         const dx = m.up ? 0 : m.tx - m.x;
         const dy = m.up ? -1 : m.ty - m.y;
         const d = Math.hypot(dx, dy) || 1;
-        drawIcbm(v, Math.round(m.x - cx), Math.round(m.y - cy), dx / d, dy / d);
+        if ((m.r ?? 0) >= 90) {
+          // The big one: a hot halo round it all the way down
+          v.globalAlpha = 0.35;
+          v.fillStyle = "#ffe27a";
+          disc(v, Math.round(m.x - cx), Math.round(m.y - cy), 9 + Math.round(Math.sin(t * 20) * 1.5));
+          v.globalAlpha = 1;
+          drawIcbm(v, Math.round(m.x - cx) - 1, Math.round(m.y - cy), dx / d, dy / d);
+          drawIcbm(v, Math.round(m.x - cx) + 1, Math.round(m.y - cy), dx / d, dy / d);
+        }
+        if (m.owner && (m.cls ?? 1) < 3) {
+          // Smaller missiles: a body this long, a red nose
+          const cls = m.cls ?? 1;
+          const len = [6, 11, 16][cls];
+          const ux = m.boost ? 0 : dx / d;
+          const uy = m.boost ? -1 : dy / d;
+          const mx = Math.round(m.x - cx);
+          const my = Math.round(m.y - cy);
+          for (let k = 0; k < len; k++) {
+            v.fillStyle = k < 2 ? "#c8302a" : m.owner === "ally" ? "#c8d8e8" : "#d8dce4";
+            v.fillRect(Math.round(mx - ux * k), Math.round(my - uy * k), cls ? 2 : 1, cls ? 2 : 1);
+          }
+        } else drawIcbm(v, Math.round(m.x - cx), Math.round(m.y - cy), m.boost ? 0 : dx / d, m.boost ? -1 : dy / d);
       }
       // The worm swims behind the ground: only what's above it shows
       for (const e of g.enemies)
@@ -597,6 +710,13 @@ export default function PixelScene() {
             t,
             e.hit > 0
           );
+
+      // Props standing in the background, in shadow behind the ground
+      for (const p of g.level.props) {
+        if (p.kind !== "sprite" || !p.back || p.x < cx - 60 || p.x > cx + W + 60) continue;
+        const img = assetArt(p.id).dark[p.flip ? 1 : 0];
+        v.drawImage(img, Math.round(p.x - cx - img.width / 2), Math.round(p.y - cy - img.height + 2));
+      }
 
       // Blocks (the ring buffer may wrap inside the view)
       const ringW = RING * TILE;
@@ -618,6 +738,35 @@ export default function PixelScene() {
         const x = Math.round(p.x - cx);
         const y = Math.round(p.y - cy);
         switch (p.kind) {
+          case "sign": {
+            // A board with the building's name on it, on two little posts
+            const w = p.text.length * 4 + 3;
+            const sx = Math.round(x - w / 2);
+            v.fillStyle = INK;
+            v.fillRect(sx - 1, y - 11, w + 2, 10);
+            v.fillRect(sx + 2, y - 2, 1, 2);
+            v.fillRect(sx + w - 3, y - 2, 1, 2);
+            v.fillStyle = p.board;
+            v.fillRect(sx, y - 10, w, 8);
+            pixelText(v, p.text, sx + 2, y - 9, p.ink, false);
+            break;
+          }
+          case "awning": {
+            // Stripes, sloping down and out over the door
+            for (let k = 0; k < p.w; k++) {
+              v.fillStyle = (k >> 1) % 2 ? "#f4f0e8" : p.color;
+              v.fillRect(x - k - 1, y + Math.floor(k / 5), 1, 3);
+            }
+            v.fillStyle = INK;
+            v.fillRect(x - p.w - 1, y + Math.floor(p.w / 5) + 3, p.w + 1, 1);
+            break;
+          }
+          case "sprite": {
+            if (p.back) break;
+            const img = assetArt(p.id).img[p.flip ? 1 : 0];
+            v.drawImage(img, Math.round(x - img.width / 2), y - img.height + 2);
+            break;
+          }
           case "legs":
             v.fillStyle = "#6a421c";
             v.fillRect(x, y, 2, p.h);
@@ -767,9 +916,34 @@ export default function PixelScene() {
         }
         const img = props[b.type];
         v.drawImage(img, x - Math.floor(img.width / 2), y - img.height + 1);
+        if (b.type === "mine" && Math.floor(t * 3 + b.x) % 3 === 0) {
+          v.fillStyle = "#ff3b3b";
+          v.fillRect(x, y - 3, 1, 1);
+        }
         if (b.fuse >= 0 && Math.floor(t * 20) % 2) {
           v.fillStyle = "#ffffff";
           v.fillRect(x, y - img.height + 2, 1, 1);
+        }
+      }
+      // Supply crates, floating down under their parachutes
+      for (const d of g.drops) {
+        const x = Math.round(d.x - cx);
+        const y = Math.round(d.y - cy);
+        if (x < -20 || x > W + 20) continue;
+        v.drawImage(props.crate, x - 6, y - props.crate.height + 1);
+        if (!d.ground) {
+          v.fillStyle = INK;
+          v.fillRect(x - 10, y - 22, 21, 5);
+          v.fillStyle = "#e8e4dc";
+          v.fillRect(x - 9, y - 21, 19, 3);
+          v.fillStyle = "#c8302a";
+          v.fillRect(x - 3, y - 21, 7, 3);
+          v.fillStyle = "#c9ced8";
+          v.fillRect(x - 9, y - 18, 1, 10);
+          v.fillRect(x + 9, y - 18, 1, 10);
+        } else if (Math.floor(t * 4) % 2) {
+          v.fillStyle = "#ffe27a";
+          v.fillRect(x - 1, y - 11, 3, 1);
         }
       }
       for (const e of g.enemies) {
@@ -801,6 +975,50 @@ export default function PixelScene() {
           if (e.alive) drawTruck(v, x, y, e.anim, e.look, e.burst > 0);
           continue;
         }
+        if (ARMOR_KINDS.has(e.kind) && e.kind !== "apc" && e.kind !== "lighttank") {
+          if (e.alive) drawArmor(v, x, y, e.kind as ArmorType, e.anim, e.aimA, hit, e.hover);
+          continue;
+        }
+        if (e.kind === "flakgun" || e.kind === "howitzer" || e.kind === "samsite" || e.kind === "rocketpod") {
+          if (e.alive) drawEmplacement(v, x, y, e.kind, e.aimA, hit, e.hover);
+          continue;
+        }
+        if (e.kind === "train") {
+          if (e.alive) drawTrain(v, x, y, e.anim, hit);
+          continue;
+        }
+        if (e.kind === "submarine") {
+          drawSubmarine(v, x, y, t, e.alive && e.spin > 0, hit, e.alive ? 0 : clamp01(1 - e.deadT / 4));
+          continue;
+        }
+        if (e.kind === "attackheli" || e.kind === "transport" || e.kind === "scoutheli") {
+          drawHeliType(v, x, y, t, e.kind as HeliType, hit);
+          continue;
+        }
+        if (e.kind === "apc") {
+          if (e.alive) drawApc(v, x, y, e.anim, e.aimA, hit);
+          continue;
+        }
+        if (e.kind === "lighttank") {
+          if (e.alive) drawLightTank(v, x, y, e.anim, e.aimA, hit);
+          continue;
+        }
+        if (e.kind === "airship") {
+          drawAirship(v, x, y, t, hit);
+          continue;
+        }
+        if (e.kind === "cannon") {
+          if (e.alive) drawCannon(v, x, y, e.aimA, hit, e.hover);
+          continue;
+        }
+        if (e.kind === "spider") {
+          if (e.alive) drawSpider(v, x, y, e.anim, e.aimA, hit, t);
+          continue;
+        }
+        if (e.kind === "battleship") {
+          drawBattleship(v, x, y, t, e.aimA, e.alive ? 0 : clamp01(1 - e.deadT / 5), hit);
+          continue;
+        }
         if (e.kind === "boat") {
           drawBoat(v, x, y, t, e.look, e.facing, e.alive ? 0 : clamp01(1 - e.deadT / 2));
           continue;
@@ -810,22 +1028,44 @@ export default function PixelScene() {
           continue;
         }
         const img = troopSprite(e);
+        // (troopers come small, large and giant: the sprite is drawn at their size, in whole pixels where it can be)
+        const k = e.scale;
+        const iw = Math.round(img.width * k);
+        const ih = Math.round(img.height * k);
         if (!e.alive) {
           v.globalAlpha = clamp01(e.deadT / 0.6);
           v.save();
-          v.translate(x, y - 6);
+          v.translate(x, y - 6 * k);
           v.rotate((e.ground ? -e.facing : Math.floor(e.spin) % 4) * (Math.PI / 2));
-          v.drawImage(img, -Math.floor(img.width / 2), -Math.floor(img.height / 2));
+          v.drawImage(img, -Math.floor(iw / 2), -Math.floor(ih / 2), iw, ih);
           v.restore();
           v.globalAlpha = 1;
           continue;
         }
         const face = e.facing > 0 ? 0 : 1;
-        const ox = e.kind === "turret" || e.kind === "crawler" || e.kind === "dog" || e.kind === "mg" || e.kind === "mortar" ? img.width / 2 : face ? img.width - 7 : 6;
-        v.drawImage(img, x - Math.round(ox), y - img.height + 1);
+        const ox = (e.kind === "turret" || e.kind === "crawler" || e.kind === "dog" || e.kind === "mg" || e.kind === "mortar" ? img.width / 2 : face ? img.width - 7 : 6) * k;
+        const sx = x - Math.round(ox);
+        const sy = y - ih + 1;
+        if (e.sapper) {
+          // An explosive pack on its back
+          const bx = x - e.facing * Math.round(5 * k) - Math.round(2 * k);
+          v.fillStyle = INK;
+          v.fillRect(bx - 1, Math.round(y - 13 * k) - 1, Math.round(4 * k) + 2, Math.round(6 * k) + 2);
+          v.fillStyle = "#c8302a";
+          v.fillRect(bx, Math.round(y - 13 * k), Math.round(4 * k), Math.round(6 * k));
+          if (Math.floor(t * 6 + e.home) % 2) {
+            v.fillStyle = "#ffe27a";
+            v.fillRect(bx + 1, Math.round(y - 13 * k), 1, 1);
+          }
+        }
+        v.drawImage(img, sx, sy, iw, ih);
         if (hit) {
-          v.fillStyle = "#ffffff";
-          v.fillRect(x - 1, y - 11, 3, 3);
+          // The whole body flashes
+          v.globalCompositeOperation = "lighter";
+          v.globalAlpha = 0.7;
+          v.drawImage(img, sx, sy, iw, ih);
+          v.globalAlpha = 1;
+          v.globalCompositeOperation = "source-over";
         }
         if (e.chute) {
           const top = y - img.height - 10;
@@ -840,12 +1080,36 @@ export default function PixelScene() {
           v.fillRect(x + 7, top + 3, 1, 9);
         }
       }
+      // The allied column
+      for (const a of g.allies) {
+        if (a.x < cx - 60 || a.x > cx + W + 60) continue;
+        const x = Math.round(a.x - cx);
+        const y = Math.round(a.y - cy);
+        if (a.dead) v.globalAlpha = 0.55;
+        if (ALLY_AIR.has(a.kind)) drawHeliType(v, x, y, t, a.kind as HeliType, a.hit > 0);
+        else drawArmor(v, x, y, a.kind as ArmorType, a.anim, a.aimA, a.hit > 0);
+        v.globalAlpha = 1;
+      }
+      // Manholes: a cover flush with the road, thrown open when something climbs out
+      for (const h of g.hatches) {
+        const x = Math.round(h.x - cx);
+        const y = Math.round(h.y - cy);
+        if (x < -10 || x > W + 10) continue;
+        v.fillStyle = INK;
+        v.fillRect(x - 4, y - 1, 9, 2);
+        v.fillStyle = h.open > 0 ? "#0d0b14" : "#5a5a62";
+        v.fillRect(x - 3, y - 1, 7, 1);
+        if (h.open > 0) {
+          v.fillStyle = "#5a5a62";
+          v.fillRect(x + 4, y - 7, 2, 6);
+        }
+      }
       for (const p of g.players) {
         if (p.x < cx - 20 || p.x > cx + W + 20) continue;
         if (p.inv > 0 && !p.dead && Math.floor(t * 18) % 2 === 0) continue;
         const x = Math.round(p.x - cx);
         const y = Math.round(p.y - cy);
-        const frames = squad[p.id];
+        const frames = loadouts(p.id, p.weapon);
         const face = p.facing > 0 ? 0 : 1;
         if (p.dead) {
           const img = frames[FRAMES.idle][face];
@@ -858,6 +1122,16 @@ export default function PixelScene() {
         }
         const frame = !p.ground ? FRAMES.jump : p.vx ? FRAMES.run[Math.floor(p.anim) % 4] : FRAMES.idle;
         const kick = p.kick > 0 ? -p.facing : 0;
+        if (p.jet > 0) {
+          // The jetpack on their back, burning
+          const jx = x - p.facing * 5 - 1;
+          v.fillStyle = INK;
+          v.fillRect(jx - 1, y - 14, 5, 8);
+          v.fillStyle = "#8a90a0";
+          v.fillRect(jx, y - 13, 3, 6);
+          v.fillStyle = Math.floor(t * 20) % 2 ? "#ffe27a" : "#ff8a1a";
+          v.fillRect(jx, y - 7, 3, 2 + (Math.floor(t * 30) % 3));
+        }
         v.drawImage(frames[frame][face], x - (face ? 9 : 6) + kick, y - 19);
         if (p.chute) {
           // Parachute in the player's colour
@@ -887,9 +1161,12 @@ export default function PixelScene() {
             if (kindAt(L, c, r) !== WATER) continue;
             const x = c * TILE - cx;
             const y = r * TILE - cy;
-            v.fillStyle = "rgba(40,120,165,0.62)";
+            // (deeper is darker)
+            let depth = 0;
+            while (depth < 12 && kindAt(L, c, r - depth - 1) === WATER) depth++;
+            v.fillStyle = WATER_SHADE[depth];
             v.fillRect(x, y, TILE, TILE);
-            if (kindAt(L, c, r - 1) === WATER) continue;
+            if (depth > 0) continue;
             v.fillStyle = "#a8e4f4";
             for (let k = 0; k < TILE; k++) if (hash2(c * TILE + k, tick + k) > 0.55) v.fillRect(x + k, y, 1, 1);
           }
@@ -898,13 +1175,19 @@ export default function PixelScene() {
       // Debris, shell casings, smoke and spray; then the foreground strip
       for (const p of g.parts) {
         if (p.k === DEBRIS || p.k === CASING) {
-          v.fillStyle = p.k === CASING ? p.c : (DEBRIS_COLOR[+p.c] ?? "#8a5a2b");
+          v.fillStyle = p.k === CASING || p.c[0] === "#" ? p.c : (DEBRIS_COLOR[+p.c] ?? "#8a5a2b");
           v.fillRect(Math.round(p.x - cx), Math.round(p.y - cy), p.s, p.s);
         } else if (p.k === MIST) {
           const a = p.life / p.max;
           v.globalAlpha = Math.round(a * 0.6 * 4) / 4;
           v.fillStyle = "#e8f6fa";
           disc(v, Math.round(p.x - cx), Math.round(p.y - cy), Math.round(p.s + (1 - a) * 3));
+          v.globalAlpha = 1;
+        } else if (p.k === DUST) {
+          const a = p.life / p.max;
+          v.globalAlpha = Math.round(a * 0.7 * 4) / 4;
+          v.fillStyle = p.c;
+          disc(v, Math.round(p.x - cx), Math.round(p.y - cy), Math.round(p.s + (1 - a) * 4));
           v.globalAlpha = 1;
         } else if (p.k === SMOKE || p.k === BIGSMOKE) {
           const a = p.life / p.max;
@@ -922,12 +1205,8 @@ export default function PixelScene() {
         for (let x = -to; x < W; x += bd.top.width) v.drawImage(bd.top, x, 0);
       }
 
-      // Deep underground gets darker; then the theme's tint over the whole world layer
+      // The theme's tint over the whole world layer (depth below the ground is shaded in the blocks themselves)
       v.globalCompositeOperation = "source-atop";
-      for (let r = Math.max(50, Math.floor(cy / TILE)); r * TILE < cy + H; r++) {
-        v.fillStyle = `rgba(6,5,14,${Math.min(0.6, (r - 49) * 0.08)})`;
-        v.fillRect(0, r * TILE - cy, W, TILE);
-      }
       const night = lerpTheme((s) => s.night);
       if (night > 0.01) {
         v.fillStyle = `rgba(8,10,34,${night})`;
@@ -947,6 +1226,45 @@ export default function PixelScene() {
       ctx.globalAlpha = Math.min(1, a);
       ctx.fillRect(x, y, w, h);
       ctx.globalAlpha = 1;
+    };
+
+    /**
+     * Explosions: every fireball ball of every blast, drawn in passes (cooled smoke behind;
+     * then the dark outlines, the hot bodies, the highlights) so a cluster reads as one
+     * lumpy, outlined blob of fire.
+     */
+    const blazeR = (u: number, s: number) => Math.max(1, Math.round(s * (0.55 + 0.6 * Math.min(1, u * 4)) * (u > 0.75 ? 1 - (u - 0.75) * 1.6 : 1)));
+    const HOT = 0.62;
+    const drawFireballs = (g: Game, cx: number, cy: number) => {
+      const parts = g.parts;
+      for (const p of parts) {
+        if (p.k !== BLAZE) continue;
+        const u = 1 - p.life / p.max;
+        if (u < HOT) continue;
+        ctx.globalAlpha = Math.max(0.25, Math.round((1 - (u - HOT) / (1 - HOT)) * 0.8 * 4) / 4);
+        ctx.fillStyle = u < 0.8 ? "#3e3034" : "#5a5258";
+        disc(ctx, Math.round(p.x - cx), Math.round(p.y - cy), blazeR(u, p.s) + 1);
+      }
+      ctx.globalAlpha = 1;
+      for (let pass = 0; pass < 3; pass++)
+        for (const p of parts) {
+          if (p.k !== BLAZE) continue;
+          const u = 1 - p.life / p.max;
+          if (u >= HOT) continue;
+          const R = blazeR(u, p.s);
+          const x = Math.round(p.x - cx);
+          const y = Math.round(p.y - cy);
+          if (pass === 0) {
+            ctx.fillStyle = u < 0.4 ? "#6a1a0c" : "#3a1410";
+            disc(ctx, x, y, R + 1);
+          } else if (pass === 1) {
+            ctx.fillStyle = u < 0.1 ? "#fffbe0" : u < 0.24 ? "#ffe14a" : u < 0.42 ? "#ffa21f" : "#d8441a";
+            disc(ctx, x, y, R);
+          } else if (R >= 2) {
+            ctx.fillStyle = u < 0.24 ? "#ffffff" : u < 0.42 ? "#ffe14a" : "#ff8a2a";
+            disc(ctx, x - Math.round(R * 0.3), y - Math.round(R * 0.3), Math.max(1, Math.round(R * 0.45)));
+          }
+        }
     };
 
     const drawLights = (g: Game, cx: number, cy: number, t: number) => {
@@ -1005,6 +1323,32 @@ export default function PixelScene() {
           ctx.fillStyle = "#ffd479";
           disc(ctx, x + 1, y + 6, 9);
           ctx.globalAlpha = 1;
+        } else if (p.kind === "sign") {
+          if (!p.neon) continue;
+          // Neon: a glow round the board that buzzes now and then
+          const w = p.text.length * 4 + 3;
+          const on = hash2(Math.floor(t * 8), Math.round(p.x)) > 0.04 ? 1 : 0.2;
+          ctx.globalAlpha = (0.1 + night * 0.25) * on;
+          ctx.fillStyle = p.ink;
+          ctx.fillRect(Math.round(x - w / 2) - 2, y - 12, w + 4, 12);
+          ctx.globalAlpha = 1;
+          if (night > 0.2) pixelText(ctx, p.text, Math.round(x - w / 2) + 2, y - 9, p.ink, false);
+        } else if (p.kind === "sprite") {
+          const a = asset(p.id);
+          if (!a.lights) continue;
+          const x0 = Math.round(p.x - cx - a.w / 2);
+          const y0 = y - a.h + 1;
+          for (const [lx, ly, col, rate] of a.lights) {
+            const on = rate === 0 ? 1 : 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * rate * 6 + p.x));
+            const gx = x0 + (p.flip ? a.w - 1 - lx : lx);
+            glow(gx, y0 + ly, 1, 1, col, on * (p.back ? 0.5 : 1));
+            if (night > 0.2 || rate === 0) {
+              ctx.globalAlpha = 0.08 * on * (0.5 + night);
+              ctx.fillStyle = col;
+              disc(ctx, gx, y0 + ly, 6);
+              ctx.globalAlpha = 1;
+            }
+          }
         } else if (p.kind === "antenna") glow(x - 1, y - p.h - 2, 2, 2, Math.floor(t * 1.5) % 2 ? "#ff3b3b" : "#5a1a1a", 1);
         else if (p.kind === "fire" || p.kind === "brazier") {
           ctx.globalAlpha = 0.14 + 0.06 * Math.sin(t * 9 + p.x) + (p.kind === "brazier" ? night * 0.12 : 0);
@@ -1034,6 +1378,39 @@ export default function PixelScene() {
         for (let k = 0; k < n; k++) ctx.fillRect(Math.round(x0 + ((x1 - x0) * k) / n), Math.round(y0 + ((y1 - y0) * k) / n), 1, 1);
         ctx.globalAlpha = 1;
       }
+
+      // Laser beams and tesla lightning
+      ctx.globalCompositeOperation = "lighter";
+      for (const b of g.beams) {
+        const n = Math.ceil(Math.hypot(b.x1 - b.x0, b.y1 - b.y0));
+        for (let k = 0; k < n; k++) {
+          const px = Math.round(b.x0 + ((b.x1 - b.x0) * k) / n - cx);
+          const py = Math.round(b.y0 + ((b.y1 - b.y0) * k) / n - cy);
+          ctx.fillStyle = b.c;
+          ctx.globalAlpha = 0.5;
+          ctx.fillRect(px, py - 1, 1, 3);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(px, py, 1, 1);
+        }
+      }
+      for (const z of g.zaps) {
+        const R = rng(Math.floor(t * 30) + z.pts.length);
+        ctx.fillStyle = "#c8e8ff";
+        for (let i = 1; i < z.pts.length; i++) {
+          let [ax, ay] = z.pts[i - 1];
+          const [bx, by] = z.pts[i];
+          for (let s2 = 1; s2 <= 5; s2++) {
+            const nx = ax + (bx - ax) / (6 - s2) + (s2 < 5 ? (R() - 0.5) * 10 : 0);
+            const ny = ay + (by - ay) / (6 - s2) + (s2 < 5 ? (R() - 0.5) * 10 : 0);
+            const m = Math.ceil(Math.max(Math.abs(nx - ax), Math.abs(ny - ay)));
+            for (let k = 0; k <= m; k++) ctx.fillRect(Math.round(ax + ((nx - ax) * k) / m - cx), Math.round(ay + ((ny - ay) * k) / m - cy), 1, 1);
+            ax = nx;
+            ay = ny;
+          }
+        }
+      }
+      ctx.globalCompositeOperation = "source-over";
 
       // Muzzle flashes
       for (const f of g.flashes) {
@@ -1077,6 +1454,53 @@ export default function PixelScene() {
             break;
           case FLAMESHOT:
             break;
+          case BIGBOMB:
+            // A fat bomb, fins at the back, a red band, nose down as it falls
+            ctx.fillStyle = INK;
+            ctx.fillRect(x - 3, y - 7, 7, 13);
+            ctx.fillStyle = "#4a5030";
+            ctx.fillRect(x - 2, y - 6, 5, 11);
+            ctx.fillStyle = "#6a7048";
+            ctx.fillRect(x - 2, y - 6, 1, 11);
+            ctx.fillStyle = "#c8302a";
+            ctx.fillRect(x - 2, y - 2, 5, 1);
+            ctx.fillStyle = INK;
+            ctx.fillRect(x - 4, y - 9, 9, 2);
+            break;
+          case NAPALM:
+            ctx.fillStyle = INK;
+            ctx.fillRect(x - 2, y - 1, 5, 3);
+            ctx.fillStyle = "#c8302a";
+            ctx.fillRect(x - 1, y, 3, 1);
+            if (Math.floor(t * 20) % 2) glow(x + 2, y, 1, 1, "#ff8a1a", 1);
+            break;
+          case FLAK:
+            ctx.fillStyle = "#ffe27a";
+            ctx.fillRect(x, y, 1, 1);
+            break;
+          case BOLT:
+            ctx.fillStyle = "#c8a060";
+            for (let k = 0; k < 5; k++) ctx.fillRect(Math.round(x - ux * k), Math.round(y - uy * k), 1, 1);
+            ctx.fillStyle = "#ff3b3b";
+            ctx.fillRect(x, y, 1, 1);
+            break;
+          case SAW: {
+            // A spinning blade
+            const a = t * 30;
+            ctx.fillStyle = INK;
+            disc(ctx, x, y, 3);
+            ctx.fillStyle = "#c8ced9";
+            disc(ctx, x, y, 2);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(Math.round(x + Math.cos(a) * 2), Math.round(y + Math.sin(a) * 2), 1, 1);
+            ctx.fillRect(Math.round(x - Math.cos(a) * 2), Math.round(y - Math.sin(a) * 2), 1, 1);
+            break;
+          }
+          case ELASER:
+            glow(Math.round(x - ux * 3), Math.round(y - uy * 3), 2, 1, "#5ff0e0", 1);
+            ctx.fillStyle = "#e6fffc";
+            for (let k = 0; k < 7; k++) ctx.fillRect(Math.round(x - ux * k), Math.round(y - uy * k), 1, 1);
+            break;
           case ROCKET:
             ctx.fillStyle = "#c8ced9";
             ctx.fillRect(Math.round(x - ux * 2) - 1, y, 3, 1);
@@ -1084,7 +1508,8 @@ export default function PixelScene() {
             break;
           case GRENADE:
           case LOB:
-            ctx.fillStyle = s.kind === LOB ? "#4a5a30" : "#3a5a2a";
+            // (an enemy's lobs are lit sticks of dynamite)
+            ctx.fillStyle = s.kind === LOB ? (s.pid === -1 ? "#c8302a" : "#4a5a30") : "#3a5a2a";
             ctx.fillRect(x - 1, y - 1, 2, 2);
             if (Math.floor(t * 12) % 2) {
               ctx.fillStyle = "#ff3b3b";
@@ -1120,29 +1545,24 @@ export default function PixelScene() {
         glow(Math.round(m.x - cx - (dx / d) * 24) - 1, Math.round(m.y - cy - (dy / d) * 24) - 1, 3, 3, "#ffe27a", 1);
       }
 
-      // Fire: blasts, then flames, embers and weather
+      // Fire: each blast's flash and shock ring, its fireball, then flames, embers and weather
       for (const b of g.blasts) {
         const a = b.t / 0.5;
         const x = Math.round(b.x - cx);
         const y = Math.round(b.y - cy);
-        if (b.t < 0.07) {
+        if (b.t < 0.06) {
           ctx.fillStyle = "#fffbe8";
-          disc(ctx, x, y, b.r);
+          disc(ctx, x, y, Math.round(b.r * 0.85));
           continue;
         }
-        const out = a > 0.7 ? Math.max(0, 1 - (a - 0.7) / 0.3) : 1;
-        const R = Math.round(b.r * (0.75 + 0.45 * a) * out);
-        ctx.fillStyle = "#8a2414";
-        disc(ctx, x, y, R + 1);
-        ctx.fillStyle = a < 0.4 ? "#ffd23f" : a < 0.7 ? "#ff8a1a" : "#c2341a";
-        disc(ctx, x, y, R);
-        ctx.fillStyle = "#fff3b0";
-        disc(ctx, x, y, Math.round(b.r * (0.55 - 0.7 * a)));
-        if (a < 0.35) {
+        if (a < 0.3) {
+          ctx.globalAlpha = 1 - a / 0.3;
           ctx.fillStyle = "#ffe7a0";
-          ring(ctx, x, y, Math.round(b.r * (1 + 1.6 * a)));
+          ring(ctx, x, y, Math.round(b.r * (0.9 + 2.2 * a)));
+          ctx.globalAlpha = 1;
         }
       }
+      drawFireballs(g, cx, cy);
       // Mushroom clouds: a fireball that rises on a stem and cools to smoke
       for (const m of g.mushrooms) {
         const x = Math.round(m.x - cx);
@@ -1174,7 +1594,7 @@ export default function PixelScene() {
         ring(ctx, Math.round(w.x - cx), Math.round(w.y - cy), Math.round(w.t * 420) + 1);
       }
       for (const p of g.parts) {
-        if (p.k === DEBRIS || p.k === CASING || p.k === SMOKE || p.k === BIGSMOKE || p.k === MIST) continue;
+        if (p.k === DEBRIS || p.k === CASING || p.k === SMOKE || p.k === BIGSMOKE || p.k === MIST || p.k === DUST || p.k === BLAZE) continue;
         const a = p.life / p.max;
         const x = Math.round(p.x - cx);
         const y = Math.round(p.y - cy);
@@ -1186,6 +1606,18 @@ export default function PixelScene() {
           case EMBER:
             ctx.fillStyle = a > 0.6 ? "#ffe27a" : a > 0.3 ? "#ff9a2a" : "#b8321a";
             ctx.fillRect(x, y, 1, 1);
+            break;
+          case SPARK: {
+            // A streak along its flight, white hot at first
+            const d = Math.hypot(p.vx, p.vy) || 1;
+            ctx.fillStyle = p.c;
+            if (d > 50) ctx.fillRect(Math.round(x - (p.vx / d) * 2), Math.round(y - (p.vy / d) * 2), 1, 1);
+            ctx.fillStyle = a > 0.7 ? "#fff6c8" : p.c;
+            ctx.fillRect(x, y, 1, 1);
+            break;
+          }
+          case CINDER:
+            glow(x, y, p.s, p.s, a > 0.55 ? "#ffd23f" : a > 0.25 ? "#ff7a1a" : "#b8321a", 1);
             break;
           case FIREFLY:
           case SPORE:
@@ -1253,7 +1685,14 @@ export default function PixelScene() {
       for (const e of g.enemies) {
         if (!e.boss || !e.alive) continue;
         const aim = g.aimPoint(e) ?? { x: e.x, y: e.y };
-        const top = e.kind === "worm" ? aim.y - 22 : e.kind === "gunship" ? e.y - 26 : e.y - (e.kind === "mech" ? 74 : 44);
+        const top =
+          e.kind === "worm"
+            ? aim.y - 22
+            : e.kind === "gunship"
+              ? e.y - 26
+              : e.kind === "airship"
+                ? e.y - 30
+                : e.y - (e.kind === "mech" ? 74 : e.kind === "spider" ? 60 : e.kind === "cannon" ? 52 : 44);
         const bw = 60;
         const bx = Math.round(aim.x - cx - bw / 2);
         const by = Math.round(top - cy);
@@ -1303,8 +1742,8 @@ export default function PixelScene() {
     const drawComplete = (g: Game) => {
       const c = g.complete!;
       ctx.globalAlpha = clamp01((g.white - 0.9) / 0.1);
-      const s = Math.max(2, Math.min(7, Math.floor((W * 0.84) / 55)));
-      const title = "Level complete";
+      const title = c.title ?? "Level complete";
+      const s = Math.max(2, Math.min(7, Math.floor((W * 0.84) / (Math.max(14, title.length) * 4))));
       const tw = (title.length * 4 - 1) * s;
       const top = Math.round(H * 0.34 - 3 * s);
       pixelText(ctx, title, Math.round((W - tw) / 2), top, "#1a1626", false, s);
@@ -1316,7 +1755,10 @@ export default function PixelScene() {
       });
       const s2 = s >= 5 ? 2 : 1;
       let y = top + 6 * s + 12;
-      for (const line of [`Level ${String(c.no).padStart(2, "0")} - ${c.name}`, `Enemies down ${c.kills}`, `Time ${clock(c.time)}`, "Squad bonus +5000 each"]) {
+      const lines = [`Level ${String(c.no).padStart(2, "0")} - ${c.name}`, `Enemies down ${c.kills}`, `Time ${clock(c.time)}`];
+      if (c.finale) lines.push(FINALE_TEXT[c.finale][2]);
+      lines.push(`Squad bonus +${c.bonus ?? 5000} each`);
+      for (const line of lines) {
         pixelText(ctx, line, Math.round((W - (line.length * 4 - 1) * s2) / 2), y, "#3a3450", false, s2);
         y += 7 * s2 + 3;
       }
@@ -1402,6 +1844,8 @@ export default function PixelScene() {
     let lastBurst = sceneState.burst;
     let holdT = 0;
     let strikeT = 0;
+    /** The paused frame is on screen (a resize redraws it) */
+    let held = false;
     const onInput = () => (lastInput = performance.now());
 
     const step = (g: Game, dt: number) => {
@@ -1411,6 +1855,8 @@ export default function PixelScene() {
         g.nextLevel(sceneState.override === "lost" ? THEMES.cave : undefined);
       }
       g.intensity = intensity();
+      g.endless = sceneState.endless;
+      if (sceneState.zoom !== zoomed) resize();
       const hz = horizonFor();
       if (hz !== horizon) {
         // (the camera eases over to the new framing; the sky's bands follow it)
@@ -1536,7 +1982,18 @@ export default function PixelScene() {
       if (!busy && ms - lastFrame < 30) return;
       const dt = Math.min(0.05, Math.max(0, (ms - lastFrame) / 1000));
       lastFrame = ms;
-      step(game!, dt);
+      // Paused: the frame holds still (drawn once). Faster or slower: the same frame time, in more or
+      // fewer game seconds, in steps small enough to stay stable
+      if (sceneState.paused) {
+        if (held) return;
+        held = true;
+        shake = 0;
+      } else {
+        held = false;
+        const total = dt * sceneState.speed;
+        const n = Math.max(1, Math.ceil(total / 0.034));
+        for (let k = 0; k < n; k++) step(game!, total / n);
+      }
       draw(game!);
       sceneState.ready = true;
     };

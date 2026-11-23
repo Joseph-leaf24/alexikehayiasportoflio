@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { BAMBOO, BASE_ROW, cell, createLevel, extend, kindAt, LAVA, LEAF, MOSS, RING, ROWS, solidAt, TILE, VINE, WATER } from "@/components/pixel/level";
+import { BAMBOO, BASE_ROW, cell, createLevel, extend, kindAt, LAVA, LEAF, LEVEL_H, MOSS, RING, ROWS, solidAt, TILE, VINE, WATER, waterAt } from "@/components/pixel/level";
 import { lightOf, ROTATION, THEMES, WEATHER, type Theme } from "@/components/pixel/themes";
-import { BULLET, FLAMESHOT, Game, GRENADE, PLAYER_HP, type Enemy, type EnemyKind, type View } from "@/components/pixel/game";
+import { BULLET, FLAMESHOT, Game, GRENADE, PLAYER_HP, WEAPONS, type Enemy, type EnemyKind, type View } from "@/components/pixel/game";
 
 /** Step a game for `seconds`, with the camera following the squad like PixelScene's does. `each` runs every step. */
 function play(g: Game, seconds: number, each?: () => void) {
   const view: View = { x: 0, y: 0, w: 480, h: 300 };
   for (let i = 0; i < seconds * 30; i++) {
     view.x = Math.max(g.level.start * TILE, g.advance - view.w * 0.42);
-    view.y = BASE_ROW * TILE - view.h * 0.68;
+    // (up the mountains and down the valleys with the squad's feet)
+    const up = g.players.filter((p) => !p.dead && !p.chute);
+    const feet = up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : g.level.h * TILE;
+    view.y = Math.max(-80, Math.min(LEVEL_H - view.h, feet - view.h * 0.68));
     g.step(1 / 30, view);
     g.fresh.length = 0;
     g.dirty.length = 0;
@@ -17,7 +20,7 @@ function play(g: Game, seconds: number, each?: () => void) {
 }
 
 /** A flat, empty stretch with nothing coming in, so one enemy can be watched on its own. */
-const quiet: Theme = { ...THEMES.jungle, features: { flat: 1 }, enemies: 0, barrels: 0, artillery: 0, helis: 0, paras: 0, jets: 0, drones: 0, decor: "none" };
+const quiet: Theme = { ...THEMES.jungle, relief: 0, features: { flat: 1 }, enemies: 0, barrels: 0, artillery: 0, helis: 0, paras: 0, jets: 0, drones: 0, decor: "none" };
 
 /** Put an enemy down (the generator normally does this). */
 const place = (g: Game, kind: EnemyKind, x: number, y = BASE_ROW * TILE): Enemy => {
@@ -52,24 +55,33 @@ describe("jungle levels", () => {
   it("grow rainforest, bamboo, rivers and waterfalls; temples and ruins of mossy stone", () => {
     const deep = census(THEMES.deepjungle, 4);
     for (const k of [LEAF, VINE, BAMBOO, WATER]) expect(deep.count(k), `block ${k}`).toBeGreaterThan(0);
-    expect(deep.L.props.some((p) => p.kind === "waterfall")).toBe(true);
-    expect(deep.L.props.some((p) => p.kind === "tent")).toBe(true);
+    // (over a few levels: any one stretch may or may not roll a camp or a cliff)
+    const deeps = [4, 5, 6].map((seed) => census(THEMES.deepjungle, seed).L);
+    expect(deeps.some((L) => L.props.some((p) => p.kind === "waterfall"))).toBe(true);
+    expect(deeps.some((L) => L.props.some((p) => p.kind === "tent"))).toBe(true);
     const temple = census(THEMES.temple, 4);
     expect(temple.count(MOSS)).toBeGreaterThan(100);
     expect(temple.L.props.filter((p) => p.kind === "brazier").length).toBeGreaterThanOrEqual(2);
     expect(census(THEMES.monsoon, 4).count(WATER)).toBeGreaterThan(10);
   });
 
-  it("keeps rivers and pools waist deep, and every pit jumpable", () => {
+  it("gives all water a bottom (lakes and the sea are deep enough to swim), and keeps every pit jumpable", () => {
     for (const key of ["deepjungle", "temple", "monsoon", "nightraid"]) {
       const { L } = census(THEMES[key], 9);
       let run = 0;
       let lip = L.ground[L.start % RING];
       for (let c = L.start; c < L.next; c++) {
-        for (let r = 0; r < ROWS - 1; r++) if (kindAt(L, c, r) === WATER) expect(solidAt(L, c * TILE + 4, (r + 1) * TILE + 4), `${key} ${c},${r}`).toBe(true);
+        for (let r = 0; r < ROWS - 1; r++) {
+          if (kindAt(L, c, r) !== WATER || kindAt(L, c, r - 1) === WATER) continue;
+          // From the surface down: a bottom under it, and if it's over waist deep, a deck over it
+          let depth = 0;
+          while (kindAt(L, c, r + depth) === WATER) depth++;
+          expect(solidAt(L, c * TILE + 4, (r + depth) * TILE + 4), `${key} ${c},${r} bottom`).toBe(true);
+        }
         if (c === L.start) continue;
         const g = L.ground[c % RING];
-        const pit = (g >= lip + 3 && !solidAt(L, c * TILE + 4, lip * TILE + 4)) || kindAt(L, c, g - 1) === LAVA;
+        const wet = kindAt(L, c, lip + 1) === WATER || kindAt(L, c, lip) === WATER;
+        const pit = (g >= lip + 3 && !wet && !solidAt(L, c * TILE + 4, lip * TILE + 4)) || kindAt(L, c, g - 1) === LAVA;
         run = pit ? run + 1 : 0;
         if (!pit) lip = g;
         expect(run, `${key} column ${c}`).toBeLessThanOrEqual(3);
@@ -102,10 +114,10 @@ describe("new enemies", () => {
     const bullet = (x: number, vx: number) => g.shots.push({ kind: BULLET, x, y: e.y - 8, vx, vy: 0, life: 1, dmg: 1, pid: 0, pierce: 0 });
     bullet(e.x - 10, 400);
     play(g, 2 / 30);
-    expect(e.hp).toBe(4);
+    expect(e.hp).toBe(e.maxHp);
     bullet(e.x + 10, -400);
     play(g, 2 / 30);
-    expect(e.hp).toBeLessThan(4);
+    expect(e.hp).toBeLessThan(e.maxHp);
     g.explode(e.x, e.y - 4, 18, 0, false);
     expect(e.alive).toBe(false);
   });
@@ -172,9 +184,99 @@ describe("new enemies", () => {
   });
 });
 
+describe("mayhem", () => {
+  it("arms the squad with fourteen weapons: supply crates swap them in for a while, or hand out jetpacks", () => {
+    expect(WEAPONS).toHaveLength(14);
+    expect(new Set(WEAPONS).size).toBe(14);
+    const g = new Game(quiet, { seed: 1, level: { boss: null, length: 600 } });
+    play(g, 0.5);
+    const p = g.players[2];
+    g.drops.push({ x: p.x, y: p.y, vy: 0, weapon: 9, ground: true, t: 0 });
+    play(g, 1 / 30);
+    expect(p.weapon).toBe(9);
+    expect(g.popups.some((u) => u.text === "P3 TESLA")).toBe(true);
+    // Every weapon fires something at a target in front of it
+    const target = tough(place(g, "mook", p.x + 60));
+    for (let w = 0; w < WEAPONS.length; w++) {
+      Object.assign(p, { weapon: w, weaponT: 10, fireCd: 0, target });
+      const before = g.shots.length + g.beams.length + g.zaps.length;
+      (g as unknown as { fire(p: unknown, t: unknown): void }).fire(p, target);
+      expect(g.shots.length + g.beams.length + g.zaps.length, WEAPONS[w]).toBeGreaterThan(before);
+    }
+    const q = g.players[4];
+    g.drops.push({ x: q.x, y: q.y, vy: 0, weapon: -1, ground: true, t: 0 });
+    const y0 = q.y;
+    play(g, 1);
+    expect(q.jet).toBeGreaterThan(0);
+    expect(q.y).toBeLessThan(y0 - 12);
+  });
+
+  it("lays landmines that go off underfoot, and fields eight new kinds of trooper plus armour and three more bosses", () => {
+    const g = new Game(quiet, { seed: 1, level: { boss: null, length: 600 } });
+    const view = { x: 0, y: 0, w: 480, h: 300 };
+    play(g, 0.2);
+    const p = g.players[0];
+    p.inv = 0;
+    g.barrels.push({ x: p.x + 2, y: p.y, vx: 0, vy: 0, ground: true, facing: 1, type: "mine", hp: 1, fuse: -1, owner: -3, alive: true });
+    const booms = g.booms;
+    for (let i = 0; i < 10; i++) g.step(1 / 30, view);
+    expect(g.booms).toBeGreaterThan(booms);
+    for (const kind of ["jetpacker", "minigunner", "officer", "dynamiter", "rusher", "engineer", "laser", "exosuit", "apc", "lighttank", "airship", "cannon", "spider"] as EnemyKind[]) {
+      const e = tough(place(g, kind, p.x + 120, p.y));
+      play(g, 0.2);
+      expect(e.hp, kind).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("seamless levels", () => {
+  it("runs on from one biome into the next with no white-out, the finale only every so many levels", () => {
+    const g = new Game(THEMES.jungle, { seed: 2, level: { boss: null, length: 60 } });
+    const first = g.theme.key;
+    let white = 0;
+    let nuke = false;
+    play(g, 60, () => {
+      white = Math.max(white, g.white);
+      if (g.phase === "nuke") nuke = true;
+    });
+    expect(g.levelNo).toBeGreaterThanOrEqual(2);
+    expect(g.theme.key).not.toBe(first);
+    expect(white).toBe(0);
+    expect(nuke).toBe(false);
+    expect(g.log[g.log.length - 1]).toMatchObject({ no: 1, name: "Jungle landing" });
+  });
+
+  it("never ends at all in endless mode, even where a finale was due", () => {
+    const g = new Game(THEMES.jungle, { seed: 2, level: { boss: null, length: 60, every: 1 } });
+    g.endless = true;
+    let nuke = false;
+    play(g, 60, () => {
+      if (g.phase === "nuke") nuke = true;
+    });
+    expect(nuke).toBe(false);
+    expect(g.levelNo).toBeGreaterThanOrEqual(2);
+  });
+
+  it("puts open sea in the way that the squad swims, heads above the water", () => {
+    const sea: Theme = { ...quiet, features: { ocean: 1 } };
+    const g = new Game(sea, { seed: 3, level: { boss: null, length: 2000 } });
+    let swum = 0;
+    play(g, 30, () => {
+      for (const p of g.players) {
+        if (p.dead || p.chute || !waterAt(g.level, p.x, p.y - 6)) continue;
+        // Floating: the surface is just above their head, not far over it
+        let r = Math.floor((p.y - 4) / TILE);
+        while (kindAt(g.level, Math.floor(p.x / TILE), r - 1) === WATER) r--;
+        if (p.y - r * TILE < 20) swum++;
+      }
+    });
+    expect(swum).toBeGreaterThan(30);
+  });
+});
+
 describe("the end of a level", () => {
   it("fades the whole screen to white, shows Level complete with the numbers, then fades into the next level", () => {
-    const g = new Game(THEMES.fortress, { seed: 3, level: { boss: null, length: 50 } });
+    const g = new Game(THEMES.fortress, { seed: 3, level: { boss: null, length: 50, stronghold: true } });
     expect(g.progress).toBe(0);
     let peak = 0;
     let card: Game["complete"] = null;

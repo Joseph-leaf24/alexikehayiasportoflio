@@ -5,6 +5,7 @@ import NotFound from "./pages/NotFound";
 import ProjectDetails from "./pages/ProjectDetails";
 import PixelScene from "./components/pixel/PixelScene";
 import Hud from "./components/chrome/Hud";
+import SceneControls from "./components/chrome/SceneControls";
 import Cursor from "./components/chrome/Cursor";
 import Loader from "./components/chrome/Loader";
 import Shortcuts from "./components/chrome/Shortcuts";
@@ -64,6 +65,7 @@ function Shell() {
       </a>
       <PixelScene />
       <Hud />
+      <SceneControls />
       <main id="main" tabIndex={-1} className="site-main">
         <Routes>
           <Route path="/" element={<Index />} />
