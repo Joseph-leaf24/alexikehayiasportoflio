@@ -1,3 +1,6 @@
 node_modules
 dist
+release
+host/.build
+host/.webview2
 *.zip

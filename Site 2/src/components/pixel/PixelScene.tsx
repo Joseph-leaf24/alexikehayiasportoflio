@@ -69,6 +69,7 @@ import {
   DEBRIS_COLOR,
   disc,
   drawAirship,
+  canvasOptions,
   drawAllyGunship,
   drawCar,
   drawFreightCar,
@@ -256,7 +257,7 @@ export default function PixelScene() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
+    const ctx = canvas?.getContext("2d", canvasOptions);
     if (!canvas || !ctx) {
       sceneState.canvas = false;
       sceneState.ready = true;
@@ -2608,15 +2609,22 @@ export default function PixelScene() {
       drawLights(g, cx, cy, g.t);
     };
 
+    /**
+     * The next frame. Capped (the wallpaper), it's only asked for when it's due, so the browser
+     * isn't woken for every one the display could show (120 a second on some) to skip most of them.
+     */
+    let timer = 0;
+    const schedule = () => {
+      if (sceneState.maxFps > 0) timer = window.setTimeout(() => (raf = requestAnimationFrame(loop)), Math.max(0, 1000 / sceneState.maxFps - 6));
+      else raf = requestAnimationFrame(loop);
+    };
     const loop = (ms: number) => {
-      raf = requestAnimationFrame(loop);
+      schedule();
       if (!running || sceneState.covered) {
         lastFrame = ms;
         return;
       }
       if (!game) start();
-      // (capped, if it's been asked to go easy: the wallpaper)
-      if (sceneState.maxFps > 0 && ms - lastFrame < 1000 / sceneState.maxFps - 2) return;
       // (someone in the spectator space is watching: keep the full frame rate however long they sit there)
       const busy = ms - lastInput < IDLE_MS || sceneState.press || sceneState.transition || sceneState.watching;
       if (!busy && ms - lastFrame < 30) return;
@@ -2635,6 +2643,7 @@ export default function PixelScene() {
         for (let k = 0; k < n; k++) step(game!, total / n);
       }
       draw(game!);
+      sceneState.frames++;
       sceneState.ready = true;
     };
 
@@ -2651,6 +2660,7 @@ export default function PixelScene() {
 
     return () => {
       cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibility);
       for (const ev of INPUT_EVENTS) window.removeEventListener(ev, onInput);

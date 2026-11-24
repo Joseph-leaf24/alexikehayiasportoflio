@@ -143,6 +143,8 @@ export const sceneState = {
   speed: 1,
   /** Most frames a second the scene draws (0: as many as the display does). The wallpaper caps it, to go easy on the machine. */
   maxFps: 0,
+  /** Frames the scene has drawn (for the wallpaper's self-test) */
+  frames: 0,
   /** How big the scene's pixels are, against the usual (0.75: zoomed out by a quarter). The wallpaper sets it. */
   scaleK: 1,
   /** Endless: the levels run on from biome to biome, with no finale and no "Level complete". */

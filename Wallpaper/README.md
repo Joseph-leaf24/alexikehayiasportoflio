@@ -1,61 +1,63 @@
 # Pixel Battle: live wallpaper
 
-The pixel battle from Site 2 as a live wallpaper for Windows. It's the same endless eight-player fight through random countries (cities with traffic, day and night and weather, metros, rail yards, mountains, caverns, gunships, nukes), full screen on its own.
+The pixel battle from Site 2 as a live wallpaper for Windows, standalone. Run **PixelBattle.exe** and the battle plays on the desktop behind your icons: the endless eight-player fight through random countries, full screen. Nothing else needs installing.
 
-It runs at **2× speed**, **zoomed out to 75%** (a third more of the battlefield on the desktop), at **30 frames a second**, and with a lighter enemy and particle budget than the site.
+The defaults:
 
-## Install it
+- **2× speed**
+- **zoomed out to 75%** (a third more of the battlefield on the desktop)
+- **30 frames a second**
+- a lighter enemy and particle budget than the site
 
-The finished wallpaper is in `dist/`: one self-contained `index.html`, plus the files the wallpaper apps read. `PixelBattle-Lively.zip` is the same thing zipped.
+## Using it
 
-### Lively Wallpaper (free)
+The finished wallpaper is `release/PixelBattle/` (also zipped as `release/PixelBattle.zip`). Copy that folder anywhere, keep its files together, and run `PixelBattle.exe`.
 
-1. Install **Lively Wallpaper** from the Microsoft Store, or from [rocksdanister.github.io/lively](https://rocksdanister.github.io/lively/).
-2. Drag `PixelBattle-Lively.zip` onto Lively's window.
-   - Or click **+** (Add wallpaper), **Browse**, and pick `dist/index.html`.
-3. Click **Pixel Battle** in the library to set it.
+- **The tray icon** (the ^ by the clock) has its menu:
+  - Pause
+  - Speed (1×, **2×**, 4×)
+  - Zoom (100%, **75%**, 50%)
+  - Frame rate (20, **30**, 60)
+  - Screens (**main**, or every screen)
+  - Clicks
+  - Sleep on battery
+  - Start with Windows
+  - New battle
+  - **Exit**, which puts your own wallpaper back
+- **Click the desktop** to call in a blast there. **Hold** the button for a barrage.
+- **From a script or shortcut:**
+  - `PixelBattle.exe --exit` closes the running one.
+  - `PixelBattle.exe --selftest` runs it for a few seconds and writes `selftest.log`, showing where it attached and what the page reported.
+- **Settings** are kept in `%LOCALAPPDATA%\PixelBattle\settings.txt`.
 
-To change its settings, open the wallpaper's **⋯** menu and choose **Customise**. You can change:
+It runs only on what comes with Windows 10 and 11:
 
-- the speed (1×, **2×**, 4×);
-- the zoom (50–100%, **75%**);
-- the frame rate (**30**, or 60);
-- whether clicking the desktop calls in a blast.
+- **the .NET Framework 4.8**, which the app runs on;
+- **WebView2**, the Edge engine, which shows the battle's page (`battle/index.html`).
 
-### Wallpaper Engine (Steam)
+The Microsoft WebView2 DLLs that talk to it are in the folder.
 
-1. Click **Open Wallpaper**, then **Open from File**.
-2. Pick `dist/index.html`.
-
-The same settings are in its properties panel. It also respects Wallpaper Engine's own frame-rate limit.
-
-## Playing with it
-
-If the wallpaper app passes mouse input to the desktop, you can interact with the battle:
-
-- **Click** anywhere to call in a blast there.
-- **Hold** the button for an artillery barrage.
-
-In Lively, this depends on its **Wallpaper → Input** setting being on (mouse).
+It handles both desktop layouts: the classic one (up to Windows 11 23H2) and the "raised" one from 24H2 on. It also comes back by itself if Explorer restarts or the screens change.
 
 ## Going easy on the machine
 
-On this machine the wallpaper measured:
+Measured on this PC (2880×1800 screen, 16-thread CPU):
 
-| Screen | CPU (one core) | Main-thread time per frame |
+| State | CPU | Memory |
 |---|---|---|
-| 1920×1080 | about 10% | about 3.3 ms |
-| 2560×1440 | about 11% | about 3.7 ms |
+| **Asleep** | about 0.2% of one core | about 330 MB |
+| **On show** | about 38% of one core (about 2.4% of the whole CPU), at 30 frames a second | about 540 MB |
 
-It's lighter than that whenever it can't be seen, because it stops drawing when the wallpaper app hides it. The scene is drawn small and the graphics card just scales it up, so it costs the GPU very little.
+It's asleep whenever a maximised or full-screen window covers its screen, while the PC is locked, and on battery (if ticked). While asleep its page is suspended and it draws nothing.
 
-To make it stop entirely when you're not looking at the desktop, set these in **Lively → Settings → Performance**:
+Memory is across the WebView2 engine's processes: the browser, the GPU process and the page.
 
-- **Another app is fullscreen** → *Pause*
-- **Another app is focused** → *Pause*, if you'd rather it only runs on an empty desktop
-- **On battery** → *Pause*
+What keeps it light:
 
-Wallpaper Engine has the same options under **Settings → Performance**.
+- **Frames only when due:** it asks for a frame only when one's due, not for every one a 120 Hz display could show.
+- **Software drawing:** it draws in software, so the GPU gets one finished picture a frame, not thousands of little pieces.
+- **Lighter budget:** fewer enemies and particles than the site.
+- **Lower frame rates:** 20 fps in the tray menu lightens it further.
 
 ## Rebuilding
 
@@ -63,9 +65,15 @@ The battle's code lives in `../Site 2/src`. The wallpaper is built straight from
 
 ```sh
 npm install
-npm run build     # builds dist/ and PixelBattle-Lively.zip; checks the page runs off the disk without errors and takes its preview
-npm run measure   # how hard it works: frames a second and CPU (npm run measure -- 2560 1440 30 for another screen size)
-npm run dev       # the wallpaper in a browser tab, live-reloading
+npm run build     # the page (dist/index.html), then release/PixelBattle/ and its zip
+npm run measure   # how hard the page works in Chrome (npm run measure -- 2560 1440 30 for another screen)
+npm run dev       # the page in a browser tab, live-reloading
 ```
 
-The defaults (speed, zoom, frame rate, budget) are at the top of `src/main.tsx` and in `src/shims/device.ts`.
+What the build does:
+
+- **The page:** `vite build` builds it, and `scripts/pack.mjs` inlines it into one file and checks it runs.
+- **The app:** `scripts/build-exe.mjs` compiles `host/PixelBattle.cs` with the C# compiler that comes with Windows (.NET Framework 4). So building needs nothing installed beyond Node either.
+- **WebView2 SDK:** Microsoft's SDK is downloaded from nuget.org on the first build and kept in `host/.webview2`.
+
+The page's defaults are at the top of `src/main.tsx` and in `src/shims/device.ts`. The app's are in the `Settings` class in `host/PixelBattle.cs`.

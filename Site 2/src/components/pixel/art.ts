@@ -225,11 +225,18 @@ export function mix(a: string, b: string, t: number) {
 }
 
 /** A canvas and its 2D context. */
+/**
+ * How the scene's canvases are drawn. On the GPU by default; the wallpaper draws them in software
+ * (`willReadFrequently`), which costs less for a canvas this small drawn in thousands of little
+ * pieces: the GPU then only gets the finished frame, not every piece of it.
+ */
+export const canvasOptions: CanvasRenderingContext2DSettings = {};
+
 export function makeCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
-  const x = c.getContext("2d")!;
+  const x = c.getContext("2d", canvasOptions)!;
   x.imageSmoothingEnabled = false;
   return [c, x];
 }
