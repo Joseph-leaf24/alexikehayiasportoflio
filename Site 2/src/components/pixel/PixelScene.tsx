@@ -347,6 +347,7 @@ export default function PixelScene() {
     let H = 1;
     /** The zoom the view was last sized for */
     let zoomed = 0;
+    let scaleK = 1;
     let horizon = HORIZON;
     let scale = 1;
     let dpr = 1;
@@ -367,7 +368,10 @@ export default function PixelScene() {
       const base = Math.max(2, Math.round((vh * dpr) / TARGET_ROWS));
       const least = Math.max(1, Math.ceil((vh * dpr) / 1000), Math.ceil((vw * dpr) / (RING * TILE - 520)));
       const steps = Math.max(0, Math.min(sceneState.zoom, base - least));
-      scale = base - steps;
+      // (and by a fraction more or less, if asked: whole pixels where that comes out near enough)
+      const want = Math.max(1, (base - steps) * sceneState.scaleK);
+      scale = Math.abs(want - Math.round(want)) < 0.12 ? Math.round(want) : want;
+      scaleK = sceneState.scaleK;
       // (as far as this screen can go: so one press of + always zooms back in)
       sceneState.zoom = zoomed = steps;
       window.dispatchEvent(new CustomEvent("scenezoom", { detail: { pct: Math.round((scale / base) * 100), canIn: steps > 0, canOut: base - steps > least } }));
@@ -2475,7 +2479,7 @@ export default function PixelScene() {
       }
       g.intensity = intensity();
       g.endless = sceneState.endless;
-      if (sceneState.zoom !== zoomed) resize();
+      if (sceneState.zoom !== zoomed || sceneState.scaleK !== scaleK) resize();
       const hz = horizonFor();
       if (hz !== horizon) {
         // (the camera eases over to the new framing; the sky's bands follow it)
@@ -2611,6 +2615,8 @@ export default function PixelScene() {
         return;
       }
       if (!game) start();
+      // (capped, if it's been asked to go easy: the wallpaper)
+      if (sceneState.maxFps > 0 && ms - lastFrame < 1000 / sceneState.maxFps - 2) return;
       // (someone in the spectator space is watching: keep the full frame rate however long they sit there)
       const busy = ms - lastInput < IDLE_MS || sceneState.press || sceneState.transition || sceneState.watching;
       if (!busy && ms - lastFrame < 30) return;

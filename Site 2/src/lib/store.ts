@@ -141,6 +141,10 @@ export const sceneState = {
   /** The visitor paused the scene, and how fast it plays (0.5×–2×), from the scene controls. */
   paused: false,
   speed: 1,
+  /** Most frames a second the scene draws (0: as many as the display does). The wallpaper caps it, to go easy on the machine. */
+  maxFps: 0,
+  /** How big the scene's pixels are, against the usual (0.75: zoomed out by a quarter). The wallpaper sets it. */
+  scaleK: 1,
   /** Endless: the levels run on from biome to biome, with no finale and no "Level complete". */
   endless: false,
   /** Zoomed out this many steps (0: the normal view): more of the battlefield, in smaller pixels. */

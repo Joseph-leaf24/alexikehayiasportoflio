@@ -1,0 +1,19 @@
+/* The scene full screen, nothing else: its low-resolution canvas scaled up with hard pixel edges */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05060f;
+}
+.pixel-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #05060f;
+}
+.pixel-canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
