@@ -2209,6 +2209,91 @@ add("headframe", 22, 40, MT, () => {
   B(14, 28, 8, 12, "#8a3e2c", "#a24c36", "#5a2414");
   R(16, 31, 2, 2, YLL);
 }, { lights: [[17, 32, "#ffd479", 0]] });
+add("carttipped", 16, 9, MK, () => {
+  // A mine cart over on its side, its load spilled out in front of it
+  B(4, 0, 7, 8, "#6a5a4a", "#8a7a6a", "#3a2a20");
+  R(4, 3, 7, 1, MK);
+  wheel(12, 2, 1.6);
+  wheel(12, 6, 1.6);
+  O(2, 7, 2.2, "#3a3a44");
+  for (const [x, y, col] of [[1, 6, "#c8a040"], [3, 7, "#5a5a64"], [0, 8, "#2a2a30"]] as const) P(x, y, col);
+});
+add("cartcoal", 14, 10, MK, () => {
+  // A mine cart heaped with coal
+  for (let x = 1; x < 13; x++) R(x, 2 - Math.round(Math.sin((x / 12) * Math.PI) * 2), 1, 3, x % 3 ? "#1e1e24" : "#3a3a44");
+  P(5, 0, "#5a5a64");
+  B(0, 2, 14, 6, "#5a4a3a", "#7a6a5a", "#2a1e18");
+  R(0, 4, 14, 1, MK);
+  wheel(3, 8, 1.6);
+  wheel(10, 8, 1.6);
+});
+add("railbuffer", 8, 8, WK, () => {
+  // The end of the line: a timber buffer stop with a striped board
+  R(0, 2, 8, 3, "#c8302a");
+  for (let x = 1; x < 8; x += 3) R(x, 2, 1, 3, "#f0f0e8");
+  R(1, 5, 1, 3, WK);
+  R(6, 5, 1, 3, WK);
+  Ln(1, 5, 6, 7, WD);
+  R(0, 1, 8, 1, WK);
+});
+add("dynamite", 12, 8, RD, () => {
+  // A crate of dynamite, the lid off: red sticks and a fuse
+  B(0, 3, 12, 5, WD, WL, WK);
+  R(3, 5, 6, 1, RD);
+  for (let x = 2; x < 10; x += 2) R(x, 1, 2, 2, x % 4 ? "#e0402a" : RD);
+  Ln(9, 1, 11, 0, "#d8c8a0");
+  P(11, 0, YLL);
+}, { boom: 22, lights: [[11, 0, "#ffd479", 6]] });
+add("winch", 22, 18, "#8a3e2c", () => {
+  // A winding house: a brick shed with the drum the shaft's cable winds onto, a lit window
+  B(0, 4, 22, 14, "#8a3e2c", "#a24c36", "#5a2414");
+  R(0, 2, 22, 2, MK);
+  R(1, 1, 20, 1, ML);
+  O(8, 11, 4, MK);
+  O(8, 11, 2.4, "#5a5a64");
+  P(8, 11, ML);
+  Ln(8, 7, 21, 4, BK);
+  R(15, 8, 4, 4, "#1e1e24");
+  R(16, 9, 2, 2, YLL);
+  R(14, 14, 6, 4, WK);
+}, { lights: [[17, 10, "#ffd479", 0]], smoke: [[3, 2]] });
+add("orebin", 18, 22, WD, () => {
+  // An ore bin on timber legs, a chute down out of the bottom of it, ore heaped inside
+  for (let x = 1; x < 17; x++) R(x, 1 - Math.round(Math.sin((x / 16) * Math.PI) * 1.5), 1, 2, x % 4 ? "#5a5a64" : "#c8a040");
+  B(0, 2, 18, 9, WD, WL, WK);
+  for (let x = 4; x < 18; x += 5) R(x, 2, 1, 9, WK);
+  R(6, 11, 6, 2, WK);
+  Ln(9, 13, 13, 18, MT);
+  Ln(10, 13, 14, 18, ML);
+  R(1, 11, 2, 11, WK);
+  R(15, 11, 2, 11, WK);
+  Ln(3, 12, 15, 20, WK);
+});
+add("minecage", 12, 16, MT, () => {
+  // The cage that rides the shaft, hanging on its cable
+  R(5, 0, 2, 4, BK);
+  R(0, 4, 12, 1, MK);
+  R(0, 15, 12, 1, MK);
+  for (let x = 0; x < 12; x += 3) R(x, 5, 1, 10, ML);
+  R(11, 5, 1, 10, ML);
+  for (let y = 7; y < 15; y += 4) R(0, y, 12, 1, MT);
+  R(4, 9, 3, 6, "#3a3a44");
+  P(5, 9, "#e8c088");
+}, { hang: true });
+add("drillrig", 14, 14, YL, () => {
+  // A rock drill on its tripod, its bit at the face, the air line coiled beside it
+  Ln(3, 13, 7, 3, MK);
+  Ln(11, 13, 7, 3, MK);
+  B(4, 1, 7, 4, YL, YLL, "#a07a10");
+  R(0, 2, 4, 2, MT);
+  R(0, 3, 1, 1, ML);
+  O(11, 11, 2.5, BK);
+  O(11, 11, 1.4, "#00000000");
+});
+add("timbers", 14, 6, WD, () => {
+  // A stack of pit timbers waiting to go down
+  for (let y = 0; y < 3; y++) for (let x = (y % 2) * 2; x < 14; x += 4) B(x, 4 - y * 2, 4, 2, WD, WL, WK);
+});
 add("runwaylight", 4, 3, YL, () => {
   R(0, 1, 4, 2, MK);
   R(1, 0, 2, 1, YLL);
@@ -2259,6 +2344,293 @@ add("windsock", 12, 22, OR, () => {
   for (let k = 0; k < 10; k++) R(1 + k, 2 + Math.floor(k / 4), 1, 4 - Math.floor(k / 4), k % 4 < 2 ? OR : WH);
   R(0, 21, 3, 1, MK);
 });
+
+/* ================================================================== */
+/* The city's streets and its metro                                    */
+/* ================================================================== */
+add("newsstand", 14, 14, GN, () => {
+  // A green newsstand, its shutters up, papers and magazines along the front
+  B(0, 2, 14, 12, GN, GNL, GNK);
+  R(0, 0, 14, 2, GNK);
+  R(1, 4, 12, 5, "#1e2a1e");
+  for (let x = 2; x < 12; x += 2) R(x, 5, 1, 3, [WH, RD, YL, BLL, PK][(x >> 1) % 5]);
+  R(1, 10, 12, 2, WD);
+  for (let x = 2; x < 12; x += 3) R(x, 9, 2, 1, [WH, YLL, RL][x % 3]);
+});
+add("foodtruck", 28, 16, YL, () => {
+  // A food truck, its serving hatch open under an awning, a menu on the side
+  B(0, 3, 22, 10, YL, YLL, "#a07a10");
+  B(22, 6, 6, 7, YL, YLL, "#a07a10");
+  R(23, 7, 4, 3, GLS);
+  R(4, 5, 12, 5, "#3a2a20");
+  R(5, 6, 3, 2, "#e8c088");
+  R(3, 2, 14, 2, RD);
+  for (let x = 3; x < 17; x += 2) P(x, 3, WH);
+  R(17, 6, 4, 6, WH);
+  R(18, 7, 2, 1, RD);
+  R(18, 9, 2, 1, RD);
+  wheel(6, 14, 2);
+  wheel(22, 14, 2);
+}, { lights: [[8, 6, "#ffd479", 0]], smoke: [[10, 2]] });
+add("kiosk", 12, 16, BL, () => {
+  // A ticket kiosk with a window and a little roof
+  R(0, 0, 12, 3, BLK);
+  R(1, 3, 10, 13, BL);
+  R(2, 5, 8, 5, GLS);
+  R(2, 5, 8, 1, "#d8f4ff");
+  R(1, 11, 10, 1, BLK);
+  R(4, 12, 4, 4, BLK);
+}, { lights: [[6, 7, "#ffe27a", 0]] });
+add("vending", 8, 16, RD, () => {
+  // A drinks machine, lit up, rows of cans behind its glass
+  B(0, 0, 8, 16, RD, RL, RK);
+  R(1, 2, 4, 9, "#1e1e24");
+  for (let y = 3; y < 10; y += 2) for (let x = 1; x < 5; x++) P(x, y, [BLL, YL, GNL, WH][(x + y) % 4]);
+  R(6, 3, 1, 4, WH);
+  R(1, 12, 5, 2, BK);
+}, { lights: [[2, 5, "#e8f4ff", 0]] });
+add("metrosign", 8, 22, BL, () => {
+  // The way down to the metro: a pole with its roundel on top
+  R(3, 8, 2, 14, MK);
+  O(4, 4, 3.8, RD);
+  O(4, 4, 2.6, WH);
+  R(1, 3, 7, 3, BL);
+  P(2, 4, WH);
+  P(4, 4, WH);
+  P(6, 4, WH);
+}, { lights: [[4, 4, "#ffffff", 0]] });
+add("metromap", 16, 10, WH, () => {
+  // The map of the lines, on the wall
+  B(0, 0, 16, 10, WH, "#ffffff", WG);
+  Ln(1, 7, 14, 2, RD);
+  Ln(1, 3, 14, 6, BL);
+  Ln(2, 5, 13, 5, GN);
+  for (const [x, y] of [[4, 6], [8, 4], [11, 5], [6, 5]] as const) R(x, y, 2, 2, BK);
+}, { wall: true });
+add("arrivalboard", 20, 8, BK, () => {
+  // The departure board over the platform, its amber lines
+  R(9, 0, 1, 2, MK);
+  B(0, 2, 20, 6, "#141418", MK, MK);
+  for (let x = 2; x < 18; x += 2) P(x, 4, YL);
+  for (let x = 2; x < 12; x += 2) P(x, 6, YL);
+  P(15, 6, "#7aff6a");
+}, { hang: true, lights: [[4, 4, "#ffb020", 0], [14, 4, "#ffb020", 0]] });
+
+/* ================================================================== */
+/* Railways and works                                                  */
+/* ================================================================== */
+add("hopper", 40, 14, "#4a4a54", railcar("#4a4a54", "#6a6a74", "#2a2a30", () => {
+  // An open hopper wagon heaped with coal, its chutes under it
+  for (let x = 2; x < 38; x++) R(x, 1 - Math.round(Math.sin((x / 36) * Math.PI) * 1.5), 1, 2, x % 3 ? "#1e1e24" : "#3a3a44");
+  for (const x of [8, 20, 32]) R(x - 2, 6, 4, 4, "#3a3a44");
+}));
+add("signalgantry", 44, 34, MT, () => {
+  // A steel gantry over the tracks, a signal for each line on it
+  R(1, 4, 2, 30, MT);
+  R(41, 4, 2, 30, MT);
+  R(0, 2, 44, 3, ML);
+  R(0, 5, 44, 1, MK);
+  for (let x = 4; x < 40; x += 4) Ln(x, 5, x + 4, 2, MK);
+  for (const x of [10, 22, 34]) {
+    B(x, 6, 5, 9, BK, MK, BK);
+    O(x + 2, 8, 1.2, "#ff3b3b");
+    O(x + 2, 12, 1.2, "#2a5a2a");
+  }
+}, { lights: [[12, 8, "#ff3b3b", 0.8], [24, 12, "#5aff6a", 0], [36, 8, "#ff3b3b", 0.6]] });
+add("railtunnel", 30, 30, "#7a7a84", () => {
+  // A tunnel mouth: a stone portal, its arch, the dark of the tunnel in it
+  B(0, 0, 30, 30, "#7a7a84", "#9a9aa4", "#4a4a54");
+  for (let y = 3; y < 30; y += 4) R(0, y, 30, 1, "#5a5a64");
+  O(15, 16, 11, "#0d0b14");
+  R(4, 16, 22, 14, "#0d0b14");
+  O(15, 16, 9, "#1a1822");
+  R(6, 16, 18, 14, "#1a1822");
+  R(10, 1, 10, 3, "#5a5a64");
+});
+add("watercrane", 14, 26, MT, () => {
+  // A water crane for the engines: a column, its arm and the leather hose hanging off it
+  R(5, 4, 4, 22, MT);
+  R(4, 23, 6, 3, MK);
+  R(0, 2, 14, 3, ML);
+  R(0, 5, 2, 6, "#3a2a20");
+  O(7, 3, 2, MK);
+});
+add("signalbox", 24, 26, "#8a3e2c", () => {
+  // A signal box: a brick base, the cabin on it glazed all round, its lever frame inside
+  B(2, 14, 20, 12, "#8a3e2c", "#a24c36", "#5a2414");
+  B(0, 6, 24, 9, WH, "#ffffff", WG);
+  R(2, 8, 20, 4, GLS);
+  for (let x = 3; x < 22; x += 3) R(x, 10, 1, 2, RK);
+  R(0, 3, 24, 3, "#3a3a44");
+  Ln(0, 3, 12, 0, "#3a3a44");
+  Ln(23, 3, 12, 0, "#3a3a44");
+  R(10, 18, 4, 8, WK);
+}, { lights: [[6, 9, "#ffd479", 0], [16, 9, "#ffd479", 0]] });
+add("smokestack", 12, 64, "#8a3e2c", () => {
+  // A tall works chimney, brick, its iron bands, smoke pouring out of the top
+  for (let y = 0; y < 64; y++) {
+    const w = 6 + Math.round((y / 63) * 5);
+    R(6 - (w >> 1), y, w, 1, y % 4 === 0 ? "#7a3424" : "#8a3e2c");
+  }
+  for (const y of [6, 22, 40]) R(1, y, 10, 1, MK);
+  R(3, 0, 6, 2, MK);
+}, { smoke: [[6, 0]] });
+add("gasholder", 46, 34, MT, () => {
+  // A gas holder: its tank inside a ring of lattice columns tied together at the top
+  B(4, 10, 38, 24, "#5a6a5a", "#7a8a7a", "#3a4a3a");
+  for (let y = 14; y < 34; y += 5) R(4, y, 38, 1, "#4a5a4a");
+  for (const x of [1, 15, 29, 43]) {
+    R(x, 2, 2, 32, MT);
+    for (let y = 4; y < 32; y += 6) Ln(x, y, x + 2, y + 3, MK);
+  }
+  R(0, 2, 46, 2, ML);
+  R(0, 18, 46, 1, ML);
+});
+add("factoryshed", 50, 30, "#8a3e2c", () => {
+  // A works shed: brick walls, a sawtooth roof of glazed north lights, big doors
+  B(0, 10, 50, 20, "#8a3e2c", "#a24c36", "#5a2414");
+  for (let x = 0; x < 50; x += 10) {
+    Ln(x, 10, x + 10, 2, MK);
+    R(x + 9, 2, 1, 8, MK);
+    for (let y = 3; y < 10; y++) R(x + 10 - Math.round((y - 2) * 1.25), y, 1, 1, GLS);
+  }
+  for (let x = 4; x < 46; x += 6) R(x, 14, 3, 4, "#1e1e24");
+  R(20, 20, 10, 10, MK);
+  R(25, 20, 1, 10, ML);
+}, { lights: [[5, 15, "#ffd479", 0], [41, 15, "#ffd479", 0]] });
+add("storagetank", 30, 24, WG, () => {
+  // A big storage tank: a white cylinder, a ladder spiralling up it, a walkway round the top
+  B(0, 4, 30, 20, WG, WH, GY);
+  for (let y = 8; y < 24; y += 5) R(0, y, 30, 1, "#b0aca4");
+  O(15, 4, 3, WG);
+  R(0, 3, 30, 1, MK);
+  for (let k = 0; k < 18; k++) P(4 + k, 22 - k, MK);
+  R(8, 12, 12, 4, RD);
+  R(9, 13, 10, 2, WH);
+});
+add("pylon", 22, 60, MT, () => {
+  // A pylon carrying the power lines across the works
+  Ln(2, 59, 9, 2, MT);
+  Ln(19, 59, 12, 2, MT);
+  for (let y = 8; y < 58; y += 8) {
+    const a = 2 + Math.round(((59 - y) / 57) * 7);
+    Ln(a, y, 21 - a, y + 8, MK);
+    Ln(21 - a, y, a, y + 8, MK);
+  }
+  R(0, 8, 22, 2, MT);
+  R(3, 18, 16, 2, MT);
+  for (const x of [0, 21, 3, 18]) R(x, x < 3 || x > 18 ? 10 : 20, 1, 3, "#c8c4bc");
+});
+add("pipebridge", 48, 24, MT, () => {
+  // A pipe bridge: a truss on two towers, three pipes along it
+  for (const x of [2, 44]) R(x, 6, 3, 18, MT);
+  R(0, 4, 48, 2, ML);
+  for (let x = 2; x < 46; x += 6) Ln(x, 4, x + 6, 10, MK);
+  R(0, 10, 48, 1, MK);
+  R(0, 0, 48, 2, "#c8302a");
+  R(0, 2, 48, 1, "#5a7a6a");
+  R(0, 11, 48, 2, "#8a8a92");
+});
+add("coalheap", 20, 8, "#2a2a30", () => {
+  // A heap of coal
+  for (let x = 0; x < 20; x++) {
+    const h = Math.round(Math.sin(((x + 0.5) / 20) * Math.PI) * 7) + 1;
+    R(x, 8 - h, 1, h, x % 3 ? "#1e1e24" : "#3a3a44");
+  }
+  for (const [x, y] of [[6, 3], [11, 2], [14, 4]] as const) P(x, y, "#5a5a64");
+});
+
+/* ================================================================== */
+/* Parks, plants and the expressway                                    */
+/* ================================================================== */
+add("gazebo", 24, 20, WH, () => {
+  // A bandstand: a domed roof on its slender columns, a rail round its floor
+  for (let x = 2; x < 22; x++) R(x, 4 - Math.round(Math.sin(((x - 2) / 19) * Math.PI) * 3), 1, 3, x % 4 ? GN : GNK);
+  R(1, 6, 22, 2, WH);
+  P(12, 0, YL);
+  for (const x of [2, 8, 15, 21]) R(x, 8, 1, 9, WH);
+  R(0, 17, 24, 3, WK);
+  R(0, 17, 24, 1, WL);
+  for (let x = 1; x < 23; x += 2) R(x, 14, 1, 3, WG);
+  R(0, 13, 24, 1, WH);
+});
+add("playground", 28, 16, RD, () => {
+  // A playground: a swing on its frame, a slide down off a little tower
+  Ln(1, 15, 6, 1, MT);
+  Ln(11, 15, 6, 1, MT);
+  R(4, 0, 6, 1, MT);
+  Ln(5, 1, 5, 9, ML);
+  Ln(8, 1, 8, 9, ML);
+  R(4, 9, 5, 1, RD);
+  R(16, 5, 5, 11, BL);
+  R(16, 4, 5, 1, YL);
+  for (let y = 7; y < 15; y += 2) R(15, y, 1, 1, MT);
+  Ln(21, 6, 27, 14, RD);
+  Ln(21, 7, 27, 15, RL);
+});
+add("flowerbed", 14, 5, PK, () => {
+  // A raised bed of flowers
+  B(0, 2, 14, 3, "#7a5a3a", "#9a7a5a", "#4a3a24");
+  for (let x = 1; x < 13; x++) P(x, 1, x % 2 ? GNK : GN);
+  for (let x = 1; x < 13; x += 2) P(x, 0, [PK, YL, RD, WH, PU][(x >> 1) % 5]);
+});
+add("icecreamcart", 16, 14, PK, () => {
+  // An ice-cream cart: its striped canopy, the freezer box, a cone on top
+  for (let x = 0; x < 16; x += 2) R(x, 0, 2, 3, (x >> 1) % 2 ? PK : WH);
+  R(7, 3, 1, 4, MT);
+  B(1, 7, 14, 6, WH, "#ffffff", WG);
+  R(3, 9, 10, 2, PK);
+  wheel(4, 13, 1.6);
+  wheel(12, 13, 1.6);
+});
+add("picnictable", 14, 7, WD, () => {
+  R(0, 2, 14, 2, WD);
+  R(0, 2, 14, 1, WL);
+  Ln(2, 4, 4, 7, WK);
+  Ln(12, 4, 10, 7, WK);
+  R(0, 5, 3, 1, WD);
+  R(11, 5, 3, 1, WD);
+});
+add("clarifier", 30, 12, WG, () => {
+  // A clarifier: a round concrete tank, its bridge turning slowly over the water
+  B(0, 4, 30, 8, WG, WH, GY);
+  R(2, 4, 26, 2, "#4a8ab0");
+  R(2, 4, 26, 1, "#7ab0d0");
+  R(14, 0, 2, 5, MT);
+  R(2, 2, 26, 1, MT);
+  for (let x = 3; x < 28; x += 3) P(x, 1, ML);
+});
+add("reactordome", 40, 40, WG, () => {
+  // A reactor's containment dome, its cylinder walls and ring beams, a hatch
+  O(20, 18, 17, WG);
+  R(3, 18, 34, 22, WG);
+  for (let y = 18; y < 40; y += 6) R(3, y, 34, 1, GY);
+  O(20, 18, 15, WH);
+  R(5, 18, 30, 1, WH);
+  R(16, 32, 8, 8, MT);
+  R(17, 33, 6, 6, MK);
+  R(2, 37, 36, 3, GY);
+}, { lights: [[20, 3, "#ff3b3b", 1]] });
+add("hwysign", 40, 14, GN, () => {
+  // An expressway sign over the road: white letters on green, its posts
+  R(4, 9, 1, 5, MT);
+  R(35, 9, 1, 5, MT);
+  B(0, 0, 40, 10, "#1e6a3a", "#2e8a4a", "#124a2a");
+  R(1, 1, 38, 1, WH);
+  for (let x = 4; x < 36; x += 2) R(x, 4, 1, (x * 7) % 3 ? 3 : 2, WH);
+  R(30, 3, 6, 4, WH);
+  R(32, 4, 2, 2, "#1e6a3a");
+});
+add("buswreck", 40, 13, "#6a4a20", () => {
+  // A burnt-out bus or lorry, its windows gone, its paint blistered black
+  B(0, 1, 40, 9, "#3a3430", "#5a4a40", "#1e1a18");
+  for (let x = 3; x < 37; x += 6) R(x, 3, 4, 4, "#0d0b14");
+  for (let x = 2; x < 38; x += 5) P(x, 1, "#8a4a2a");
+  R(0, 10, 40, 1, MK);
+  for (const x of [6, 32]) {
+    O(x, 11, 1.8, "#1e1e24");
+  }
+}, { flames: [[10, 1], [28, 2]], smoke: [[20, 0]] });
 
 export const CATALOG = E;
 /** Paint a catalogue entry into a context (art.ts calls this once per asset, lazily). */

@@ -114,6 +114,8 @@ export const blankIntel = () => ({
   uptime: 0,
   weather: "",
   light: "",
+  /** How hard the fighting is right now: a lull, a skirmish, an assault, an onslaught */
+  wave: "",
 });
 
 /** Written by the page / input handlers and read by the scene on every frame (not reactive). */

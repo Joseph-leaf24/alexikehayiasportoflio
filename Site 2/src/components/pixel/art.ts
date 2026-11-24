@@ -5,6 +5,29 @@
  * and a 3×5 pixel font. Everything is painted pixel by pixel at start-up: no image files.
  */
 import {
+  REINFORCED,
+  AMETHYST,
+  COBBLE,
+  COPPER,
+  CORAL,
+  DIAMOND,
+  DRYGRASS,
+  FOSSIL,
+  GLACIER,
+  LATERITE,
+  MAGMA,
+  MOSSROCK,
+  MYCELIUM,
+  OBSIDIAN,
+  PEAT,
+  PERMAFROST,
+  QUARTZ,
+  ROOTS,
+  SALT,
+  SCREE,
+  SHALE,
+  SULFUR,
+  TUFF,
   ASH,
   BAMBOO,
   BEDROCK,
@@ -160,6 +183,29 @@ export const DEBRIS_COLOR: string[] = (() => {
     [CHALK, "#e8e4d8"],
     [REDLEAF, "#d8642a"],
     [PINKLEAF, "#f0a0c8"],
+    [SHALE, "#525a68"],
+    [QUARTZ, "#e8e4ee"],
+    [OBSIDIAN, "#2a2036"],
+    [MAGMA, "#ff6a1a"],
+    [SULFUR, "#e8d040"],
+    [PERMAFROST, "#7a6a5a"],
+    [GLACIER, "#7ab8e8"],
+    [SCREE, "#8a8a8e"],
+    [PEAT, "#3a2a1c"],
+    [LATERITE, "#b85a30"],
+    [SALT, "#f0e8e8"],
+    [CORAL, "#e86a7a"],
+    [COBBLE, "#8a8a90"],
+    [FOSSIL, "#e8dcc0"],
+    [COPPER, "#4ab08a"],
+    [AMETHYST, "#a85ae8"],
+    [MYCELIUM, "#7affd8"],
+    [MOSSROCK, "#6a9a3a"],
+    [DRYGRASS, "#d8b450"],
+    [ROOTS, "#a07a50"],
+    [TUFF, "#8a7e72"],
+    [DIAMOND, "#aaf4ff"],
+    [REINFORCED, "#7a7e88"],
   ];
   for (const [k, col] of set) c[k] = col;
   return c;
@@ -454,13 +500,8 @@ function paintBlock(ctx: CanvasRenderingContext2D, kind: number, variant: number
       });
       break;
     case WATER:
-      // Deep water (PixelScene washes a see-through layer over it, so what wades in looks submerged)
-      all((x, y) => {
-        const n = r();
-        if (y === 0) return n < 0.5 ? "#4aa8d0" : "#3a90b8";
-        if (Math.sin(x * 0.9 + y * 1.7 + variant) > 0.6) return "#2e7aa0";
-        return n < 0.2 ? "#1a4e6a" : "#1e5a7a";
-      });
+      // (the scene paints the sea itself, by depth: this is just its sunlit top, for anywhere a block swatch shows)
+      all((x, y) => ((x + y + variant) % 4 === 0 ? "#3290c0" : "#4aaed2"));
       break;
     case LADDER:
       // Two rails, two rungs (they line up from block to block)
@@ -570,7 +611,7 @@ function paintBlock(ctx: CanvasRenderingContext2D, kind: number, variant: number
       });
       break;
     case GRANITE:
-      // Hard pink-grey granite, flecked: nothing breaks it
+      // Hard pink-grey granite, flecked: the toughest rock there is
       all(() => {
         const n = r();
         return n < 0.12 ? "#c8a8a8" : n < 0.22 ? "#3a3036" : n < 0.3 ? "#f0e0e0" : "#7a6a70";
@@ -623,6 +664,228 @@ function paintBlock(ctx: CanvasRenderingContext2D, kind: number, variant: number
       break;
     case LIMESTONE:
       all((x, y) => (y === 3 || y === 7 || (y < 4 ? x === 1 : x === 5) ? "#b8b098" : r() < 0.06 ? "#c8c0a8" : "#e0d8c0"));
+      break;
+    case SHALE:
+      // Thin layers, blue-grey, the odd one flaking
+      all((x, y) => {
+        const n = r();
+        const band = (y + (variant & 1)) % 3;
+        if (band === 0) return n < 0.15 ? "#6e7888" : "#3e4552";
+        if (band === 1) return n < 0.1 ? "#3e4552" : "#58606e";
+        return n < 0.12 ? "#6e7888" : "#4c5462";
+      });
+      break;
+    case QUARTZ:
+      // White rock, veined pink and grey, glittering
+      all((x, y) => {
+        const n = r();
+        if ((x + y * 2 + variant) % 7 === 0) return n < 0.5 ? "#c8a8c8" : "#b0a8b8";
+        if (n < 0.06) return "#ffffff";
+        return n < 0.2 ? "#d8d4e0" : "#ece8f2";
+      });
+      break;
+    case OBSIDIAN:
+      // Black volcanic glass, purple in its depths, a gleam across it
+      all((x, y) => {
+        const n = r();
+        if (x - y === variant * 2 - 3) return "#7a6a9a";
+        if (x - y === variant * 2 - 2 && n < 0.6) return "#4a3a6a";
+        return n < 0.08 ? "#a898d8" : n < 0.3 ? "#2a2036" : "#1a1422";
+      });
+      break;
+    case MAGMA:
+      // Dark crust over molten rock, its cracks still glowing
+      all((x, y) => {
+        const n = r();
+        const crack = Math.abs(Math.sin(x * 1.15 + y * 0.75 + variant * 1.7) + Math.sin(y * 1.3 - x * 0.4)) < 0.32;
+        if (crack) return n < 0.4 ? "#ffd23f" : n < 0.8 ? "#ff8a1a" : "#ff4a1a";
+        return n < 0.15 ? "#4a2a26" : n < 0.25 ? "#1a1012" : "#2e1c1c";
+      });
+      break;
+    case SULFUR:
+      all((_, y) => {
+        const n = r();
+        if (y === 0) return n < 0.5 ? "#fff08a" : "#f0dc50";
+        return n < 0.12 ? "#b8a020" : n < 0.2 ? "#fff08a" : n < 0.24 ? "#6a6a50" : "#e8d040";
+      });
+      break;
+    case PERMAFROST:
+      // Frozen ground: earth and stones bound in ice, frost glittering in it
+      all(() => {
+        const n = r();
+        return n < 0.14 ? "#d8ecf8" : n < 0.24 ? "#9ab8d0" : n < 0.34 ? "#5a4a3c" : n < 0.42 ? "#8a8a90" : "#7a6a5a";
+      });
+      break;
+    case GLACIER:
+      // Old blue ice, packed hard, streaked and cracked
+      all((x, y) => {
+        const n = r();
+        if ((x * 2 + y + variant * 3) % 9 === 0) return "#2a5a98";
+        if (y === (variant + 2) % 8 && n < 0.7) return "#e8f8ff";
+        return n < 0.25 ? "#5a9ad8" : n < 0.35 ? "#a8d8f8" : "#7ab8e8";
+      });
+      break;
+    case SCREE:
+      // Loose broken stones, piled
+      all((x, y) => {
+        const n = r();
+        const gap = (x + (y >> 1) * 3 + variant) % 4 === 0 && (y + x) % 3 === 0;
+        if (gap) return "#3e3e44";
+        if (y === 0 && n < 0.3) return "#b8b8bc";
+        return n < 0.25 ? "#6a6a70" : n < 0.45 ? "#a8a8ac" : n < 0.55 ? "#7a7068" : "#8a8a8e";
+      });
+      break;
+    case PEAT:
+      // Dark, fibrous bog earth
+      all((x, y) => {
+        const n = r();
+        if ((y + variant) % 3 === 0 && (x + y) % 4 !== 0 && n < 0.6) return "#5a4a2e";
+        return n < 0.2 ? "#2a1e14" : n < 0.3 ? "#4a3624" : "#3a2a1c";
+      });
+      break;
+    case LATERITE:
+      // Red tropical earth, iron nodules in it
+      all(() => {
+        const n = r();
+        return n < 0.1 ? "#d8804a" : n < 0.18 ? "#7a3018" : n < 0.34 ? "#a04a28" : "#b85a30";
+      });
+      break;
+    case SALT:
+      // A white salt crust, crystals and a flush of pink in it
+      all((x, y) => {
+        const n = r();
+        if (y === 0) return n < 0.5 ? "#ffffff" : "#f4eeee";
+        if ((x + y + variant) % 5 === 0) return "#e8c0c8";
+        return n < 0.12 ? "#ffffff" : n < 0.3 ? "#e0d0d4" : "#f0e8e8";
+      });
+      break;
+    case CORAL:
+      // Reef coral, pink and orange, full of pores, its tips paler
+      all((x, y) => {
+        const n = r();
+        if ((x * 3 + y * 5 + variant) % 7 === 0) return "#a83a4a";
+        if (y === 0 && n < 0.6) return "#ffc0a0";
+        return n < 0.3 ? "#f08a5a" : n < 0.4 ? "#ffb0c0" : "#e86a7a";
+      });
+      break;
+    case COBBLE:
+      // Rounded cobbles set in mortar
+      all((x, y) => {
+        const sx = y < 4 ? x : (x + 2) % 8;
+        if (y === 3 || y === 7 || sx === 3 || sx === 7) return "#4a4a50";
+        const n = r();
+        if ((y === 0 || y === 4) && n < 0.6) return "#b0b0b6";
+        return n < 0.2 ? "#78787e" : (variant + (sx >> 2)) % 2 ? "#8a8a90" : "#9a948c";
+      });
+      break;
+    case FOSSIL:
+      // Chalky stone with a fossil in it: an ammonite's spiral, or a fish's bones
+      all(() => (r() < 0.12 ? "#988a72" : "#a89a80"));
+      if (variant % 2 === 0)
+        for (const [x, y] of [
+          [3, 2],
+          [4, 2],
+          [5, 3],
+          [5, 4],
+          [4, 5],
+          [3, 5],
+          [2, 4],
+          [2, 3],
+          [3, 3],
+          [4, 4],
+        ])
+          dot(x, y, "#ece0c4");
+      else {
+        for (let x = 1; x < 7; x++) dot(x, 4, "#ece0c4");
+        for (const x of [2, 3, 4, 5]) {
+          dot(x, 3, "#d8ccb0");
+          dot(x, 5, "#d8ccb0");
+        }
+        dot(6, 3, "#ece0c4");
+        dot(6, 5, "#ece0c4");
+      }
+      break;
+    case COPPER:
+      // Copper ore: green malachite and orange copper in the rock
+      all(() => {
+        const n = r();
+        return n < 0.14 ? "#4ab08a" : n < 0.22 ? "#2a7a5a" : n < 0.3 ? "#d8843a" : n < 0.4 ? "#5a5e70" : "#6d7184";
+      });
+      break;
+    case AMETHYST:
+      // An amethyst geode: purple crystals growing in to its middle out of dark rock
+      all((x, y) => {
+        const d = Math.abs(x - 3.5) + Math.abs(y - 3.5);
+        const n = r();
+        if (d < 1.6) return n < 0.5 ? "#f0d0ff" : "#c88aff";
+        if (d < 3.2) return (x + y + variant) % 3 === 0 ? "#5a2a8a" : n < 0.4 ? "#b06aff" : "#8a3ad0";
+        return n < 0.3 ? "#2a2232" : "#3a3044";
+      });
+      break;
+    case MYCELIUM:
+      // The fungus that grows in the dark: a purple fuzz over the earth, spots glowing in it
+      all((x, y) => {
+        const n = r();
+        if (y === 0) return n < 0.5 ? "#8a4aaa" : "#6a3a8a";
+        if ((x * 5 + y * 3 + variant * 7) % 13 === 0) return "#7affd8";
+        if (y === 1 && n < 0.5) return "#5a2a6a";
+        return n < 0.2 ? "#2a1a2a" : "#3a2a34";
+      });
+      break;
+    case MOSSROCK:
+      // Grey rock with moss grown over its top and down its seams
+      all((x, y) => {
+        const n = r();
+        if (y === 0) return n < 0.6 ? "#7aaa4a" : "#5a8a3a";
+        if (y === 1 && n < 0.55) return "#4a7a30";
+        if ((x + variant) % 5 === 0 && n < 0.4) return "#4a7a30";
+        return n < 0.15 ? "#5a5e66" : n < 0.25 ? "#8a8e98" : "#70747e";
+      });
+      break;
+    case DRYGRASS:
+      // Grass gone gold in the sun, on its earth
+      all((_, y) => {
+        const n = r();
+        if (y === 0) return n < 0.5 ? "#f0d070" : "#d8b450";
+        if (y === 1) return n < 0.3 ? "#b89030" : "#d8b450";
+        if (y === 2 && n < 0.4) return "#a88a40";
+        return dirt();
+      });
+      break;
+    case ROOTS:
+      // Earth threaded with roots
+      all((x, y) => {
+        const cx = 3 + Math.round(Math.sin((y + variant * 2) * 0.8) * 2);
+        if (x === cx || (y === (variant * 3 + 2) % 8 && x > cx)) return r() < 0.5 ? "#a07a50" : "#c8a070";
+        return dirt();
+      });
+      break;
+    case TUFF:
+      // Volcanic tuff, ash-grey and full of holes
+      all((x, y) => {
+        const n = r();
+        if ((x * 3 + y * 7 + variant * 5) % 11 === 0) return "#4e4640";
+        return n < 0.15 ? "#6a6058" : n < 0.25 ? "#a09486" : "#8a7e72";
+      });
+      break;
+    case DIAMOND:
+      // Diamonds in the deep rock
+      all((x, y) => {
+        const n = r();
+        if ((x === 2 && y === 2) || (x === 5 && y === 5) || (x === 5 && y === 1 && variant % 2)) return "#ffffff";
+        if (Math.abs(x - 2) + Math.abs(y - 2) === 1 || Math.abs(x - 5) + Math.abs(y - 5) === 1) return "#7ae8ff";
+        return n < 0.1 ? "#3a3e50" : n < 0.4 ? "#5a5e70" : "#6d7184";
+      });
+      break;
+    case REINFORCED:
+      // Reinforced concrete: cast in panels, the steel bars showing through the face where it's chipped
+      all((x, y) => {
+        if (x === 0 || y === 0) return "#9aa0ac";
+        if (x === 7 || y === 7) return "#4e525c";
+        if ((x === 3 || y === 4) && r() < 0.55) return "#5a3e30";
+        return r() < 0.12 ? "#6a6e78" : "#7a7e88";
+      });
+      dot(2 + (variant % 3), 2, "#3a3e48");
       break;
     case BAMBOO:
       all((x, y) => {
@@ -1402,6 +1665,9 @@ const GUNS = [
   ["..........w", ".......SWWWWWwR", "..........w", ""], // crossbow
   ["", ".......SWWOOO", ".......SWWOwO", "..........OOO"], // saw-blade launcher
   ["...........WW", ".......SWWWW", "......SWW", ""], // mortar tube
+  ["", ".......SWWVVVV", ".......SWWWw", "........W"], // pulse laser, its long emitter
+  [".........XXX", ".......SWWWXXXV", ".......SWWWWWW", ".......WW...W"], // death ray: a heavy projector, its coils
+  ["", ".......SWWWXVX", ".......SWWWW", "........W"], // prism laser, the crystal at its muzzle
 ];
 /** Legs (rows 12–17): idle, four running frames, jumping. */
 const LEGS = [
@@ -2041,7 +2307,31 @@ export function drawSpider(c: Ctx, x: number, y: number, anim: number, aim: numb
  * windows, a raked funnel, a lattice mast with a radar on it, lifeboats on their davits, a flag.
  * `sink` 0..1 settles it into the water, listing.
  */
-export function drawBattleship(c: Ctx, x: number, y: number, t: number, aim: number, sink: number, hit: boolean) {
+export function drawBattleship(c: Ctx, x: number, y: number, t: number, aim: number, sink: number, hit: boolean, facing = -1) {
+  mirrored(c, x, facing, () => battleshipFacingLeft(c, x, y, t, facing > 0 ? Math.PI - aim : aim, sink, hit));
+  // The hull number near the bow, painted on after so it reads the right way round either way
+  const by = Math.round(y + Math.sin(t * 1.2) * 0.6 + sink * 22);
+  if (sink > 0) c.globalAlpha = Math.max(0, 1 - sink * 0.8);
+  const nx = facing > 0 ? x + 37 : x - 40;
+  c.fillStyle = "#f4f0e8";
+  c.fillRect(nx, by - 6, 1, 3);
+  c.fillRect(nx + 2, by - 6, 2, 1);
+  c.fillRect(nx + 2, by - 4, 2, 1);
+  c.fillRect(nx + 3, by - 6, 1, 3);
+  c.globalAlpha = 1;
+}
+
+/** Draw something made facing left, mirrored about x when it faces right. */
+function mirrored(c: Ctx, x: number, facing: number, draw: () => void) {
+  if (facing <= 0) return draw();
+  c.save();
+  c.translate(2 * x, 0);
+  c.scale(-1, 1);
+  draw();
+  c.restore();
+}
+
+function battleshipFacingLeft(c: Ctx, x: number, y: number, t: number, aim: number, sink: number, hit: boolean) {
   const by = Math.round(y + Math.sin(t * 1.2) * 0.6 + sink * 22);
   if (sink > 0) c.globalAlpha = Math.max(0, 1 - sink * 0.8);
   const hullC = hit ? "#c8ced9" : "#6a7280";
@@ -2067,12 +2357,8 @@ export function drawBattleship(c: Ctx, x: number, y: number, t: number, aim: num
   c.fillStyle = deck;
   c.fillRect(x - 52, by - 10, 106, 1);
   c.fillStyle = "#2a2e3a";
-  for (let k = -44; k < 50; k += 6) c.fillRect(x + k, by - 4, 1, 1);
-  c.fillStyle = "#f4f0e8";
-  c.fillRect(x - 40, by - 6, 1, 3);
-  c.fillRect(x - 38, by - 6, 2, 1);
-  c.fillRect(x - 38, by - 4, 2, 1);
-  c.fillRect(x - 37, by - 6, 1, 3);
+  // (portholes, skipping where the hull number goes: drawBattleship paints that on)
+  for (let k = -44; k < 50; k += 6) if (k !== -38) c.fillRect(x + k, by - 4, 1, 1);
   // Superstructure: a stepped bridge, the funnel, a lattice mast with a radar
   box2(-10, 22, 19, 9, hullC);
   box2(-7, 16, 26, 7, deck);
@@ -2118,8 +2404,10 @@ export function drawBattleship(c: Ctx, x: number, y: number, t: number, aim: num
     for (let k = 0; k < 4; k++) c.fillRect(x + ax - 2 + k, by - 17 - k, 1, 4);
   }
   if (!sink) {
+    // The bow wave, and the wake churning out behind the stern
     c.fillStyle = "#e8f8ff";
     for (let k = 0; k < 10; k++) if (Math.sin(t * 6 + k) > 0) c.fillRect(x - 56 - k, by + 1 - (k % 2), 1, 1);
+    for (let k = 0; k < 18; k++) if (Math.sin(t * 5 - k * 0.9) > 0.1) c.fillRect(x + 54 + k * 2, by + 1 - (k % 3 === 0 ? 1 : 0), k < 8 ? 2 : 1, 1);
   }
   c.globalAlpha = 1;
 }
@@ -3191,13 +3479,504 @@ export function drawHeliType(c: Ctx, x: number, y: number, t: number, type: Heli
   }
 }
 
-export type PlaneType = "bomber" | "fighter" | "attacker" | "transport";
-/** Jets: a big four-engined bomber, a swept-wing fighter, a straight-winged ground-attack plane. Enemy ones fly left, allied ones right. */
+/**
+ * The squad's gunship: a heavy armoured assault helicopter, facing right. A glazed nose with a
+ * chin cannon under it (aimed at `aim`), a boxy armoured cabin with its side door open and the
+ * squad crowded in it in their own colours (`crew`), stub wings with rocket pods and missiles,
+ * twin engines on top, a long tail boom with its fin and tail rotor, skids. `rope`: a rope
+ * ladder hanging from the door that long (px), while it waits for them to board.
+ */
+export function drawAllyGunship(c: Ctx, x: number, y: number, t: number, aim: number, hit: boolean, crew: string[], rope: number) {
+  // (it's under fire all the way: a hit only brightens it, or it would never stop flashing white)
+  const P = SIDE.ally;
+  const body = hit ? mix(P.body, "#ffffff", 0.35) : P.body;
+  const hi = hit ? "#ffffff" : P.hi;
+  const dark = hit ? mix(P.dark, "#ffffff", 0.3) : P.dark;
+  if (rope > 0) {
+    // (drawn first: it hangs behind the skids)
+    c.fillStyle = "#8a6a3a";
+    c.fillRect(x - 3, y + 8, 1, rope);
+    c.fillRect(x + 2, y + 8, 1, rope);
+    c.fillStyle = "#b08a4a";
+    for (let k = 3; k < rope; k += 3) c.fillRect(x - 2, y + 8 + k, 4, 1);
+  }
+  framed(c, x, true, () => {
+    // Tail boom, fin and tail rotor (back, to the right in its own frame)
+    hull(c, 14, y - 3, 22, 4, body, hi);
+    hull(c, 34, y - 11, 4, 9, body, hi);
+    hull(c, 30, y + 1, 6, 2, dark);
+    c.fillStyle = Math.floor(t * 4) % 2 ? "#ff3b3b" : "#6a1a1a";
+    c.fillRect(35, y - 12, 2, 1);
+    c.fillStyle = INK;
+    if (Math.sin(t * 46) > 0) c.fillRect(38, y - 13, 1, 11);
+    else c.fillRect(33, y - 7, 11, 1);
+    // Engines on top, their exhausts
+    hull(c, -9, y - 11, 20, 4, dark);
+    hull(c, -4, y - 13, 9, 2, dark);
+    c.fillStyle = "#2a2a30";
+    c.fillRect(11, y - 10, 2, 2);
+    // The cabin, armoured
+    hull(c, -16, y - 7, 31, 14, body, hi);
+    c.fillStyle = dark;
+    for (let k = -12; k < 14; k += 6) c.fillRect(k, y + 5, 3, 1);
+    // Its door open, the squad in it (and a door gun)
+    c.fillStyle = "#141820";
+    c.fillRect(-6, y - 5, 13, 9);
+    crew.slice(0, 4).forEach((col, i) => {
+      const cx = 4 - i * 3;
+      c.fillStyle = col;
+      c.fillRect(cx, y - 1, 2, 4);
+      c.fillRect(cx, y - 4, 2, 1);
+      c.fillStyle = "#e0a878";
+      c.fillRect(cx, y - 3, 2, 2);
+    });
+    if (crew.length) {
+      c.fillStyle = "#3a3f4f";
+      c.fillRect(-9, y + 1, 4, 1);
+    }
+    // The nose, glazed, and the chin turret under it
+    hull(c, -27, y - 5, 12, 10, body, hi);
+    c.fillStyle = "#8fd3ff";
+    c.fillRect(-26, y - 4, 7, 4);
+    c.fillStyle = "#d8f4ff";
+    c.fillRect(-26, y - 4, 2, 1);
+    hull(c, -24, y + 5, 6, 3, "#3a3f4f");
+    // Stub wings: a rocket pod and a pair of missiles under each
+    hull(c, -9, y + 6, 18, 2, dark);
+    hull(c, -10, y + 9, 7, 3, "#3a3f4f");
+    c.fillStyle = "#c8302a";
+    c.fillRect(-11, y + 9, 1, 3);
+    hull(c, 1, y + 9, 8, 2, "#c8ced9");
+    c.fillStyle = "#c8302a";
+    c.fillRect(0, y + 9, 1, 2);
+    // Skids
+    c.fillStyle = INK;
+    c.fillRect(-15, y + 13, 26, 1);
+    c.fillRect(-10, y + 8, 1, 5);
+    c.fillRect(7, y + 8, 1, 5);
+    star(c, 10, y - 1);
+    // The main rotor, a blur
+    c.fillStyle = INK;
+    c.fillRect(0, y - 15, 2, 3);
+    const k = Math.abs(Math.round(Math.sin(t * 50) * 30));
+    c.fillRect(1 - k - 1, y - 16, k * 2 + 3, 3);
+    c.fillStyle = "#9aa1b0";
+    c.fillRect(1 - k, y - 15, k * 2 + 1, 1);
+    c.globalAlpha = 0.25;
+    c.fillStyle = INK;
+    c.fillRect(-30, y - 15, 62, 1);
+    c.globalAlpha = 1;
+  });
+  // The chin cannon, aimed in the world
+  barrel(c, x + 21, y + 7, aim, 7, "#5a6070");
+  c.fillStyle = "#5ab0ff";
+  c.fillRect(x - 2, y - 22, 5, 1);
+  c.fillRect(x - 1, y - 21, 3, 1);
+}
+
+/** Freight locomotive liveries: body, its light edge, its dark */
+const LIVERY: [string, string, string][] = [
+  ["#c8302a", "#e8584a", "#7a1a16"],
+  ["#e8b020", "#ffd85a", "#8a6a10"],
+  ["#3a6ab0", "#7ab0e8", "#2a4a80"],
+  ["#4a8a3a", "#6aaa4a", "#2c5a24"],
+];
+const CONTAINER = ["#c8302a", "#3a6ab0", "#e8b020", "#4a8a3a", "#8a8a92", "#d8682a"];
+/** A pair of wheels on a bogie, turning. */
+function bogie(c: Ctx, x: number, y: number, anim: number) {
+  c.fillStyle = INK;
+  c.fillRect(x - 1, y - 5, 12, 2);
+  for (const wx of [x + 2, x + 8]) {
+    c.fillStyle = INK;
+    disc(c, wx, y - 2, 2.6);
+    c.fillStyle = "#2a2a30";
+    disc(c, wx, y - 2, 1.6);
+    c.fillStyle = "#8a8a92";
+    c.fillRect(Math.round(wx + Math.cos(anim + wx) * 1.4), Math.round(y - 2 + Math.sin(anim + wx) * 1.4), 1, 1);
+  }
+}
+
+/**
+ * One car of a freight train, its left end at x, its wheels on y: a diesel locomotive (its cab
+ * at the front, `front` 1 its right end, -1 its left), a boxcar, a tank car, a flat car with a
+ * container on it, a coal hopper. `seed` picks the colours.
+ */
+export function drawFreightCar(c: Ctx, x: number, y: number, kind: number, livery: number, anim: number, front: number, seed: number) {
+  const L = LIVERY[livery % LIVERY.length];
+  const W = 40;
+  // The underframe, the coupler, the bogies
+  c.fillStyle = INK;
+  c.fillRect(x, y - 7, W + 2, 2);
+  c.fillRect(x - 1, y - 8, 2, 2);
+  bogie(c, x + 4, y, anim);
+  bogie(c, x + W - 14, y, anim);
+  switch (kind) {
+    case 0: {
+      // A diesel: its long hood, the cab at the front, a stripe down it, the exhaust stack, a headlamp
+      hull(c, x + 2, y - 18, W - 2, 11, L[0], L[1]);
+      c.fillStyle = L[2];
+      c.fillRect(x + 2, y - 11, W - 2, 2);
+      c.fillStyle = "#f0f0e8";
+      c.fillRect(x + 2, y - 13, W - 2, 1);
+      const cab = front > 0 ? x + W - 12 : x + 2;
+      hull(c, cab, y - 23, 12, 16, L[0], L[1]);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(cab + 2, y - 21, 8, 4);
+      c.fillStyle = "#d8f4ff";
+      c.fillRect(cab + 2, y - 21, 2, 1);
+      c.fillStyle = INK;
+      c.fillRect(front > 0 ? x + 8 : x + W - 10, y - 21, 3, 3);
+      for (let k = 0; k < 4; k++) c.fillRect(front > 0 ? x + 14 + k * 4 : x + 12 + k * 4, y - 16, 2, 3);
+      c.fillStyle = "#ffe27a";
+      c.fillRect(front > 0 ? x + W : x, y - 12, 2, 2);
+      break;
+    }
+    case 1: {
+      // A boxcar: planked, its sliding door, a stencilled code on it
+      const col = ["#8a3a24", "#6a4a3a", "#3a5a6a", "#7a2a2a"][seed % 4];
+      hull(c, x + 1, y - 19, W, 12, col, mix(col, "#ffffff", 0.2));
+      c.fillStyle = mix(col, "#000000", 0.25);
+      for (let k = x + 3; k < x + W; k += 3) c.fillRect(k, y - 18, 1, 10);
+      c.fillStyle = mix(col, "#000000", 0.4);
+      c.fillRect(x + 16, y - 18, 9, 11);
+      c.fillStyle = "#e8e4dc";
+      c.fillRect(x + 4, y - 16, 7, 1);
+      c.fillRect(x + 4, y - 14, 5, 1);
+      break;
+    }
+    case 2: {
+      // A tank car: a black barrel on its frame, the dome, a hazard plate
+      hull(c, x + 2, y - 16, W - 2, 9, "#2a2a30", "#4a4a54");
+      c.fillStyle = "#4a4a54";
+      c.fillRect(x + 4, y - 15, W - 6, 1);
+      hull(c, x + 18, y - 19, 6, 3, "#2a2a30");
+      c.fillStyle = seed % 2 ? "#ff8a1a" : "#ffcc33";
+      c.fillRect(x + 6, y - 13, 4, 4);
+      break;
+    }
+    case 3: {
+      // A flat car with a container on it
+      const col = CONTAINER[seed % CONTAINER.length];
+      hull(c, x + 1, y - 9, W, 2, "#5a4a3a");
+      hull(c, x + 3, y - 20, W - 4, 11, col, mix(col, "#ffffff", 0.2));
+      c.fillStyle = mix(col, "#000000", 0.3);
+      for (let k = x + 5; k < x + W - 2; k += 2) c.fillRect(k, y - 19, 1, 9);
+      c.fillStyle = "#e8e4dc";
+      c.fillRect(x + 6, y - 17, 6, 2);
+      break;
+    }
+    case 5: {
+      // A passenger coach: its windows with people in them, doors at the ends, the line's colours along it
+      hull(c, x + 1, y - 21, W, 14, "#c8ced9", "#eef2f8");
+      c.fillStyle = L[0];
+      c.fillRect(x + 1, y - 11, W, 2);
+      c.fillStyle = "#9aa1b0";
+      c.fillRect(x + 1, y - 22, W, 1);
+      const heads = ["#e0a878", "#8d5a3b", "#f2c29b", "#c68a5a", "#3a2a20"];
+      for (let k = 0; k < 5; k++) {
+        const wx = x + 6 + k * 6;
+        c.fillStyle = "#1e2a3a";
+        c.fillRect(wx, y - 19, 4, 5);
+        if ((seed * 7 + k * 3) % 5 < 3) {
+          c.fillStyle = heads[(seed + k) % heads.length];
+          c.fillRect(wx + 1, y - 17, 2, 2);
+        }
+      }
+      c.fillStyle = "#9aa1b0";
+      c.fillRect(x + 2, y - 19, 2, 10);
+      c.fillRect(x + W - 3, y - 19, 2, 10);
+      break;
+    }
+    default: {
+      // A hopper heaped with coal
+      hull(c, x + 2, y - 17, W - 2, 10, "#4a4a54", "#6a6a74");
+      c.fillStyle = "#1e1e24";
+      for (let k = 0; k < W - 4; k++) c.fillRect(x + 3 + k, y - 18 - Math.round(Math.sin(((k + 0.5) / (W - 4)) * Math.PI) * 2), 1, 2);
+      c.fillStyle = "#2a2a30";
+      for (const k of [8, 18, 28]) c.fillRect(x + k, y - 8, 5, 2);
+    }
+  }
+}
+
+/**
+ * A metro train, its middle at x, its wheels on y: silver cars with a blue stripe, windows full
+ * of passengers (or the squad, `riders`, when they're aboard), their doors sliding open (`doors`
+ * 0–1), a sloped cab at each end, headlamps at the front (`dir`), tail lamps at the back.
+ */
+export function drawMetroTrain(c: Ctx, x: number, y: number, cars: number, doors: number, riders: string[], dir: number, seed: number) {
+  const W = 34;
+  const x0 = Math.round(x - (cars * W) / 2);
+  const r = rng(seed);
+  const heads = ["#e0a878", "#8d5a3b", "#f2c29b", "#c68a5a", "#3a2a20"];
+  for (let i = 0; i < cars; i++) {
+    const cx = x0 + i * W;
+    const first = i === 0;
+    const last = i === cars - 1;
+    // Body, its roof and stripe
+    hull(c, cx + 1, y - 22, W - 2, 16, "#c8ced9", "#eef2f8");
+    c.fillStyle = "#9aa1b0";
+    c.fillRect(cx + 1, y - 23, W - 2, 1);
+    c.fillStyle = "#2a6ad8";
+    c.fillRect(cx + 1, y - 10, W - 2, 2);
+    // Windows, someone in most of them
+    for (let k = 0; k < 3; k++) {
+      const wx = cx + 3 + k * 10;
+      c.fillStyle = "#1e2a3a";
+      c.fillRect(wx, y - 19, 7, 6);
+      const rider = riders.length ? riders[(i * 3 + k) % riders.length] : r() < 0.6 ? heads[Math.floor(r() * heads.length)] : "";
+      if (rider && (riders.length ? (i * 3 + k) < riders.length * 2 : true)) {
+        c.fillStyle = riders.length ? rider : "#3a4a5a";
+        c.fillRect(wx + 2, y - 15, 3, 2);
+        c.fillStyle = riders.length ? "#e0a878" : rider;
+        c.fillRect(wx + 2, y - 17, 3, 2);
+      }
+      c.fillStyle = "#5a7a9a";
+      c.fillRect(wx, y - 19, 7, 1);
+    }
+    // Its doors: two per car, sliding apart
+    const gap = Math.round(doors * 3);
+    for (const dx of [8, 24]) {
+      c.fillStyle = "#9aa1b0";
+      c.fillRect(cx + dx - 2 - gap, y - 20, 2, 13);
+      c.fillRect(cx + dx + 1 + gap, y - 20, 2, 13);
+      if (gap) {
+        c.fillStyle = "#ffe8b0";
+        c.fillRect(cx + dx, y - 20, gap * 2, 13);
+      }
+    }
+    // A cab at each end, sloped
+    if (first || last) {
+      const nose = first ? cx - 2 : cx + W;
+      c.fillStyle = INK;
+      c.fillRect(nose, y - 18, 3, 12);
+      c.fillStyle = "#c8ced9";
+      c.fillRect(first ? nose + 1 : nose, y - 17, 2, 10);
+      const ahead = (first && dir < 0) || (last && dir > 0);
+      c.fillStyle = ahead ? "#fff6c8" : "#ff3b3b";
+      c.fillRect(first ? cx + 1 : cx + W - 3, y - 9, 2, 1);
+    }
+    // Couplings, bogies
+    if (!last) {
+      c.fillStyle = INK;
+      c.fillRect(cx + W - 1, y - 12, 2, 2);
+    }
+    bogie(c, cx + 3, y, seed + i);
+    bogie(c, cx + W - 13, y, seed + i);
+  }
+}
+
+const PAINT_CAR = ["#c8302a", "#3a6ab0", "#e8e4dc", "#2a2a30", "#4a8a3a", "#8a8a92", "#d8a020", "#6a3a8a"];
+/**
+ * Road traffic, facing `dir`, its wheels on y: a saloon, a taxi with its sign lit, a van, a bus
+ * with its passengers at the windows, a lorry, a fire engine with its ladder, police and an
+ * ambulance with their lights flashing (`siren`).
+ */
+export function drawCar(c: Ctx, x: number, y: number, kind: string, color: number, dir: number, anim: number, siren: boolean, t: number, riders: number) {
+  const wheel = (wx: number, r = 2.4) => {
+    c.fillStyle = INK;
+    disc(c, wx, y - 2, r);
+    c.fillStyle = "#4a4a54";
+    disc(c, wx, y - 2, r - 1.2);
+    c.fillStyle = "#9aa1b0";
+    c.fillRect(Math.round(wx + Math.cos(anim + wx) * 1.2), Math.round(y - 2 + Math.sin(anim + wx) * 1.2), 1, 1);
+  };
+  const flash = Math.floor(t * 8) % 2;
+  framed(c, x, dir > 0, () => {
+    // (drawn facing left, its nose at -half)
+    switch (kind) {
+      case "bus": {
+        hull(c, -20, y - 17, 40, 13, "#d8a020", "#f0c84a");
+        c.fillStyle = "#c8302a";
+        c.fillRect(-20, y - 8, 40, 2);
+        for (let k = 0; k < 6; k++) {
+          const wx = -17 + k * 6;
+          c.fillStyle = "#1e2a3a";
+          c.fillRect(wx, y - 15, 4, 5);
+          if (k < riders) {
+            c.fillStyle = ["#e0a878", "#8d5a3b", "#f2c29b", "#c68a5a"][k % 4];
+            c.fillRect(wx + 1, y - 13, 2, 2);
+          }
+        }
+        c.fillStyle = "#8fd3ff";
+        c.fillRect(-20, y - 15, 2, 6);
+        c.fillStyle = "#1e1e24";
+        c.fillRect(-16, y - 19, 8, 2);
+        c.fillStyle = "#ffcc33";
+        c.fillRect(-15, y - 19, 6, 1);
+        wheel(-13);
+        wheel(13);
+        break;
+      }
+      case "truck": {
+        hull(c, -4, y - 16, 19, 11, PAINT_CAR[color % PAINT_CAR.length], "#ffffff");
+        hull(c, -15, y - 13, 10, 8, "#5a6070", "#8a90a0");
+        c.fillStyle = "#8fd3ff";
+        c.fillRect(-14, y - 12, 4, 3);
+        wheel(-10);
+        wheel(5);
+        wheel(11);
+        break;
+      }
+      case "firetruck": {
+        hull(c, -17, y - 13, 34, 9, "#c8302a", "#e8584a");
+        hull(c, -17, y - 16, 10, 4, "#c8302a", "#e8584a");
+        c.fillStyle = "#8fd3ff";
+        c.fillRect(-16, y - 15, 4, 2);
+        c.fillStyle = "#e8e4dc";
+        c.fillRect(-6, y - 9, 22, 1);
+        // its ladder along the top
+        c.fillStyle = "#c8ced9";
+        c.fillRect(-6, y - 16, 22, 1);
+        c.fillRect(-6, y - 14, 22, 1);
+        for (let k = -5; k < 16; k += 3) c.fillRect(k, y - 15, 1, 1);
+        c.fillStyle = siren && flash ? "#4ab0ff" : "#ff3b3b";
+        c.fillRect(-13, y - 17, 3, 1);
+        wheel(-11);
+        wheel(8);
+        wheel(13);
+        break;
+      }
+      case "ambulance": {
+        hull(c, -12, y - 15, 24, 11, "#eef2f8", "#ffffff");
+        c.fillStyle = "#c8302a";
+        c.fillRect(2, y - 12, 5, 1);
+        c.fillRect(4, y - 14, 1, 5);
+        c.fillRect(-12, y - 7, 24, 1);
+        c.fillStyle = "#8fd3ff";
+        c.fillRect(-11, y - 13, 4, 3);
+        c.fillStyle = siren ? (flash ? "#ff3b3b" : "#4ab0ff") : "#8a8a92";
+        c.fillRect(-9, y - 17, 4, 1);
+        wheel(-7);
+        wheel(7);
+        break;
+      }
+      default: {
+        // Cars: a saloon, a taxi, police, a van
+        const van = kind === "van";
+        const body = kind === "taxi" ? "#e8c020" : kind === "police" ? "#1e2a4a" : PAINT_CAR[color % PAINT_CAR.length];
+        const half = van ? 11 : 9;
+        hull(c, -half, y - 9, half * 2, 5, body, mix(body, "#ffffff", 0.3));
+        hull(c, van ? -half : -half + 3, y - (van ? 14 : 12), van ? half * 2 - 2 : half * 2 - 7, van ? 5 : 3, body, mix(body, "#ffffff", 0.3));
+        c.fillStyle = "#8fd3ff";
+        c.fillRect(van ? -half + 1 : -half + 4, y - (van ? 13 : 11), 3, 2);
+        if (!van) c.fillRect(-half + 8, y - 11, 3, 2);
+        if (kind === "police") {
+          c.fillStyle = "#e8eef6";
+          c.fillRect(-half, y - 7, half * 2, 1);
+          c.fillStyle = siren ? (flash ? "#ff3b3b" : "#4ab0ff") : "#5a5a64";
+          c.fillRect(-2, y - 14, 2, 1);
+          c.fillStyle = siren ? (flash ? "#4ab0ff" : "#ff3b3b") : "#5a5a64";
+          c.fillRect(0, y - 14, 2, 1);
+        }
+        if (kind === "taxi") {
+          c.fillStyle = "#1e1e24";
+          c.fillRect(-2, y - 14, 4, 1);
+          c.fillStyle = "#fff6c8";
+          c.fillRect(-1, y - 14, 2, 1);
+        }
+        wheel(-half + 4, 2);
+        wheel(half - 4, 2);
+      }
+    }
+    // Headlamps forward, tail lamps behind
+    c.fillStyle = "#fff6c8";
+    c.fillRect(-CAR_HALF(kind) - 1, y - 8, 1, 1);
+    c.fillStyle = "#ff3b3b";
+    c.fillRect(CAR_HALF(kind), y - 8, 1, 1);
+  });
+}
+const CAR_HALF = (kind: string) => (kind === "bus" ? 20 : kind === "firetruck" ? 17 : kind === "truck" ? 15 : kind === "ambulance" ? 12 : kind === "van" ? 11 : 9);
+
+export type PlaneType = "bomber" | "fighter" | "attacker" | "transport" | "heavy" | "stealth" | "dive" | "rocketjet";
+/**
+ * Aircraft: a bomber, a swept-wing fighter, a straight-winged ground-attack plane, a transport;
+ * and for bombing runs a huge four-engined heavy bomber, a flat black flying-wing stealth
+ * bomber, a propeller dive bomber with gull wings and fixed wheels, and a jet with rocket pods
+ * under its wings. Enemy ones fly left, allied ones right.
+ */
 export function drawPlane(c: Ctx, x: number, y: number, type: PlaneType, ally: boolean, t: number) {
   const P = SIDE[ally ? "ally" : "enemy"];
   const body = ally ? P.body : "#4a5060";
   const hi = ally ? P.hi : "#6a7080";
   framed(c, x, ally, () => {
+    if (type === "heavy") {
+      // A long fuselage, a glazed nose, four engines with their props under a long wing, a twin tail
+      hull(c, -38, y - 4, 76, 8, body, hi);
+      hull(c, -40, y - 2, 3, 5, body);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-39, y - 2, 3, 2);
+      c.fillRect(-34, y - 4, 4, 1);
+      hull(c, -16, y - 1, 36, 2, P.dark);
+      for (const ex of [-12, -3, 8, 17]) {
+        hull(c, ex, y + 2, 5, 3, "#3a3f4f");
+        const k = Math.abs(Math.round(Math.sin(t * 46 + ex) * 3));
+        c.fillStyle = INK;
+        c.fillRect(ex - 1, y + 3 - k, 1, k * 2 + 1);
+      }
+      for (const tx of [32, 36]) hull(c, tx, y - 14, 3, 10, body);
+      hull(c, 28, y - 6, 14, 2, P.dark);
+      c.fillStyle = INK;
+      for (const gx of [-22, 4]) c.fillRect(gx, y + 4, 1, 3);
+      if (ally) star(c, -4, y - 1);
+      return;
+    }
+    if (type === "stealth") {
+      // A flat flying wing, near black: a low hump for the cockpit, a sawtooth trailing edge
+      const skin = ally ? "#2e3c52" : "#22242c";
+      const edge = ally ? "#4a5c78" : "#3a3e4a";
+      hull(c, -26, y - 1, 52, 3, skin, edge);
+      hull(c, -12, y - 4, 16, 3, skin, edge);
+      c.fillStyle = "#4a6a8a";
+      c.fillRect(-9, y - 3, 5, 1);
+      c.fillStyle = skin;
+      for (let k = 0; k < 6; k++) c.fillRect(6 + k * 4, y + 2, 2, k % 2 ? 2 : 1);
+      // (no afterburner: just a shimmer at the exhausts)
+      if (Math.floor(t * 12) % 2) {
+        c.fillStyle = "#6a7080";
+        c.fillRect(20, y - 2, 2, 1);
+      }
+      return;
+    }
+    if (type === "dive") {
+      // A propeller at the nose, a long canopy, gull wings, wheels down in their spats
+      hull(c, -15, y - 2, 30, 5, body, hi);
+      hull(c, -17, y - 1, 2, 3, "#3a3f4f");
+      const k = Math.abs(Math.round(Math.sin(t * 60) * 4));
+      c.fillStyle = INK;
+      c.fillRect(-19, y + 1 - k, 1, k * 2 + 1);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-9, y - 4, 10, 2);
+      c.fillStyle = INK;
+      c.fillRect(-10, y - 5, 12, 1);
+      for (let n = 0; n < 4; n++) c.fillRect(-6 + n * 3, y + 3 + Math.min(n, 3 - n), 3, 1);
+      hull(c, -6, y + 5, 3, 3, P.dark);
+      hull(c, 4, y + 5, 3, 3, P.dark);
+      hull(c, 12, y - 7, 3, 5, body);
+      hull(c, 10, y - 2, 8, 2, P.dark);
+      if (ally) star(c, 2, y);
+      return;
+    }
+    if (type === "rocketjet") {
+      // A ground-attack jet with a rocket pod under each wing, twin tails
+      hull(c, -16, y - 2, 32, 5, body, hi);
+      c.fillStyle = INK;
+      for (let k = 0; k < 4; k++) c.fillRect(-1 + k, y + 2 + k, 9, 1);
+      c.fillStyle = P.dark;
+      for (let k = 0; k < 3; k++) c.fillRect(k, y + 2 + k, 7, 1);
+      for (const px of [-8, 3]) {
+        hull(c, px, y + 5, 7, 2, "#3a3f4f");
+        c.fillStyle = "#c8302a";
+        c.fillRect(px - 1, y + 5, 1, 2);
+      }
+      hull(c, 10, y - 8, 3, 6, body);
+      hull(c, 13, y - 6, 2, 4, body);
+      c.fillStyle = "#8fd3ff";
+      c.fillRect(-12, y - 3, 4, 1);
+      c.fillStyle = Math.floor(t * 30) % 2 ? "#ffe27a" : "#ff8a1a";
+      c.fillRect(16, y - 1, 2, 2);
+      if (ally) star(c, 0, y);
+      return;
+    }
     if (type === "transport") {
       // A big high-winged transport: a fat fuselage, four props under the wing, a tall tail
       hull(c, -32, y - 4, 62, 9, body, hi);
@@ -3295,21 +4074,29 @@ export function drawEmplacement(c: Ctx, x: number, y: number, kind: "flakgun" | 
   }
 }
 
-/** A submarine: a long low hull, a conning tower; under water, just the periscope and a wake. */
-export function drawSubmarine(c: Ctx, x: number, y: number, t: number, submerged: boolean, hit: boolean, sink: number) {
-  if (submerged) {
+/**
+ * A submarine: a long low hull, a conning tower, centred on (x, y). Under water the whole boat
+ * shows at its depth (the scene's water tints it); running shallow, its periscope breaks the
+ * surface at `scope` (screen y) with a little wake. Ours are blue-grey with a star on the tower.
+ */
+export function drawSubmarine(c: Ctx, x: number, y: number, t: number, submerged: boolean, hit: boolean, sink: number, facing = -1, ally = false, scope: number | null = null) {
+  mirrored(c, x, facing, () => submarineFacingLeft(c, x, y, t, submerged, hit, sink, ally, scope));
+}
+
+function submarineFacingLeft(c: Ctx, x: number, y: number, t: number, submerged: boolean, hit: boolean, sink: number, ally: boolean, scope: number | null) {
+  const by = Math.round(y + (submerged ? 0 : Math.sin(t * 1.4) * 0.6) + sink * 14);
+  if (submerged && scope !== null && scope < by - 15) {
+    // The periscope, up through the water to the surface
     c.fillStyle = INK;
-    c.fillRect(x - 2, y - 7, 3, 7);
+    c.fillRect(x + 1, scope - 3, 3, by - 12 - scope);
     c.fillStyle = "#4a525e";
-    c.fillRect(x - 1, y - 6, 1, 6);
-    c.fillRect(x - 1, y - 7, 3, 1);
+    c.fillRect(x + 2, scope - 2, 1, by - 14 - scope);
+    c.fillRect(x + 1, scope - 3, 3, 1);
     c.fillStyle = "#e8f8ff";
-    for (let k = 0; k < 6; k++) if (Math.sin(t * 7 + k) > 0) c.fillRect(x + 3 + k * 2, y, 1, 1);
-    return;
+    for (let k = 0; k < 6; k++) if (Math.sin(t * 7 + k) > 0) c.fillRect(x + 6 + k * 2, scope, 1, 1);
   }
-  const by = Math.round(y + Math.sin(t * 1.4) * 0.6 + sink * 14);
   if (sink) c.globalAlpha = Math.max(0, 1 - sink);
-  const body = hit ? "#c8ced9" : "#2e343e";
+  const body = hit ? "#c8ced9" : ally ? "#3a5068" : "#2e343e";
   c.fillStyle = INK;
   for (let k = -3; k <= 3; k++) {
     const half = Math.round(Math.sqrt(1 - (k / 3.6) ** 2) * 33);
@@ -3320,10 +4107,16 @@ export function drawSubmarine(c: Ctx, x: number, y: number, t: number, submerged
     const half = Math.round(Math.sqrt(1 - (k / 3.6) ** 2) * 32);
     c.fillRect(x - half, by + k, half * 2, 1);
   }
-  hull(c, x - 2, by - 10, 10, 7, body, hit ? "#ffffff" : "#4a525e");
+  hull(c, x - 2, by - 10, 10, 7, body, hit ? "#ffffff" : ally ? "#5a7a9a" : "#4a525e");
   c.fillStyle = INK;
   c.fillRect(x + 2, by - 15, 1, 5);
-  c.fillStyle = "#c8302a";
-  c.fillRect(x - 26, by - 1, 4, 1);
+  if (ally) {
+    c.fillStyle = "#c8d8e8";
+    c.fillRect(x - 28, by - 1, 14, 1);
+    star(c, x + 3, by - 7);
+  } else {
+    c.fillStyle = "#c8302a";
+    c.fillRect(x - 26, by - 1, 4, 1);
+  }
   c.globalAlpha = 1;
 }

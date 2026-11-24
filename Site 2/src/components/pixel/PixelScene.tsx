@@ -4,7 +4,7 @@ import { prefersReducedMotion } from "@/lib/smoothScroll";
 import { getQuality } from "@/lib/device";
 import { PLAYER_COLORS } from "@/data/squad";
 import { resolveBlend } from "./blend";
-import { AIR, BASE_ROW, cell, CRYSTAL, kindAt, LAVA, LEVEL_H, MASK, RING, ROWS, TILE, WATER, WINDOW } from "./level";
+import { AIR, AMETHYST, BASE_ROW, cell, CRYSTAL, DIAMOND, kindAt, LAVA, LEVEL_H, MAGMA, MASK, MYCELIUM, RING, ROWS, SOLID, TILE, WATER, WINDOW } from "./level";
 import { lightOf, THEMES, WEATHER, type Backdrop, type Theme } from "./themes";
 import { rng } from "./rng";
 import { asset } from "./assets";
@@ -14,6 +14,7 @@ import {
   BIGBOMB,
   BIGSMOKE,
   BLAZE,
+  BUBBLE,
   BOLT,
   BOSS_NAMES,
   BULLET,
@@ -33,8 +34,14 @@ import {
   FINALE_TEXT,
   FIREFLY,
   FLAME,
+  CAR_LEN,
+  FINALES,
   FLAMESHOT,
   Game,
+  lightState,
+  GLINT,
+  PULSE,
+  WAVES,
   GRENADE,
   LOB,
   METEOR,
@@ -62,6 +69,10 @@ import {
   DEBRIS_COLOR,
   disc,
   drawAirship,
+  drawAllyGunship,
+  drawCar,
+  drawFreightCar,
+  drawMetroTrain,
   drawApc,
   drawArmor,
   drawHeliType,
@@ -104,6 +115,25 @@ import {
 } from "./art";
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+/** The battle plays this much faster than real time at "1×" (and the rest of the speeds in proportion). */
+const PACE = 1.25;
+
+/**
+ * Each explosion palette's fireball, hot core to cooling edge (game.ts PAL_*): its outline, its
+ * highlights, the smoke it cools to, its flash and the light it throws. Plain fire, a warhead's
+ * white and gold, a chemical drum's green, gas burning blue, plasma, napalm, magma.
+ */
+const FIRE_PALS = [
+  { core: "#fffbe0", hot: "#ffe14a", mid: "#ffa21f", cool: "#e8501a", edge: "#b8263a", rim: ["#6a1a0c", "#3a1410"], hi: ["#ffffff", "#ffe14a", "#ff8a2a"], smoke: ["#3e3034", "#5a5258"], flash: "#ffe7a0", glow: "#ff8a3a" },
+  { core: "#ffffff", hot: "#fff6c8", mid: "#ffd23f", cool: "#ff9a3a", edge: "#d8504a", rim: ["#8a3a2a", "#4a2030"], hi: ["#ffffff", "#ffffff", "#ffe27a"], smoke: ["#5a4a4a", "#7a6a6a"], flash: "#fffbe8", glow: "#ffd27a" },
+  { core: "#f4ffd0", hot: "#c8ff6a", mid: "#6ae84a", cool: "#2aa84a", edge: "#1a6a4a", rim: ["#1a4a2a", "#10301c"], hi: ["#ffffff", "#e8ff9a", "#8aff6a"], smoke: ["#2e3a2a", "#4a5a44"], flash: "#e0ffa0", glow: "#7aff4a" },
+  { core: "#ffffff", hot: "#c8f0ff", mid: "#6ab8ff", cool: "#ff9a3a", edge: "#d84a1a", rim: ["#1a2a6a", "#101838"], hi: ["#ffffff", "#e8f8ff", "#9ad8ff"], smoke: ["#30343e", "#4a5060"], flash: "#d8f0ff", glow: "#5ab0ff" },
+  { core: "#ffffff", hot: "#bafcff", mid: "#4ad8ff", cool: "#8a6aff", edge: "#c84ae8", rim: ["#2a1a6a", "#1a1040"], hi: ["#ffffff", "#e0ffff", "#9af0ff"], smoke: ["#2e2a40", "#4a4460"], flash: "#d0fcff", glow: "#6ae8ff" },
+  { core: "#fff0c0", hot: "#ffc23a", mid: "#ff6a1a", cool: "#c8281a", edge: "#6a0e10", rim: ["#4a0c08", "#200808"], hi: ["#ffffff", "#ffd23f", "#ff7a2a"], smoke: ["#1e1a1c", "#3a3436"], flash: "#ffd890", glow: "#ff5a1a" },
+  { core: "#ffe8a0", hot: "#ffb43a", mid: "#ff6a1a", cool: "#d8301a", edge: "#8a1414", rim: ["#5a1408", "#301008"], hi: ["#fff6c8", "#ffd23f", "#ff8a3a"], smoke: ["#3a2a2a", "#5a4444"], flash: "#ffc890", glow: "#ff6a2a" },
+];
+const firePal = (c: string) => FIRE_PALS[+c] ?? FIRE_PALS[0];
+
 /** Frame-rate independent smoothing factor: `x += (target - x) * damp(dt, rate)` */
 const damp = (dt: number, rate: number) => 1 - Math.exp(-dt * rate);
 const mod = (a: number, n: number) => ((a % n) + n) % n;
@@ -143,8 +173,62 @@ interface FarFx {
 }
 const JUNGLES: Backdrop[] = ["jungle", "deepjungle", "temple", "monsoon", "swamp"];
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
-/** Water over what's in it, darker the deeper it is. */
-const WATER_SHADE = Array.from({ length: 13 }, (_, k) => `rgba(${Math.round(40 - k * 2.5)},${Math.round(120 - k * 7)},${Math.round(165 - k * 7)},${(0.62 + k * 0.025).toFixed(3)})`);
+/** The sea's colour by depth below its surface (px): sunlit teal at the top, deepening to navy. */
+const SEA_COLOUR: [number, string][] = [
+  [0, "#6cc4dc"],
+  [6, "#4aaed2"],
+  [20, "#3290c0"],
+  [44, "#2474aa"],
+  [80, "#1a5890"],
+  [130, "#143f72"],
+  [200, "#0e2c56"],
+  [320, "#0a1e3e"],
+  [LEVEL_H, "#08162e"],
+];
+/** How much of what's in the water still shows through, by depth: plenty near the top, little deep down. */
+const SEA_ALPHA: [number, number][] = [
+  [0, 0.3],
+  [8, 0.42],
+  [24, 0.58],
+  [56, 0.74],
+  [110, 0.86],
+  [200, 0.93],
+  [LEVEL_H, 0.96],
+];
+/** Piecewise-linear lookup in a list of [depth, value] stops. */
+function alongDepth<T>(stops: [number, T][], d: number, lerp: (a: T, b: T, u: number) => T) {
+  for (let i = 1; i < stops.length; i++) if (d <= stops[i][0]) return lerp(stops[i - 1][1], stops[i][1], (d - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0]));
+  return stops[stops.length - 1][1];
+}
+/**
+ * The sea from its surface down, one block wide: an ordered-dither gradient through 28 shades
+ * (no hard bands). One opaque copy goes behind everything; one see-through copy is laid over
+ * whatever is in the water, so swimmers and submarines look submerged, fading the deeper they go.
+ */
+function makeSea() {
+  const K = 28;
+  const shades = Array.from({ length: K }, (_, i) =>
+    alongDepth(SEA_COLOUR.map(([d, c]) => [d, rgb(c)] as [number, number[]]), LEVEL_H * (i / (K - 1)) ** 2, (a, b, u) => a.map((v, n) => v + (b[n] - v) * u))
+  );
+  const [back, bctx] = makeCanvas(TILE, LEVEL_H);
+  const [front, fctx] = makeCanvas(TILE, LEVEL_H);
+  const bi = bctx.createImageData(TILE, LEVEL_H);
+  const fi = fctx.createImageData(TILE, LEVEL_H);
+  for (let y = 0; y < LEVEL_H; y++) {
+    const s = (K - 1) * Math.sqrt(y / LEVEL_H);
+    const a = Math.round(alongDepth(SEA_ALPHA, y, (p, q, u) => p + (q - p) * u) * 255);
+    for (let x = 0; x < TILE; x++) {
+      const i = Math.min(K - 1, s - Math.floor(s) > (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16 ? Math.ceil(s) : Math.floor(s));
+      const o = (y * TILE + x) * 4;
+      for (let n = 0; n < 3; n++) bi.data[o + n] = fi.data[o + n] = Math.round(shades[i][n]);
+      bi.data[o + 3] = 255;
+      fi.data[o + 3] = a;
+    }
+  }
+  bctx.putImageData(bi, 0, 0);
+  fctx.putImageData(fi, 0, 0);
+  return { back, front };
+}
 /** The ground darkens with depth below its own surface (on a mountain as in a valley), down to this. */
 const DEPTH_SHADE = Array.from({ length: 16 }, (_, k) => `rgba(6,5,14,${Math.min(0.62, k * 0.045).toFixed(3)})`);
 
@@ -203,6 +287,7 @@ export default function PixelScene() {
     /* ------------------------------------------------------------ */
     let game: Game | null = null;
     const [terrain, tctx] = makeCanvas(RING * TILE, ROWS * TILE);
+    const sea = makeSea();
     const drawCell = (c: number, r: number) => {
       const L = game!.level;
       if (r < 0 || r >= ROWS || c < L.start || c >= L.next) return;
@@ -211,6 +296,13 @@ export default function PixelScene() {
       const y = r * TILE;
       tctx.clearRect(x, y, TILE, TILE);
       const k = L.fg[i];
+      if (k === WATER) {
+        // The sea behind whatever is in it, shaded by how far below its own surface this block is
+        let d = 0;
+        while (d < ROWS && kindAt(L, c, r - d - 1) === WATER) d++;
+        tctx.drawImage(sea.back, 0, Math.min(d * TILE, LEVEL_H - TILE), TILE, TILE, x, y, TILE, TILE);
+        return;
+      }
       const v = (hash2(c, r) * VARIANTS) | 0;
       if (k !== AIR) tctx.drawImage(atlas, k * TILE, v * TILE, TILE, TILE, x, y, TILE, TILE);
       else {
@@ -225,9 +317,11 @@ export default function PixelScene() {
         tctx.fillStyle = `rgba(20,10,6,${0.22 * L.burn[i]})`;
         tctx.fillRect(x, y, TILE, TILE);
       }
-      const depth = r - L.ground[c & MASK] - 5;
+      // Deeper below the land's surface (not the floor of a cavern) is darker; a cavern's own back
+      // wall half as much, so it stays readable down there
+      const depth = r - L.crust[c & MASK] - 5;
       if (depth > 0) {
-        tctx.fillStyle = DEPTH_SHADE[Math.min(15, depth)];
+        tctx.fillStyle = DEPTH_SHADE[Math.min(15, k !== AIR ? depth : depth >> 1)];
         tctx.fillRect(x, y, TILE, TILE);
       }
       if (k !== AIR && OUTLINED[k]) {
@@ -298,12 +392,30 @@ export default function PixelScene() {
     let prevTheme: Theme = theme;
     let fade = 1;
     const lerpTheme = (f: (s: Theme) => number) => f(prevTheme) + (f(theme) - f(prevTheme)) * fade;
+    /** How dark it is now: the theme's own darkness, or where the day turns, the time of day */
+    const nightNow = () => lerpTheme((s) => (s.cycle && game ? game.night : s.night));
+    /** Where the day turns: the sky's colours at this time of day, in this weather */
+    const DAY_SKY = ["#3a78d0", "#86b6e6", "#d8eaf6"];
+    const DUSK_SKY = ["#2a2a5a", "#c8607a", "#ffb070"];
+    const NIGHT_SKY = ["#04050e", "#0c1030", "#1e2848"];
+    const OVERCAST: Record<string, [string, number]> = { clear: ["#6a7280", 0], cloud: ["#6a7280", 0.35], rain: ["#4a5260", 0.55], storm: ["#2a2e38", 0.68], fog: ["#b8bec6", 0.6] };
+    const skyOf = (s: Theme) => {
+      if (!s.cycle || !game) return s.sky;
+      const u = Math.round(clamp01(game.night / 0.7) * 25) / 25;
+      const [grey, k] = OVERCAST[game.sky];
+      return [0, 1, 2].map((i) => mix(u < 0.5 ? mix(DAY_SKY[i], DUSK_SKY[i], u * 2) : mix(DUSK_SKY[i], NIGHT_SKY[i], (u - 0.5) * 2), mix(grey, NIGHT_SKY[i], u), k));
+    };
+    /** Fog and rain over the streets, easing in and out with the weather */
+    let fogA = 0;
+    let wetA = 0;
 
     const regenSky = () => {
-      const k = `${W}x${H}:${prevTheme.key}>${theme.key}:${fade.toFixed(2)}`;
+      const from = skyOf(prevTheme);
+      const to = skyOf(theme);
+      const k = `${W}x${H}:${prevTheme.key}>${theme.key}:${fade.toFixed(2)}:${from.join()}:${to.join()}`;
       if (k === skyKey) return;
       skyKey = k;
-      const stops = [0, 1, 2].map((i) => rgb(mix(prevTheme.sky[i], theme.sky[i], fade)));
+      const stops = [0, 1, 2].map((i) => rgb(mix(from[i], to[i], fade)));
       const N = 10;
       const bands = Array.from({ length: N }, (_, j) => {
         const t = j / (N - 1);
@@ -337,11 +449,32 @@ export default function PixelScene() {
     let shake = 0;
     const viewRect = (): View => ({ x: camX, y: camY, w: W, h: H });
     const cameraTarget = (g: Game) => {
-      const alive = g.players.filter((p) => !p.dead && !p.chute);
+      const alive = g.players.filter((p) => !p.dead && !p.chute && !p.aboard);
       // (with the whole squad thrown through the air by a warhead, the camera holds where it is)
       // (and with the whole squad up in the air, coming down by parachute, it frames the ground they're dropping onto)
+      // (and with them all aboard the gunship, the gunship and the land it's flying over)
       const below = g.level.ground[((Math.floor(g.advance / TILE) % RING) + RING) % RING] * TILE;
-      const feet = alive.length ? alive.reduce((s, p) => s + p.y, 0) / alive.length : g.phase === "nuke" ? camY + H * horizon : below;
+      // (all aboard: the gunship and the land under it, or the metro train in its tunnel)
+      const ride = g.carrier;
+      let feet = g.phase === "nuke" ? camY + H * horizon : ride ? ride.y + (ride.air ? 58 : 0) : below;
+      // (a squad split up and down a shaft frames its bigger group, or the one further on if they're even,
+      // not the solid rock halfway between them; all together, that's just the squad's average height)
+      let most = 0;
+      let lead = -Infinity;
+      for (const p of alive) {
+        let n = 0;
+        let sum = 0;
+        for (const q of alive)
+          if (Math.abs(q.y - p.y) < H * 0.3) {
+            n++;
+            sum += q.y;
+          }
+        if (n > most || (n === most && p.x > lead)) {
+          most = n;
+          lead = p.x;
+          feet = sum / n;
+        }
+      }
       // (never left of the oldest stored column: there's nothing to see there)
       // (the squad a third of the way across: room to see what it's fighting, up ahead)
       return { x: Math.max(g.level.start * TILE, g.advance - W * 0.32), y: Math.max(-80, Math.min(LEVEL_H - H, feet - H * horizon)) };
@@ -381,7 +514,15 @@ export default function PixelScene() {
     const start = () => {
       lastOverride = sceneState.override;
       const first = sceneState.override === "lost" ? THEMES.cave : startTheme(params.get("level"), rand);
-      const g = new Game(first, { seed: 1 + Math.floor(rand() * 100000), maxEnemies: q.enemies, maxParticles: q.particles, colors: PLAYER_COLORS });
+      // (?finale=nuke and the like: a short first level, ending that way, to see it)
+      const finale = FINALES.find((f) => f === params.get("finale"));
+      const g = new Game(first, {
+        seed: 1 + Math.floor(rand() * 100000),
+        maxEnemies: q.enemies,
+        maxParticles: q.particles,
+        colors: PLAYER_COLORS,
+        ...(finale ? { finale, level: { length: 70, stronghold: true, boss: null } } : {}),
+      });
       g.intensity = intensity();
       game = g;
       theme = prevTheme = first;
@@ -618,6 +759,15 @@ export default function PixelScene() {
       }
     };
 
+    /** The surface (world px) of the water at (x, y), or null if (x, y) isn't in water. */
+    const surfaceAbove = (g: Game, x: number, y: number) => {
+      const c = Math.floor(x / TILE);
+      let r = Math.floor(y / TILE);
+      if (kindAt(g.level, c, r) !== WATER) return null;
+      while (r > 0 && kindAt(g.level, c, r - 1) === WATER) r--;
+      return r * TILE;
+    };
+
     const drawWorld = (g: Game, cx: number, cy: number, t: number) => {
       const v = vctx;
       v.globalCompositeOperation = "source-over";
@@ -674,10 +824,49 @@ export default function PixelScene() {
         v.globalAlpha = 1;
         drawPlane(v, x, y, j.kind, j.ally, t);
       }
+      // Each missile's trail: white-hot exhaust just behind it, cooling to smoke that swells and fades
       for (const m of g.missiles) {
-        const dx = m.up ? 0 : m.tx - m.x;
-        const dy = m.up ? -1 : m.ty - m.y;
+        const tr = m.trail;
+        if (!tr || tr.length < 6) continue;
+        const n = tr.length / 2;
+        const big = !m.owner || (m.cls ?? 1) >= 2;
+        for (let i = 0; i < n; i++) {
+          const age = 1 - i / (n - 1);
+          const x = Math.round(tr[i * 2] - cx);
+          const y = Math.round(tr[i * 2 + 1] - cy);
+          v.globalAlpha = Math.max(0.25, Math.round((1 - age * 0.85) * (big ? 0.9 : 0.7) * 4) / 4);
+          v.fillStyle = age < 0.06 ? "#fff3c0" : age < 0.14 ? "#ffb43a" : age < 0.22 ? "#c8704a" : mix("#e0dce4", "#7a7480", age);
+          disc(v, x, y, Math.max(1, Math.round((big ? 1.6 : 0.8) + age * (big ? 5.5 : 3))));
+        }
+        v.globalAlpha = 1;
+      }
+      for (const m of g.missiles) {
+        // (pointing the way it's flying: it curves in on its target)
+        const dx = m.up ? 0 : (m.hx ?? m.tx - m.x);
+        const dy = m.up ? -1 : (m.hy ?? m.ty - m.y);
         const d = Math.hypot(dx, dy) || 1;
+        {
+          // Its motor's flame, flickering, out of the back of it
+          const ux = m.boost ? 0 : dx / d;
+          const uy = m.boost ? -1 : dy / d;
+          const len = m.owner && (m.cls ?? 1) < 2 ? 5 : 9;
+          const bx = m.x - cx - ux * (len + (m.owner && (m.cls ?? 1) < 3 ? 2 : 20));
+          const by = m.y - cy - uy * (len + (m.owner && (m.cls ?? 1) < 3 ? 2 : 20));
+          const fl = 0.75 + 0.25 * Math.sin(t * 60 + m.x);
+          v.fillStyle = "#ff7a1a";
+          disc(v, Math.round(bx - ux * 2), Math.round(by - uy * 2), Math.round((len >= 9 ? 3 : 2) * fl));
+          v.fillStyle = "#ffe27a";
+          disc(v, Math.round(bx), Math.round(by), Math.round((len >= 9 ? 2 : 1) * fl));
+          v.fillStyle = "#ffffff";
+          v.fillRect(Math.round(bx + ux * 2), Math.round(by + uy * 2), 1, 1);
+        }
+        if (!m.owner && !m.up && (m.r ?? 0) < 90) {
+          // A warhead coming in: its nose glowing with the heat of the way down
+          v.globalAlpha = 0.5;
+          v.fillStyle = "#ff9a3a";
+          disc(v, Math.round(m.x - cx), Math.round(m.y - cy), 4 + Math.round(Math.sin(t * 24) * 1));
+          v.globalAlpha = 1;
+        }
         if ((m.r ?? 0) >= 90) {
           // The big one: a hot halo round it all the way down
           v.globalAlpha = 0.35;
@@ -733,11 +922,58 @@ export default function PixelScene() {
       }
 
       // Decorations
+      const dark = nightNow();
       for (const p of g.level.props) {
-        if (p.x < cx - 50 || p.x > cx + W + 50) continue;
+        if ((p.kind === "cable" ? p.x2 : p.x) < cx - 50 || p.x > cx + W + 50) continue;
         const x = Math.round(p.x - cx);
         const y = Math.round(p.y - cy);
         switch (p.kind) {
+          case "stoplight": {
+            // Traffic lights: a pole, the box of three lamps, the one lit for where the crossing is in its cycle
+            const st = lightState(g.t, p.x);
+            v.fillStyle = "#3a3f4f";
+            v.fillRect(x, y - 18, 1, 18);
+            v.fillStyle = INK;
+            v.fillRect(x - 2, y - 27, 5, 10);
+            v.fillStyle = "#1e1e24";
+            v.fillRect(x - 1, y - 26, 3, 8);
+            v.fillStyle = st === 2 ? "#ff3b3b" : "#4a1414";
+            v.fillRect(x - 1, y - 26, 3, 2);
+            v.fillStyle = st === 1 ? "#ffb020" : "#4a3410";
+            v.fillRect(x - 1, y - 23, 3, 2);
+            v.fillStyle = st === 0 ? "#5aff6a" : "#123a1a";
+            v.fillRect(x - 1, y - 20, 3, 2);
+            break;
+          }
+          case "streetlight":
+            // A tall lamp post, its arm out over the street, the lamp lit at night
+            v.fillStyle = "#4a4e5a";
+            v.fillRect(x, y - 24, 1, 24);
+            v.fillRect(x - 1, y - 2, 3, 2);
+            v.fillRect(x, y - 24, 6, 1);
+            v.fillStyle = dark > 0.3 ? "#fff3c0" : "#c8ced9";
+            v.fillRect(x + 4, y - 23, 3, 1);
+            break;
+          case "cable": {
+            // A suspension bridge's main cable, hanging between its towers, the hangers from it down to the deck
+            const x2 = p.x2 - cx;
+            const y2 = p.y2 - cy;
+            const len = Math.max(1, x2 - x);
+            const deck = p.deck - cy;
+            for (let k = 0; k <= len; k++) {
+              const u = k / len;
+              const yy = Math.round(y + (y2 - y) * u + p.sag * 4 * u * (1 - u));
+              v.fillStyle = INK;
+              v.fillRect(x + k, yy, 1, 2);
+              v.fillStyle = "#8a909c";
+              v.fillRect(x + k, yy, 1, 1);
+              if (k % 8 === 4 && yy < deck - 3) {
+                v.fillStyle = "#5a606c";
+                v.fillRect(x + k, yy + 2, 1, Math.round(deck - yy - 2));
+              }
+            }
+            break;
+          }
           case "sign": {
             // A board with the building's name on it, on two little posts
             const w = p.text.length * 4 + 3;
@@ -946,6 +1182,36 @@ export default function PixelScene() {
           v.fillRect(x - 1, y - 11, 3, 1);
         }
       }
+      // Freight trains on the main lines, behind the fight: only the part of them out on the open
+      // line shows (the rest is still in the tunnel at its end)
+      for (const f of g.freights) {
+        if (f.wait > 0 || f.hi < cx - 20 || f.lo > cx + W + 20) continue;
+        v.save();
+        v.beginPath();
+        v.rect(Math.round(f.lo - cx), Math.round(f.y - cy) - 40, Math.round(f.hi - f.lo), 44);
+        v.clip();
+        f.cars.forEach((kind, k) => {
+          const left = f.dir > 0 ? f.x - (k + 1) * CAR_LEN : f.x + k * CAR_LEN;
+          if (left > cx + W + 50 || left + CAR_LEN < cx - 50) return;
+          drawFreightCar(v, Math.round(left - cx), Math.round(f.y - cy) - 1, kind, f.livery, f.anim, f.dir, k * 7 + f.livery + Math.floor(f.lo / 64));
+        });
+        v.restore();
+      }
+      // Traffic on the roads: the near lane's in front of the far one; at night their lamps lit
+      for (const rd of g.roads) {
+        if (rd.hi < cx - 40 || rd.lo > cx + W + 40) continue;
+        for (const lane of [1, -1])
+          for (const car of rd.cars) {
+            if (car.dir !== lane || car.x < cx - 40 || car.x > cx + W + 40) continue;
+            drawCar(v, Math.round(car.x - cx), Math.round(rd.y - cy) - (lane > 0 ? 2 : 0), car.kind, car.color, car.dir, car.anim, car.siren, t, car.riders);
+          }
+      }
+      // Metro trains in their tunnels (the squad in its windows, when they're riding)
+      for (const m of g.metros) {
+        const half = (m.cars * 34) / 2;
+        if (m.x + half < cx - 20 || m.x - half > cx + W + 20) continue;
+        drawMetroTrain(v, Math.round(m.x - cx), Math.round(m.y - cy), m.cars, m.doors, g.ride === m ? g.crew.map((id) => PLAYER_COLORS[id]) : [], m.dir, Math.floor(m.lo / 8));
+      }
       for (const e of g.enemies) {
         if (e.x < cx - 80 || e.x > cx + W + 80 || e.kind === "worm") continue;
         const x = Math.round(e.x - cx);
@@ -988,7 +1254,9 @@ export default function PixelScene() {
           continue;
         }
         if (e.kind === "submarine") {
-          drawSubmarine(v, x, y, t, e.alive && e.spin > 0, hit, e.alive ? 0 : clamp01(1 - e.deadT / 4));
+          const top = surfaceAbove(g, e.x, e.y);
+          const under = e.alive && e.spin > 0;
+          drawSubmarine(v, x, y, t, under, hit, e.alive ? 0 : clamp01(1 - e.deadT / 4), e.facing, false, under && top !== null && e.y - top < 44 ? top - cy : null);
           continue;
         }
         if (e.kind === "attackheli" || e.kind === "transport" || e.kind === "scoutheli") {
@@ -1016,7 +1284,7 @@ export default function PixelScene() {
           continue;
         }
         if (e.kind === "battleship") {
-          drawBattleship(v, x, y, t, e.aimA, e.alive ? 0 : clamp01(1 - e.deadT / 5), hit);
+          drawBattleship(v, x, y, t, e.aimA, e.alive ? 0 : clamp01(1 - e.deadT / 5), hit, e.facing);
           continue;
         }
         if (e.kind === "boat") {
@@ -1086,9 +1354,29 @@ export default function PixelScene() {
         const x = Math.round(a.x - cx);
         const y = Math.round(a.y - cy);
         if (a.dead) v.globalAlpha = 0.55;
-        if (ALLY_AIR.has(a.kind)) drawHeliType(v, x, y, t, a.kind as HeliType, a.hit > 0);
+        if (a.kind === "gunship") {
+          const boarding = g.ship === a && g.shipMode === "board";
+          const rope = boarding ? Math.max(0, Math.min(40, g.level.ground[Math.floor(a.x / TILE) & MASK] * TILE - (a.y + 8))) : 0;
+          drawAllyGunship(v, x, y, t, a.aimA, a.hit > 0, g.ship === a ? g.crew.map((id) => PLAYER_COLORS[id]) : [], Math.round(rope));
+        } else if (ALLY_AIR.has(a.kind)) drawHeliType(v, x, y, t, a.kind as HeliType, a.hit > 0);
         else drawArmor(v, x, y, a.kind as ArmorType, a.anim, a.aimA, a.hit > 0);
         v.globalAlpha = 1;
+      }
+      // Mine carts rolling on their rails: the load heaped in them, their wheels going round
+      for (const k of g.carts) {
+        if (k.x < cx - 20 || k.x > cx + W + 20) continue;
+        const x = Math.round(k.x - cx);
+        const y = Math.round(k.y - cy);
+        const img = assetArt(k.load === 0 ? "cartcoal" : "minecart").img[k.vx < 0 ? 1 : 0];
+        v.drawImage(img, x - Math.round(img.width / 2), y - img.height + 2);
+        if (k.load === 1 || k.load === 2) {
+          v.fillStyle = k.load === 1 ? "#ffd23f" : "#c8906a";
+          for (let i = -4; i <= 4; i += 2) v.fillRect(x + i, y - 10 - (Math.abs(i) < 3 ? 1 : 0), 2, 2);
+          v.fillStyle = "#fff6c8";
+          v.fillRect(x - 1, y - 11, 1, 1);
+        }
+        v.fillStyle = "#c8ced9";
+        for (const wx of [-4, 3]) v.fillRect(x + wx + Math.round(Math.cos(k.anim + wx)), y - 1 + Math.round(Math.sin(k.anim + wx)), 1, 1);
       }
       // Manholes: a cover flush with the road, thrown open when something climbs out
       for (const h of g.hatches) {
@@ -1103,6 +1391,18 @@ export default function PixelScene() {
           v.fillStyle = "#5a5a62";
           v.fillRect(x + 4, y - 7, 2, 6);
         }
+      }
+      // Our submarines out in the sea (the water over them comes later)
+      for (const s of g.navy) {
+        if (s.x < cx - 60 || s.x > cx + W + 60) continue;
+        const top = surfaceAbove(g, s.x, s.y);
+        const under = top !== null && s.y - top > 9;
+        drawSubmarine(v, Math.round(s.x - cx), Math.round(s.y - cy), t, under, false, 0, s.facing, true, under && s.y - top < 44 ? top - cy : null);
+      }
+      // The submarines' missiles, under the water and out of it (drawn here so the sea covers the wet ones)
+      for (const s of g.sams) {
+        const sp = Math.hypot(s.vx, s.vy) || 1;
+        drawIcbm(v, Math.round(s.x - cx), Math.round(s.y - cy), s.vx / sp, s.vy / sp);
       }
       for (const p of g.players) {
         if (p.x < cx - 20 || p.x > cx + W + 20) continue;
@@ -1148,28 +1448,63 @@ export default function PixelScene() {
         }
       }
 
-      // Water over whoever is wading in it, with a glinting surface
+      // The sea over whatever is in it (see makeSea), and its surface: a swell running along it,
+      // crests and glints, light rippling just under it, foam lapping at the shore
       {
         const L = g.level;
         const c0 = Math.floor(cx / TILE);
         const c1 = Math.ceil((cx + W) / TILE);
         const r0 = Math.max(0, Math.floor(cy / TILE));
         const r1 = Math.min(ROWS - 1, Math.ceil((cy + H) / TILE));
-        const tick = Math.floor(t * 3 * motion);
-        for (let c = c0; c <= c1; c++)
+        const tm = t * motion;
+        for (let c = c0; c <= c1; c++) {
+          const x = c * TILE - cx;
           for (let r = r0; r <= r1; r++) {
             if (kindAt(L, c, r) !== WATER) continue;
-            const x = c * TILE - cx;
-            const y = r * TILE - cy;
-            // (deeper is darker)
-            let depth = 0;
-            while (depth < 12 && kindAt(L, c, r - depth - 1) === WATER) depth++;
-            v.fillStyle = WATER_SHADE[depth];
-            v.fillRect(x, y, TILE, TILE);
-            if (depth > 0) continue;
-            v.fillStyle = "#a8e4f4";
-            for (let k = 0; k < TILE; k++) if (hash2(c * TILE + k, tick + k) > 0.55) v.fillRect(x + k, y, 1, 1);
+            // One run of water down this column: its surface, and how far down it goes in view
+            let top = r;
+            while (top > 0 && kindAt(L, c, top - 1) === WATER) top--;
+            let end = r;
+            while (end < r1 && kindAt(L, c, end + 1) === WATER) end++;
+            const h = (end - r + 1) * TILE;
+            v.drawImage(sea.front, 0, (r - top) * TILE, TILE, h, x, r * TILE - cy, TILE, h);
+            if (top === r) {
+              const y = r * TILE - cy;
+              const roofed = SOLID[kindAt(L, c, r - 1)] === 1;
+              for (let k = 0; k < TILE; k++) {
+                const wx = c * TILE + k;
+                const swell = Math.sin(wx * 0.19 + tm * 2.1) + 0.8 * Math.sin(wx * 0.067 - tm * 1.3);
+                if (swell > 1.15 && !roofed) {
+                  v.fillStyle = "#d8f4fa";
+                  v.fillRect(x + k, y - 1, 1, 1);
+                }
+                v.fillStyle = swell > 0.3 ? "#e4f8fc" : swell < -0.9 ? "#7ccbe2" : "#aee2f0";
+                v.fillRect(x + k, y, 1, 1);
+              }
+              const glint = hash2(c, Math.floor(tm * 1.5 + c * 0.37));
+              if (glint > 0.82) {
+                v.fillStyle = "#ffffff";
+                v.fillRect(x + (((glint * 61) | 0) % 6), y + 1, 2, 1);
+              }
+              const off = mod(Math.floor(hash2(c, 5) * 12 + tm * 6), 14);
+              if (off < 8) {
+                v.fillStyle = "rgba(200,242,250,0.22)";
+                v.fillRect(x + off, y + 3 + ((hash2(c, 9) * 10) | 0), Math.min(3, 8 - off), 1);
+              }
+              const lap = Math.floor(tm * 2 + c) % 3;
+              v.fillStyle = "#f0fbfe";
+              if (SOLID[kindAt(L, c - 1, r)]) {
+                v.fillRect(x, y, lap === 0 ? 3 : 2, 1);
+                v.fillRect(x, y + 1, 1, 1);
+              }
+              if (SOLID[kindAt(L, c + 1, r)]) {
+                v.fillRect(x + TILE - (lap === 1 ? 3 : 2), y, lap === 1 ? 3 : 2, 1);
+                v.fillRect(x + TILE - 1, y + 1, 1, 1);
+              }
+            }
+            r = end;
           }
+        }
       }
 
       // Debris, shell casings, smoke and spray; then the foreground strip
@@ -1177,6 +1512,17 @@ export default function PixelScene() {
         if (p.k === DEBRIS || p.k === CASING) {
           v.fillStyle = p.k === CASING || p.c[0] === "#" ? p.c : (DEBRIS_COLOR[+p.c] ?? "#8a5a2b");
           v.fillRect(Math.round(p.x - cx), Math.round(p.y - cy), p.s, p.s);
+        } else if (p.k === BUBBLE) {
+          // A little ring of air, lit on its upper side
+          const x = Math.round(p.x - cx);
+          const y = Math.round(p.y - cy);
+          v.fillStyle = "#cdeef8";
+          if (p.s > 1) {
+            v.fillRect(x, y - 1, 2, 1);
+            v.fillRect(x - 1, y, 1, 2);
+            v.fillRect(x + 2, y, 1, 2);
+            v.fillRect(x, y + 2, 2, 1);
+          } else v.fillRect(x, y, 1, 1);
         } else if (p.k === MIST) {
           const a = p.life / p.max;
           v.globalAlpha = Math.round(a * 0.6 * 4) / 4;
@@ -1207,7 +1553,7 @@ export default function PixelScene() {
 
       // The theme's tint over the whole world layer (depth below the ground is shaded in the blocks themselves)
       v.globalCompositeOperation = "source-atop";
-      const night = lerpTheme((s) => s.night);
+      const night = nightNow();
       if (night > 0.01) {
         v.fillStyle = `rgba(8,10,34,${night})`;
         v.fillRect(0, 0, W, H);
@@ -1233,6 +1579,173 @@ export default function PixelScene() {
      * then the dark outlines, the hot bodies, the highlights) so a cluster reads as one
      * lumpy, outlined blob of fire.
      */
+    /**
+     * A mushroom cloud. First the fireball, swelling white hot off the ground; then it rises on a
+     * stem of smoke and dust (its skirt spreading over the ground, a white condensation ring
+     * round it), and rolls over into the cap: a ring of cloud turning over on itself, lit from
+     * inside by the fire while it's hot, its fiery heart showing through underneath. As it climbs
+     * it cools to brown and grey smoke and slowly drifts apart. All of it built of shaded,
+     * outlined puffs of cloud, the same lumps every frame.
+     */
+    const drawMushroom = (m: { x: number; y: number; t: number; s?: number }, cx: number, cy: number) => {
+      const s = m.s ?? 1;
+      const T = m.t;
+      const fade = T > 6 ? clamp01(1 - (T - 6) / 3) : 1;
+      if (fade <= 0) return;
+      const R = rng(Math.floor(m.x * 7 + m.y));
+      const ease = (u: number) => 1 - Math.pow(1 - clamp01(u), 2.2);
+      const x0 = Math.round(m.x - cx);
+      const gy = Math.round(m.y - cy);
+      const heat = clamp01(1 - T / 2.6);
+      const cool = clamp01((T - 1.2) / 3);
+      const smokeD = mix("#2a1e22", "#3e383c", cool);
+      const smokeM = mix("#6a4436", "#706a6a", cool);
+      const smokeL = mix("#a0705a", "#a49e9c", cool);
+      const fire = (u: number) => (u > 0.75 ? "#fff6c8" : u > 0.5 ? "#ffd23f" : u > 0.25 ? "#ff8a1a" : "#c8341a");
+      // (the biggest spread wider, but rise no higher than will stay in view)
+      const capH = (24 + 112 * ease(T / 2.6) + T * 3) * Math.min(s, 1.1);
+      const capY = gy - capH;
+      const capRx = (14 + 30 * ease(T / 2) + T * 2.2) * s;
+      const capRy = capRx * 0.42;
+      /** A puff of cloud: where, how big, its colour and its lit side's, the fire's glow under it and how strong */
+      type Puff = [number, number, number, string, string, string, number];
+      /**
+       * A layer of the cloud's puffs, drawn as one: one dark outline round the lot, then their
+       * bodies, the light on their tops, the fire glowing under them (no seams between them).
+       */
+      const layer = (ps: Puff[]) => {
+        ctx.fillStyle = smokeD;
+        for (const [px, py, r] of ps) disc(ctx, px, py, r + 1);
+        for (const [px, py, r, body] of ps) {
+          ctx.fillStyle = body;
+          disc(ctx, px, py, r);
+        }
+        // (a shade on the side away from the light, then the light on top)
+        ctx.fillStyle = mix(smokeM, smokeD, 0.45);
+        for (const [px, py, r] of ps) if (r >= 4) disc(ctx, px + Math.round(r * 0.3), py + Math.round(r * 0.35), Math.round(r * 0.55));
+        for (const [px, py, r, body] of ps) {
+          ctx.fillStyle = body;
+          if (r >= 4) disc(ctx, px - Math.round(r * 0.08), py - Math.round(r * 0.1), Math.round(r * 0.72));
+        }
+        for (const [px, py, r, , light] of ps) {
+          ctx.fillStyle = light;
+          disc(ctx, px - Math.round(r * 0.3), py - Math.round(r * 0.35), Math.max(1, Math.round(r * 0.45)));
+        }
+        for (const [px, py, r, , , glow, glowA] of ps) {
+          if (glowA <= 0.05) continue;
+          ctx.globalAlpha = Math.round(glowA * fade * 4) / 4;
+          ctx.fillStyle = glow;
+          disc(ctx, px, py + Math.round(r * 0.35), Math.max(1, Math.round(r * 0.6)));
+        }
+        ctx.globalAlpha = fade;
+      };
+      ctx.globalAlpha = fade;
+      // The base surge: dust and smoke rolling out over the ground, both ways
+      const surge = ease(T / 3.2) * 110 * s;
+      const base: Puff[] = [];
+      for (let k = 0; k < 16; k++) {
+        const side = k % 2 ? 1 : -1;
+        const u = (k >> 1) / 7;
+        const r = Math.round((4 + R() * 4 + u * 3) * s * (0.6 + 0.4 * ease(T)));
+        base.push([x0 + side * Math.round(surge * (0.2 + u * 0.8)), gy - r + 2 - Math.round(R() * 3), r, smokeM, smokeL, "", 0]);
+      }
+      layer(base);
+      // The stem, from the ground up to the cap: its skirt wide at the foot, narrow under the cap,
+      // hot near the top while the fire's in it
+      if (T > 0.25) {
+        const stemW = (5 + 4 * ease(T / 2)) * s;
+        const stem: Puff[] = [];
+        for (let y = gy - 4; y > capY + capRy * 0.5; y -= 4) {
+          const u = (gy - y) / Math.max(1, gy - capY);
+          const w = stemW * (1 + 1.6 * Math.pow(1 - u, 3)) * (0.8 + 0.2 * Math.sin(y * 0.4 + T * 3));
+          const wob = Math.sin(y * 0.11 + T * 1.6) * 2 * s;
+          const hot = heat * u;
+          stem.push([Math.round(x0 + wob + (R() - 0.5) * w * 0.4), Math.round(y), Math.max(1, Math.round(w)), hot > 0.3 ? mix(smokeM, "#ff7a1a", hot) : smokeM, hot > 0.3 ? mix(smokeL, "#ffd23f", hot) : smokeL, fire(hot), hot * 0.6]);
+        }
+        layer(stem);
+        // The condensation ring round the stem, for a moment
+        if (T > 0.7 && T < 3.2) {
+          const ra = clamp01(Math.min((T - 0.7) / 0.4, (3.2 - T) / 0.8));
+          ctx.globalAlpha = Math.round(0.6 * ra * fade * 4) / 4;
+          ctx.fillStyle = "#f4f6fa";
+          const ry = Math.round(gy - capH * 0.55);
+          const rw = Math.round(stemW * 3.4);
+          for (let dx = -rw; dx <= rw; dx++) {
+            const e = Math.sqrt(Math.max(0, 1 - (dx / rw) ** 2));
+            ctx.fillRect(x0 + dx, ry - Math.round(e * 3), 1, 1);
+            ctx.fillRect(x0 + dx, ry + Math.round(e * 3), 1, 1);
+          }
+          ctx.globalAlpha = fade;
+        }
+      }
+      // The cap: the back of its ring of cloud, a billowing dome over the middle, then the front of
+      // the ring rolling over on itself, lit from inside by the fire while it's hot
+      const back: Puff[] = [];
+      const front: Puff[] = [];
+      for (let k = 0; k < 20; k++) {
+        const a = (k / 20) * Math.PI * 2 + T * 0.7 + (R() - 0.5) * 0.25;
+        const depth = Math.sin(a);
+        const under = depth > 0.2;
+        const r = Math.max(1, Math.round(capRy * (0.55 + R() * 0.4)));
+        const p: Puff = [
+          Math.round(x0 + Math.cos(a) * capRx * (0.92 + R() * 0.16)),
+          Math.round(capY + depth * capRy * 0.9 + (R() - 0.5) * 3 * s),
+          r,
+          under && heat > 0.3 ? mix(smokeM, "#ff8a1a", heat * 0.7) : smokeM,
+          under ? mix(smokeL, "#ffb43a", heat * 0.5) : smokeL,
+          fire(heat * (under ? 1 : 0.6)),
+          under ? heat : heat * 0.4,
+        ];
+        (depth < 0 ? back : front).push(p);
+      }
+      layer(back);
+      const dome: Puff[] = [[x0, Math.round(capY - capRy * 0.35), Math.round(capRx * 0.6), smokeM, smokeL, fire(heat), heat * 0.9]];
+      for (let k = 0; k < 6; k++) {
+        const a = Math.PI * (1.1 + (k / 5) * 0.8);
+        dome.push([Math.round(x0 + Math.cos(a) * capRx * 0.45), Math.round(capY - capRy * 0.35 + Math.sin(a) * capRy * 0.9), Math.max(1, Math.round(capRx * (0.2 + R() * 0.12))), smokeM, smokeL, "", 0]);
+      }
+      layer(dome);
+      layer(front);
+      // Its fiery heart, showing through underneath while it's hot
+      if (heat > 0.05) {
+        ctx.globalAlpha = Math.round(heat * fade * 4) / 4;
+        ctx.fillStyle = fire(heat);
+        disc(ctx, x0, Math.round(capY + capRy * 0.2), Math.max(1, Math.round(capRx * 0.45 * (0.6 + heat * 0.4))));
+        ctx.fillStyle = "#fff6c8";
+        disc(ctx, x0, Math.round(capY + capRy * 0.1), Math.max(1, Math.round(capRx * 0.22 * heat)));
+      }
+      // The first instant: the fireball itself, swelling white hot off the ground
+      if (T < 0.7) {
+        const u = T / 0.7;
+        const fr = Math.round((10 + 30 * u) * s);
+        const fy = gy - Math.round(fr * 0.8);
+        ctx.globalAlpha = Math.round((1 - u * 0.6) * 4) / 4;
+        ctx.fillStyle = "#ff8a1a";
+        disc(ctx, x0, fy, fr + 3);
+        ctx.fillStyle = "#ffd23f";
+        disc(ctx, x0, fy, fr + 1);
+        ctx.fillStyle = "#fff6c8";
+        disc(ctx, x0, fy, fr);
+        ctx.fillStyle = "#ffffff";
+        disc(ctx, x0, fy, Math.round(fr * 0.6));
+      }
+      ctx.globalAlpha = 1;
+    };
+    /** Rays of light out of a big blast's flash. */
+    const rays = (x: number, y: number, len: number, col: string, seed: number, a: number) => {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = col;
+      ctx.globalAlpha = Math.round(a * 4) / 4;
+      for (let k = 0; k < 10; k++) {
+        const ang = (k / 10) * Math.PI * 2 + (seed % 7) * 0.31;
+        const l = len * (k % 2 ? 0.55 : 1);
+        const ux = Math.cos(ang);
+        const uy = Math.sin(ang);
+        for (let d = 5; d < l; d += 2) ctx.fillRect(Math.round(x + ux * d), Math.round(y + uy * d), 1, 1);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    };
     const blazeR = (u: number, s: number) => Math.max(1, Math.round(s * (0.55 + 0.6 * Math.min(1, u * 4)) * (u > 0.75 ? 1 - (u - 0.75) * 1.6 : 1)));
     const HOT = 0.62;
     const drawFireballs = (g: Game, cx: number, cy: number) => {
@@ -1242,7 +1755,7 @@ export default function PixelScene() {
         const u = 1 - p.life / p.max;
         if (u < HOT) continue;
         ctx.globalAlpha = Math.max(0.25, Math.round((1 - (u - HOT) / (1 - HOT)) * 0.8 * 4) / 4);
-        ctx.fillStyle = u < 0.8 ? "#3e3034" : "#5a5258";
+        ctx.fillStyle = firePal(p.c).smoke[u < 0.8 ? 0 : 1];
         disc(ctx, Math.round(p.x - cx), Math.round(p.y - cy), blazeR(u, p.s) + 1);
       }
       ctx.globalAlpha = 1;
@@ -1254,21 +1767,23 @@ export default function PixelScene() {
           const R = blazeR(u, p.s);
           const x = Math.round(p.x - cx);
           const y = Math.round(p.y - cy);
+          const P = firePal(p.c);
           if (pass === 0) {
-            ctx.fillStyle = u < 0.4 ? "#6a1a0c" : "#3a1410";
+            ctx.fillStyle = P.rim[u < 0.4 ? 0 : 1];
             disc(ctx, x, y, R + 1);
           } else if (pass === 1) {
-            ctx.fillStyle = u < 0.1 ? "#fffbe0" : u < 0.24 ? "#ffe14a" : u < 0.42 ? "#ffa21f" : "#d8441a";
+            // White hot, then through the fire's colours as it cools
+            ctx.fillStyle = u < 0.08 ? P.core : u < 0.2 ? P.hot : u < 0.34 ? P.mid : u < 0.5 ? P.cool : P.edge;
             disc(ctx, x, y, R);
           } else if (R >= 2) {
-            ctx.fillStyle = u < 0.24 ? "#ffffff" : u < 0.42 ? "#ffe14a" : "#ff8a2a";
+            ctx.fillStyle = P.hi[u < 0.24 ? 0 : u < 0.42 ? 1 : 2];
             disc(ctx, x - Math.round(R * 0.3), y - Math.round(R * 0.3), Math.max(1, Math.round(R * 0.45)));
           }
         }
     };
 
     const drawLights = (g: Game, cx: number, cy: number, t: number) => {
-      const night = lerpTheme((s) => s.night);
+      const night = nightNow();
       const L = g.level;
 
       // Lit windows at night, lava, crystals
@@ -1279,9 +1794,31 @@ export default function PixelScene() {
       for (let c = c0; c <= c1; c++)
         for (let r = r0; r <= r1; r++) {
           const k = kindAt(L, c, r);
-          if (k !== WINDOW && k !== LAVA && k !== CRYSTAL) continue;
           const x = c * TILE - cx;
           const y = r * TILE - cy;
+          // (the windows of the towers behind the streets, lit up at night, not every one)
+          if (k === AIR && night > 0.3 && c >= L.start && c < L.next && L.bg[cell(c, r)] === WINDOW) {
+            if (hash2(c, r) > 0.45) glow(x + 2, y + 2, 4, 3, hash2(r, c) > 0.8 ? "#bfe0ff" : "#ffd479", (night - 0.2) * 1.1);
+            continue;
+          }
+          if (k !== WINDOW && k !== LAVA && k !== CRYSTAL && k !== MAGMA && k !== AMETHYST && k !== MYCELIUM && k !== DIAMOND) continue;
+          if (k === MAGMA) {
+            // Magma rock's cracks glowing, slowly
+            if (hash2(c, r) > 0.35) glow(x + 2 + Math.floor(hash2(r, c) * 4), y + 3, 2, 2, "#ff7a1a", 0.35 + 0.25 * Math.sin(t * 2.4 + c * 1.3 + r));
+            continue;
+          }
+          if (k === AMETHYST) {
+            glow(x + 3, y + 3, 2, 2, "#d88aff", 0.45 + 0.3 * Math.sin(t * 1.7 + c + r));
+            continue;
+          }
+          if (k === MYCELIUM) {
+            glow(x + Math.floor(hash2(c, r) * 6), y + 3, 1, 1, "#7affd8", 0.55 + 0.4 * Math.sin(t * 2 + c * 0.7));
+            continue;
+          }
+          if (k === DIAMOND) {
+            if (Math.sin(t * 4 + c * 7 + r * 3) > 0.8) glow(x + 2, y + 2, 1, 1, "#ffffff", 1);
+            continue;
+          }
           if (k === WINDOW) {
             if (night > 0.15 && hash2(c, r) > 0.3) glow(x + 2, y + 2, 4, 4, "#ffd479", night * 1.4);
           } else if (k === LAVA) {
@@ -1323,6 +1860,20 @@ export default function PixelScene() {
           ctx.fillStyle = "#ffd479";
           disc(ctx, x + 1, y + 6, 9);
           ctx.globalAlpha = 1;
+        } else if (p.kind === "streetlight") {
+          // At night: the lamp lit, a cone of light down from it, a pool of it on the street
+          if (night < 0.3) continue;
+          const a = Math.min(1, (night - 0.3) * 2.5);
+          glow(x + 4, y - 23, 3, 1, "#fff3c0", a);
+          ctx.globalAlpha = 0.07 * a;
+          ctx.fillStyle = "#ffe8a0";
+          for (let k = 0; k < 22; k++) ctx.fillRect(x + 5 - Math.round(k * 0.4), y - 22 + k, 1 + Math.round(k * 0.8), 1);
+          ctx.globalAlpha = 0.12 * a;
+          ctx.fillRect(x - 5, y - 1, 21, 2);
+          ctx.globalAlpha = 1;
+        } else if (p.kind === "stoplight") {
+          const st = lightState(t, p.x);
+          glow(x - 1, y - 26 + (2 - st) * 3, 3, 2, st === 2 ? "#ff3b3b" : st === 1 ? "#ffb020" : "#5aff6a", 0.5 + night * 0.5);
         } else if (p.kind === "sign") {
           if (!p.neon) continue;
           // Neon: a glow round the board that buzzes now and then
@@ -1381,17 +1932,30 @@ export default function PixelScene() {
 
       // Laser beams and tesla lightning
       ctx.globalCompositeOperation = "lighter";
+      // Laser beams: a glow along them, the beam in its colour, a white-hot core; the heavy ones
+      // wider, flickering, flaring where they strike
       for (const b of g.beams) {
         const n = Math.ceil(Math.hypot(b.x1 - b.x0, b.y1 - b.y0));
+        const w = b.w ?? 1;
+        const fl = w > 1 ? (Math.sin(t * 50 + b.x0) > 0 ? 1 : 0) : 0;
         for (let k = 0; k < n; k++) {
           const px = Math.round(b.x0 + ((b.x1 - b.x0) * k) / n - cx);
           const py = Math.round(b.y0 + ((b.y1 - b.y0) * k) / n - cy);
           ctx.fillStyle = b.c;
-          ctx.globalAlpha = 0.5;
-          ctx.fillRect(px, py - 1, 1, 3);
+          ctx.globalAlpha = 0.3;
+          ctx.fillRect(px, py - w - 1, 1, w * 2 + 3);
+          ctx.globalAlpha = 0.8;
+          ctx.fillRect(px, py - (w >> 1) - fl, 1, w + fl * 2);
           ctx.globalAlpha = 1;
           ctx.fillStyle = "#ffffff";
-          ctx.fillRect(px, py, 1, 1);
+          ctx.fillRect(px, py - (w > 2 ? 1 : 0), 1, w > 2 ? 2 : 1);
+        }
+        if (w > 1) {
+          const ex = Math.round(b.x1 - cx);
+          const ey = Math.round(b.y1 - cy);
+          glow(ex - w, ey - w, w * 2 + 1, w * 2 + 1, b.c, 0.9);
+          ctx.fillStyle = "#ffffff";
+          disc(ctx, ex, ey, w);
         }
       }
       for (const z of g.zaps) {
@@ -1452,6 +2016,19 @@ export default function PixelScene() {
             ctx.fillStyle = "#f4e0ff";
             ctx.fillRect(x, y, 1, 1);
             break;
+          case PULSE: {
+            // A searing bolt in its firer's colour, a white-hot head
+            const col = PLAYER_COLORS[s.pid] ?? "#ff5a6a";
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = col;
+            for (let k = 0; k < 8; k++) ctx.fillRect(Math.round(x - ux * k), Math.round(y - uy * k) - 1, 1, 3);
+            ctx.globalAlpha = 1;
+            for (let k = 0; k < 6; k++) ctx.fillRect(Math.round(x - ux * k), Math.round(y - uy * k), 1, 1);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(x, y, 1, 1);
+            ctx.fillRect(Math.round(x - ux), Math.round(y - uy), 1, 1);
+            break;
+          }
           case FLAMESHOT:
             break;
           case BIGBOMB:
@@ -1544,57 +2121,61 @@ export default function PixelScene() {
         const d = Math.hypot(dx, dy) || 1;
         glow(Math.round(m.x - cx - (dx / d) * 24) - 1, Math.round(m.y - cy - (dy / d) * 24) - 1, 3, 3, "#ffe27a", 1);
       }
+      // (the submarines' missiles only light up once they're out of the water)
+      for (const s of g.sams) {
+        if (s.wet) continue;
+        const sp = Math.hypot(s.vx, s.vy) || 1;
+        glow(Math.round(s.x - cx - (s.vx / sp) * 24) - 1, Math.round(s.y - cy - (s.vy / sp) * 24) - 1, 3, 3, "#ffe27a", 1);
+      }
 
-      // Fire: each blast's flash and shock ring, its fireball, then flames, embers and weather
+      // Fire: each blast's light on everything round it, its flash, rays and shock rings, its
+      // fireball, then flames, embers, glints and weather; all in the blast's own colours
       for (const b of g.blasts) {
         const a = b.t / 0.5;
         const x = Math.round(b.x - cx);
         const y = Math.round(b.y - cy);
+        const P = FIRE_PALS[b.pal] ?? FIRE_PALS[0];
+        if (b.t < 0.2) {
+          // (a soft glow, brightest at the middle: no more than a screen-filling wash for the biggest)
+          ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = P.glow;
+          const f = 1 - b.t / 0.2;
+          ctx.globalAlpha = Math.round(f * 0.16 * 8) / 8;
+          disc(ctx, x, y, Math.round(Math.min(90, b.r * 1.8)));
+          ctx.globalAlpha = Math.round(f * 0.22 * 8) / 8;
+          disc(ctx, x, y, Math.round(Math.min(56, b.r * 1.1)));
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = "source-over";
+        }
+        if (b.r >= 22 && b.t < 0.16) rays(x, y, b.r * 2.6, P.flash, b.x + b.y, (1 - b.t / 0.16) * 0.8);
         if (b.t < 0.06) {
-          ctx.fillStyle = "#fffbe8";
+          ctx.fillStyle = b.pal ? P.core : "#fffbe8";
           disc(ctx, x, y, Math.round(b.r * 0.85));
           continue;
         }
         if (a < 0.3) {
           ctx.globalAlpha = 1 - a / 0.3;
-          ctx.fillStyle = "#ffe7a0";
+          ctx.fillStyle = P.flash;
           ring(ctx, x, y, Math.round(b.r * (0.9 + 2.2 * a)));
+          // (and a fainter one racing out ahead of it, in the fire's colour)
+          if (b.r >= 12) {
+            ctx.globalAlpha = (1 - a / 0.3) * 0.6;
+            ctx.fillStyle = P.glow;
+            ring(ctx, x, y, Math.round(b.r * (1.2 + 4 * a)));
+          }
           ctx.globalAlpha = 1;
         }
       }
       drawFireballs(g, cx, cy);
-      // Mushroom clouds: a fireball that rises on a stem and cools to smoke
-      for (const m of g.mushrooms) {
-        const x = Math.round(m.x - cx);
-        const base = Math.round(m.y - cy);
-        const rise = Math.min(1, m.t / 1.4) * 120;
-        const R = Math.round(14 + Math.min(1, m.t / 1.8) * 38);
-        const top = base - rise;
-        const hot = clamp01(1 - m.t / 1.6);
-        ctx.globalAlpha = m.t > 4 ? Math.max(0, 1 - (m.t - 4) / 2) : 1;
-        const smoke = mix("#5a4a44", "#8a7a70", clamp01((m.t - 1.5) / 2));
-        ctx.fillStyle = hot > 0.2 ? mix(smoke, "#ff8a1a", hot) : smoke;
-        for (let y = top; y < base; y += 2) {
-          const w = 7 + Math.round(Math.sin(y * 0.3 + m.t * 4) * 2) + Math.round(((base - y) / Math.max(1, rise)) * 4);
-          ctx.fillRect(x - w, y, w * 2, 2);
-        }
-        ctx.fillStyle = mix(smoke, "#000000", 0.3);
-        disc(ctx, x, top, R + 2);
-        ctx.fillStyle = hot > 0.1 ? mix(smoke, "#ffb020", hot) : smoke;
-        disc(ctx, x, top, R);
-        ctx.fillStyle = hot > 0.1 ? mix(smoke, "#fff3b0", hot) : mix(smoke, "#ffffff", 0.15);
-        disc(ctx, x - Math.round(R * 0.2), top - Math.round(R * 0.25), Math.round(R * 0.55));
-        ctx.fillStyle = mix(smoke, "#000000", 0.4);
-        ctx.fillRect(x - R, top + Math.round(R * 0.5), R * 2, 3);
-        ctx.globalAlpha = 1;
-      }
+      // Mushroom clouds, from the fireball off the ground to the smoke they leave hanging
+      for (const m of g.mushrooms) drawMushroom(m, cx, cy);
       for (const w of g.waves) {
         ctx.fillStyle = `rgba(255,250,230,${(1 - w.t) * 0.8})`;
         ring(ctx, Math.round(w.x - cx), Math.round(w.y - cy), Math.round(w.t * 420));
         ring(ctx, Math.round(w.x - cx), Math.round(w.y - cy), Math.round(w.t * 420) + 1);
       }
       for (const p of g.parts) {
-        if (p.k === DEBRIS || p.k === CASING || p.k === SMOKE || p.k === BIGSMOKE || p.k === MIST || p.k === DUST || p.k === BLAZE) continue;
+        if (p.k === DEBRIS || p.k === CASING || p.k === SMOKE || p.k === BIGSMOKE || p.k === MIST || p.k === DUST || p.k === BLAZE || p.k === BUBBLE) continue;
         const a = p.life / p.max;
         const x = Math.round(p.x - cx);
         const y = Math.round(p.y - cy);
@@ -1617,7 +2198,18 @@ export default function PixelScene() {
             break;
           }
           case CINDER:
-            glow(x, y, p.s, p.s, a > 0.55 ? "#ffd23f" : a > 0.25 ? "#ff7a1a" : "#b8321a", 1);
+            glow(x, y, p.s, p.s, a > 0.55 ? p.c || "#ffd23f" : a > 0.25 ? "#ff7a1a" : "#b8321a", 1);
+            break;
+          case GLINT:
+            // A sparkle, twinkling: a little star when it's bright
+            if (Math.sin(t * 22 + p.x * 3 + p.y) < -0.3) break;
+            ctx.fillStyle = p.c;
+            if (p.s > 1 && a > 0.35) {
+              ctx.fillRect(x - 1, y, 3, 1);
+              ctx.fillRect(x, y - 1, 1, 3);
+              ctx.fillStyle = "#ffffff";
+            }
+            ctx.fillRect(x, y, 1, 1);
             break;
           case FIREFLY:
           case SPORE:
@@ -1798,7 +2390,7 @@ export default function PixelScene() {
       const t = g.t;
       regenSky();
       ctx.drawImage(sky, 0, 0);
-      const night = lerpTheme((s) => s.night);
+      const night = nightNow();
       const hz = H * horizon;
       if (night > 0.25 && theme.backdrop !== "cave") {
         ctx.fillStyle = "#ffffff";
@@ -1809,7 +2401,34 @@ export default function PixelScene() {
         });
         ctx.globalAlpha = 1;
       }
-      if (theme.sun === "sun" || theme.sun === "red") {
+      if (theme.cycle) {
+        // The sun across the sky by day, the moon by night (hidden behind the cloud)
+        const a = g.clock * Math.PI * 2;
+        const cover = g.sky === "clear" ? 1 : g.sky === "cloud" ? 0.45 : 0.15;
+        for (const [ang, moon] of [[a, false], [a + Math.PI, true]] as const) {
+          const x = Math.round(W * (0.5 + 0.42 * Math.sin(ang)));
+          const y = Math.round(hz * (0.12 + (0.92 * (1 - Math.cos(ang))) / 2));
+          if (y > hz + 10) continue;
+          ctx.globalAlpha = cover;
+          if (moon) {
+            ctx.fillStyle = "#e9edf6";
+            disc(ctx, x, y, 8);
+            ctx.fillStyle = "#c3c9d8";
+            disc(ctx, x + 2, y - 2, 1.5);
+            disc(ctx, x - 3, y + 2, 1);
+          } else {
+            const low = clamp01((y / hz - 0.45) / 0.55);
+            ctx.globalAlpha = 0.35 * cover;
+            ctx.fillStyle = mix("#ffe08a", "#ff5a2a", low);
+            disc(ctx, x, y, 17);
+            ctx.globalAlpha = cover;
+            disc(ctx, x, y, 12);
+            ctx.fillStyle = mix("#fffbe6", "#ffb060", low);
+            disc(ctx, x, y, 9);
+          }
+          ctx.globalAlpha = 1;
+        }
+      } else if (theme.sun === "sun" || theme.sun === "red") {
         const red = theme.sun === "red" ? 1 : 0;
         const x = Math.round(W * 0.74);
         const y = Math.round(hz * (0.4 + red * 0.22));
@@ -1945,8 +2564,9 @@ export default function PixelScene() {
       intel.cleared = g.cleared;
       intel.log = g.log;
       intel.uptime = g.t;
-      intel.weather = WEATHER[g.theme.ambient];
+      intel.weather = g.theme.cycle ? { clear: "Clear", cloud: "Overcast", rain: "Rain", storm: "Thunderstorm", fog: "Fog" }[g.sky] : WEATHER[g.theme.ambient];
       intel.light = lightOf(g.theme);
+      intel.wave = WAVES[g.wave].name;
       let hostiles = 0;
       for (const e of g.enemies) if (e.alive && e.x > camX && e.x < camX + W) hostiles++;
       intel.hostiles = hostiles;
@@ -1967,6 +2587,20 @@ export default function PixelScene() {
       drawSky(g, cx, cy);
       drawWorld(g, cx, cy, g.t);
       ctx.drawImage(view, 0, 0);
+      // The weather over the streets: fog thick in them, the gloom of the rain
+      const cyc = theme.cycle ? g.sky : "clear";
+      fogA += ((cyc === "fog" ? 1 : 0) - fogA) * 0.02;
+      wetA += ((cyc === "rain" ? 0.6 : cyc === "storm" ? 1 : cyc === "cloud" ? 0.25 : 0) - wetA) * 0.02;
+      if (fogA > 0.02) {
+        ctx.fillStyle = `rgba(196,202,212,${(0.3 * fogA).toFixed(3)})`;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = `rgba(214,218,226,${(0.18 * fogA).toFixed(3)})`;
+        ctx.fillRect(0, Math.round(H * 0.55), W, H);
+      }
+      if (wetA > 0.02) {
+        ctx.fillStyle = `rgba(20,28,46,${(0.16 * wetA).toFixed(3)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
       drawLights(g, cx, cy, g.t);
     };
 
@@ -1990,7 +2624,7 @@ export default function PixelScene() {
         shake = 0;
       } else {
         held = false;
-        const total = dt * sceneState.speed;
+        const total = dt * sceneState.speed * PACE;
         const n = Math.max(1, Math.ceil(total / 0.034));
         for (let k = 0; k < n; k++) step(game!, total / n);
       }

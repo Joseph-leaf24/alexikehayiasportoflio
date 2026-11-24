@@ -63,15 +63,18 @@ describe("level", () => {
       for (let c = L.start; c < L.next; c++) {
         expect(kindAt(L, c, ROWS - 1)).toBe(BEDROCK);
         expect(kindAt(L, c, ROWS - 2)).toBe(BEDROCK);
-        expect(L.ground[c % RING]).toBeGreaterThanOrEqual(PEAK_ROW);
+        // (the great mountains go far over the ordinary hills, but always leave room over their summits)
+        expect(L.ground[c % RING]).toBeGreaterThan(8);
         expect(L.ground[c % RING]).toBeLessThanOrEqual(ROWS - 3);
       }
     }
   });
 
   it("raises hills and mountain ranges from seeded noise: a different world every time", () => {
+    // (the ordinary hills: without the great mountains and the descents, which have tests of their own)
+    const hills = { ...THEMES.snow, features: Object.fromEntries(Object.entries(THEMES.snow.features).filter(([k]) => k !== "massif" && k !== "abyss")) };
     const heights = (seed: number) => {
-      const L = createLevel(THEMES.snow, seed, { boss: null, length: 4000 });
+      const L = createLevel(hills, seed, { boss: null, length: 4000 });
       // (short of the ring's length, so a long feature at the end can't wrap round over the start)
       extend(L, 250);
       return Array.from({ length: 250 }, (_, c) => L.ground[c % RING]);
@@ -101,7 +104,8 @@ describe("level", () => {
     const L = createLevel(THEMES.jungle, 6, { boss: null, length: 4000 });
     extend(L, 480);
     let caves = 0;
-    for (let c = 40; c < 480; c++) {
+    // (only the columns still stored: a long set piece at the end may have run on past the ring's length)
+    for (let c = Math.max(40, L.start + 1); c < 480; c++) {
       const g = L.ground[c % RING];
       for (let r = g + 7; r < ROWS - 4; r++) if (kindAt(L, c, r) === AIR && L.bg[cell(c, r)]) caves++;
       // Never into the bedrock
@@ -112,7 +116,9 @@ describe("level", () => {
 
   it("keeps every pit and lava pool narrow enough to jump", () => {
     for (const key of ["jungle", "village", "inferno", "canyon", "swamp"]) {
-      const L = createLevel(THEMES[key], 5);
+      // (without the great descents: mountains, the depths and mineshafts are climbed down and up, not jumped)
+      const t = THEMES[key];
+      const L = createLevel({ ...t, features: Object.fromEntries(Object.entries(t.features).filter(([k]) => k !== "massif" && k !== "abyss" && k !== "mineshaft")) }, 5);
       extend(L, 400);
       let run = 0;
       let lip = L.ground[L.start % RING];
@@ -332,8 +338,8 @@ describe("game", () => {
       return M;
     })].reduce((n, M) => n + M.props.filter((p) => p.kind === "sign").length, 0);
     expect(signs).toBeGreaterThan(3);
-    // (a harbour turns up in one city stretch or another)
-    const harbour = [spawns, ...[3, 4].map((seed) => extend(createLevel(THEMES.city, seed, { boss: null, length: 3000 }), RING - 20))];
+    // (a harbour turns up somewhere along a city's miles of streets and metro lines)
+    const harbour = [spawns, ...[3, 4].map((seed) => extend(createLevel(THEMES.city, seed, { boss: null, length: 6000 }), 2500))];
     expect(harbour.some((list) => list.some((s) => s.kind === "battleship"))).toBe(true);
   });
 

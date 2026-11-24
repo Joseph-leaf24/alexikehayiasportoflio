@@ -17,23 +17,37 @@ import {
   kindAt,
   WATER,
   BASE_ROW,
+  CLAY,
   CONCRETE,
   DIRT,
+  GRAVEL,
+  LADDER,
+  LOAM,
+  LOOSE,
   MUD,
+  PEAT,
+  PERMAFROST,
+  RAIL,
   REDROCK,
+  RING,
   SAND,
   SANDSTONE,
   SNOW,
   STONE,
+  TILE_HP,
+  TUFF,
   blastCells,
   cell,
   createLevel,
+  crustOf,
   damageCell,
   extend,
   groundOf,
   lavaAt,
   LEVEL_H,
+  ROWS,
   lineOfSight,
+  SOLID,
   solidAt,
   surfaceY,
   TILE,
@@ -58,9 +72,28 @@ const OFFSETS = [36, 48, 10, -16, -42, 62, -4, 22];
  * The fourteen weapons. Each player starts with a signature one (P1 rifle … P8 minigun) and
  * picks up the others from supply drops for a while.
  */
-export const WEAPONS = ["Rifle", "Shotgun", "Plasma", "Rockets", "Sniper", "Flamethrower", "Grenades", "Minigun", "Laser", "Tesla", "Pistols", "Crossbow", "Saw blades", "Mortar"] as const;
+/**
+ * The squad's weapons (each player starts with their own; crates hand out the rest). The last
+ * three are lasers: a pulse laser firing searing bolts in bursts, a death ray held on its target
+ * that cuts through everything (the ground too), a prism laser whose beam splits where it strikes.
+ */
+export const WEAPONS = ["Rifle", "Shotgun", "Plasma", "Rockets", "Sniper", "Flamethrower", "Grenades", "Minigun", "Laser", "Tesla", "Pistols", "Crossbow", "Saw blades", "Mortar", "Pulse laser", "Death ray", "Prism laser"] as const;
 /** Range per weapon. */
-const W_RANGE = [170, 115, 160, 190, 300, 72, 210, 165, 230, 140, 150, 200, 150, 260];
+const W_RANGE = [170, 115, 160, 190, 300, 72, 210, 165, 230, 140, 150, 200, 150, 260, 220, 280, 210];
+/** The prism laser's split beams */
+const RAINBOW = ["#ff5a6a", "#ffd23f", "#5aff8a", "#5ab0ff", "#c87aff"];
+
+/**
+ * The tide of the battle: it comes in waves. A lull (half the enemy there would be), a skirmish,
+ * an assault (nearly twice as many), and now and then an onslaught: three times as many, more
+ * pouring in all the time.
+ */
+export const WAVES = [
+  { name: "Lull", k: 0.5 },
+  { name: "Skirmish", k: 1 },
+  { name: "Assault", k: 1.8 },
+  { name: "Onslaught", k: 3 },
+] as const;
 /** Weapons that lob over cover (no clear line needed). */
 const LOBBED = new Set([6, 13]);
 /** How much more of everything there is than the themes ask for. */
@@ -102,6 +135,19 @@ export interface Player extends Body {
   spin: number;
   /** Recoil kick for the sprite (seconds left) */
   kick: number;
+  /** Backing off from under an overhang it was trying to climb (seconds left), before jumping for its edge */
+  back: number;
+  /**
+   * Furthest along and highest up it has got while behind its place in the squad, and seconds since
+   * either improved: so going round in circles in a hole blasted in the rock is caught, however busy it looks
+   */
+  bestX: number;
+  bestY: number;
+  progT: number;
+  /** The death ray: seconds left holding it on, where it points, and the time towards its next bite out of a block */
+  ray: number;
+  rayA: number;
+  rayCut: number;
   /** The weapon in hand (an index into WEAPONS) and seconds left on a picked-up one */
   weapon: number;
   weaponT: number;
@@ -109,6 +155,8 @@ export interface Player extends Body {
   jet: number;
   /** Down, waiting for a transport to drop them back in */
   queued: boolean;
+  /** Aboard the squad's gunship, riding in it (not on the ground, out of the fight but for the door guns) */
+  aboard: boolean;
   /** Seconds left on fire after a warhead threw them (they trail flame as they fly) */
   burn: number;
   score: number;
@@ -119,7 +167,7 @@ export interface Player extends Body {
 export type Foe = { x: number; y: number; dead: boolean; vx?: number };
 
 /** The allies' war machines: tanks, fighting vehicles, rocket artillery, flak, attack helicopters, a supply lifter. */
-export type AllyKind = "mbt" | "ifv" | "mlrs" | "aa" | "scoutcar" | "aheli" | "lifter";
+export type AllyKind = "mbt" | "ifv" | "mlrs" | "aa" | "scoutcar" | "aheli" | "lifter" | "gunship";
 export interface Ally extends Body {
   kind: AllyKind;
   hp: number;
@@ -137,14 +185,94 @@ export interface Ally extends Body {
   hit: number;
   target: Enemy | null;
 }
-const ALLY_HP: Record<AllyKind, number> = { mbt: 40, ifv: 26, mlrs: 18, aa: 20, scoutcar: 18, aheli: 16, lifter: 24 };
-export const ALLY_SIZE: Record<AllyKind, [number, number]> = { mbt: [20, 14], ifv: [19, 13], mlrs: [19, 14], aa: [18, 13], scoutcar: [16, 12], aheli: [15, 9], lifter: [22, 10] };
-export const ALLY_AIR = new Set<AllyKind>(["aheli", "lifter"]);
+const ALLY_HP: Record<AllyKind, number> = { mbt: 40, ifv: 26, mlrs: 18, aa: 20, scoutcar: 18, aheli: 16, lifter: 24, gunship: 220 };
+export const ALLY_SIZE: Record<AllyKind, [number, number]> = { mbt: [20, 14], ifv: [19, 13], mlrs: [19, 14], aa: [18, 13], scoutcar: [16, 12], aheli: [15, 9], lifter: [22, 10], gunship: [30, 14] };
+export const ALLY_AIR = new Set<AllyKind>(["aheli", "lifter", "gunship"]);
 /** Blast radius of a missile by size: small rockets, tactical missiles, cruise missiles, huge warheads. */
 export const MISSILE_R = [16, 30, 52, 96];
 /** The enemy's tanks and armour (driven by updateArmour). */
 export const ARMOR_KINDS = new Set(["apc", "lighttank", "medtank", "heavytank", "flametank", "rockettank", "aatank", "launcher", "armoredcar", "artytruck", "hovercraft"]);
-export type PlaneType = "bomber" | "fighter" | "attacker" | "transport";
+/**
+ * Aircraft: bombers dropping sticks of bombs, fighters, attack jets with napalm, transports, and
+ * for bombing runs also heavy bombers carpet-bombing from high up, stealth bombers placing a
+ * few precise bombs, dive bombers swooping on their target, and rocket jets firing salvos.
+ */
+export type PlaneType = "bomber" | "fighter" | "attacker" | "transport" | "heavy" | "stealth" | "dive" | "rocketjet";
+export interface Jet {
+  x: number;
+  y: number;
+  vx: number;
+  bombs: number;
+  dropT: number;
+  kind: PlaneType;
+  ally: boolean;
+  fireCd: number;
+  hp: number;
+  down: boolean;
+  vy: number;
+  dead: boolean;
+  big?: boolean;
+  /** Dive bombers: the height it cruises at, and where it is in its dive (0 cruising, 1 diving, 2 pulling up) */
+  alt?: number;
+  phase?: number;
+}
+
+/** Each kind of aircraft: cruising speed, bombs (or missiles, salvos) carried, plus up to `more`, toughness, whether it comes over high. */
+const PLANES: Record<PlaneType, { speed: number; bombs: number; more: number; hp: number; high?: boolean }> = {
+  bomber: { speed: 170, bombs: 8, more: 4, hp: 4 },
+  fighter: { speed: 300, bombs: 2, more: 0, hp: 2 },
+  attacker: { speed: 230, bombs: 4, more: 0, hp: 2 },
+  transport: { speed: 320, bombs: 3, more: 3, hp: 6 },
+  heavy: { speed: 120, bombs: 18, more: 8, hp: 7, high: true },
+  stealth: { speed: 250, bombs: 3, more: 0, hp: 3, high: true },
+  dive: { speed: 210, bombs: 1, more: 0, hp: 2 },
+  rocketjet: { speed: 260, bombs: 3, more: 1, hp: 2 },
+};
+/** What comes over on bombing runs, and how often (transports have their own schedule). */
+const PLANE_MIX: PlaneType[] = ["bomber", "bomber", "fighter", "fighter", "attacker", "attacker", "heavy", "stealth", "dive", "dive", "rocketjet", "rocketjet"];
+
+/** A submarine of ours, roaming the sea under the fight and sending missiles up at the enemy's aircraft. */
+export interface Sub {
+  x: number;
+  /** The middle of its hull */
+  y: number;
+  facing: 1 | -1;
+  /** How deep it wants to run (px below the surface, 0: surfaced) and for how much longer */
+  dive: number;
+  diveT: number;
+  samCd: number;
+  t: number;
+}
+
+/** Something in the air a submarine's missile can go after. */
+interface AirTarget {
+  /** The aircraft itself (no two missiles chase the same one) */
+  ref: object;
+  x(): number;
+  y(): number;
+  vx(): number;
+  up(): boolean;
+  /** The missile got it */
+  hit(): void;
+}
+
+/**
+ * A missile fired from a submarine at an aircraft (an ICBM-sized one): it rises through the
+ * water trailing bubbles, bursts out of the sea, climbs, then turns and homes in on its target.
+ */
+export interface Sam {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** Whose: ours shoot down the enemy's aircraft, theirs ours */
+  side: "ally" | "enemy";
+  target: AirTarget | null;
+  t: number;
+  /** Still under water; and when it came out of it */
+  wet: boolean;
+  out: number;
+}
 
 export type EnemyKind =
   | "mook"
@@ -200,6 +328,8 @@ const isBoss = (k: EnemyKind): k is BossKind => (BOSS_KINDS as string[]).include
 /** Things in the air: no gravity, shot at without needing a clear line, crash when downed. */
 const FLYING = new Set<EnemyKind>(["heli", "gunship", "drone", "jetpacker", "airship", "attackheli", "transport", "scoutheli"]);
 /** Vehicles a blast damages rather than flings. */
+/** What sails the sea (and rivers, lakes, harbours): back and forth across the water it's on. */
+const SHIPS = new Set<EnemyKind>(["boat", "battleship", "submarine"]);
 const ARMOURED = new Set<EnemyKind>(["heli", "jeep", "truck", "boat", "battleship", "mg", "exosuit", "apc", "lighttank", "medtank", "heavytank", "flametank", "rockettank", "aatank", "launcher", "attackheli", "transport", "scoutheli", "flakgun", "howitzer", "samsite", "rocketpod", "submarine", "train", "armoredcar", "artytruck", "hovercraft"]);
 
 export interface Segment {
@@ -246,9 +376,13 @@ export interface Enemy extends Body {
   /** How big it is (0.75 small and quick … 2.2 a giant brute), and whether it carries explosives that go off when it dies */
   scale: number;
   sapper: boolean;
+  /** Falling back (a lull in the fighting): it runs off ahead, out of the fight */
+  retreat?: boolean;
   /** Seconds left falling back to cover, and until its next grenade */
   cover: number;
   nade: number;
+  /** Submarines: seconds until the next missile at our aircraft */
+  samCd?: number;
 }
 
 export type BarrelKind = "barrel" | "fuel" | "tanker" | "ammo" | "egg" | "propane" | "canister" | "cylinder" | "mine" | "tnt";
@@ -286,6 +420,8 @@ export const NAPALM = 17;
 export const FLAK = 18;
 /** A huge bomb: a big blast, a mushroom cloud, a crater */
 export const BIGBOMB = 19;
+/** A pulse laser's bolt: a searing streak, in its firer's colour */
+export const PULSE = 20;
 
 const EXPLOSIVE = new Set([ROCKET, GRENADE, SHELL, METEOR, LOB, CANNON, MORTAR, FIREBALL, BOLT, NAPALM, FLAK, BIGBOMB]);
 /** Gravity per shot kind (px/s²): lobbed things arc, flames drift up */
@@ -327,6 +463,33 @@ export const BLAZE = 14;
 export const CINDER = 15;
 /** Dust kicked along the ground by a blast (its colour in `c`) */
 export const DUST = 16;
+/** Air rising through water (it pops at the surface) */
+export const BUBBLE = 17;
+/** A coloured sparkle hanging in the air after a blast, twinkling as it drifts down (its colour in `c`) */
+export const GLINT = 18;
+
+/**
+ * The colours an explosion burns in (the renderer has each one's fireball, flash and smoke):
+ * plain fire, the white and gold of a warhead, a chemical drum's toxic green, gas burning blue,
+ * plasma's cyan and violet, napalm's deep red and black smoke, magma's orange and crimson.
+ */
+export const PAL_FIRE = 0;
+export const PAL_NUKE = 1;
+export const PAL_CHEM = 2;
+export const PAL_GAS = 3;
+export const PAL_PLASMA = 4;
+export const PAL_NAPALM = 5;
+export const PAL_MAGMA = 6;
+/** Each one's sparks and glints */
+const PAL_SPARKS: string[][] = [
+  ["#fff6c8", "#ffe27a", "#ffb43a", "#ff7a2a", "#ff4a5a", "#ffd0f0"],
+  ["#ffffff", "#fff3b0", "#ffd23f", "#ff9ad0", "#9ad8ff", "#ffb43a"],
+  ["#f0ffc0", "#b8ff6a", "#5aff4a", "#2ad86a", "#d8ff3a", "#5affd8"],
+  ["#ffffff", "#c8f0ff", "#7ac8ff", "#4a7aff", "#a08aff", "#ffd27a"],
+  ["#ffffff", "#aafcff", "#4ae0ff", "#7a9aff", "#c87aff", "#ff7af0"],
+  ["#fff0b0", "#ffc23a", "#ff7a1a", "#ff4a1a", "#d82a1a", "#ffe27a"],
+  ["#ffe8a0", "#ffa21f", "#ff5a1a", "#e8301a", "#ff8a5a", "#ffd23f"],
+];
 
 export interface Particle {
   k: number;
@@ -345,7 +508,23 @@ export interface Blast {
   y: number;
   r: number;
   t: number;
+  /** Its colours (PAL_*) */
+  pal: number;
 }
+
+/** A mine cart rolling up and down its stretch of rail, `lo` to `hi` (world px), loaded with coal, gold, copper ore, or empty. */
+export interface Cart {
+  x: number;
+  y: number;
+  vx: number;
+  lo: number;
+  hi: number;
+  load: 0 | 1 | 2 | 3;
+  anim: number;
+}
+
+/** The squad's gunship: flying in, waiting for them to board, carrying them on, setting them down, leaving. */
+export type ShipMode = "inbound" | "board" | "fly" | "land" | "leave";
 
 export interface Popup {
   x: number;
@@ -377,7 +556,103 @@ export interface Missile {
   owner?: "enemy" | "ally";
   cls?: number;
   t?: number;
+  /** Its heading (it curves in onto its target, not straight at it) and where it's been: its trail, (x, y) pairs, newest last */
+  hx?: number;
+  hy?: number;
+  trail?: number[];
 }
+
+/**
+ * A freight train on a stretch of main line: its locomotive's front (x, world px), the rails' y,
+ * which way and how fast. It runs the line from one end to the other, out of one tunnel mouth and
+ * into the other; then, a while later, another comes along.
+ */
+export interface Freight {
+  x: number;
+  y: number;
+  dir: 1 | -1;
+  speed: number;
+  /** Behind the front: 0 a locomotive, 1 a boxcar, 2 a tank car, 3 a flat car with containers, 4 a hopper */
+  cars: number[];
+  livery: number;
+  lo: number;
+  hi: number;
+  /** Seconds until the next one (while the last one's gone) */
+  wait: number;
+  anim: number;
+  /** A station on the line (x, world px) where its passenger trains stop; whether they have; how long they've left there */
+  stop?: number;
+  halted?: boolean;
+  halt?: number;
+  passenger?: boolean;
+}
+/** How long one freight car is (px) */
+export const CAR_LEN = 42;
+
+/** Road traffic: cars, taxis, vans, buses, lorries, and the emergency services (lights and sirens going) */
+export type CarKind = "sedan" | "taxi" | "van" | "bus" | "truck" | "firetruck" | "police" | "ambulance";
+/** How long each is (px) */
+export const CAR_SIZE: Record<CarKind, number> = { sedan: 18, taxi: 18, van: 22, bus: 40, truck: 30, firetruck: 34, police: 18, ambulance: 24 };
+/**
+ * A vehicle on a road: where (its middle), which way, how fast, what it is, its paint; seconds it
+ * has to wait (at a bus stop, at a fire); its passengers (a bus); its siren; the last stop it
+ * called at; where a fire engine's spraying (NaN: it isn't).
+ */
+export interface Car {
+  x: number;
+  dir: 1 | -1;
+  v: number;
+  kind: CarKind;
+  color: number;
+  wait: number;
+  riders: number;
+  anim: number;
+  siren: boolean;
+  last: number;
+  spray: number;
+}
+/** A road with its traffic: its ends, its surface (y), its traffic lights and bus stops (x), and whether it's an expressway (fast, no lights or stops) */
+export interface Road {
+  lo: number;
+  hi: number;
+  y: number;
+  lights: number[];
+  stops: number[];
+  fast: boolean;
+  cars: Car[];
+  spawnT: number;
+}
+/** Traffic lights at x, at time t: 0 green, 1 amber, 2 red (each crossing on its own cycle). */
+export const lightState = (t: number, x: number) => {
+  const u = (((t / 14 + x * 0.00071) % 1) + 1) % 1;
+  return u < 0.46 ? 0 : u < 0.54 ? 1 : 2;
+};
+/** The weather where it comes and goes */
+export type Sky = "clear" | "cloud" | "rain" | "storm" | "fog";
+
+/**
+ * A metro train: its middle (x), the tunnel floor (y), the tunnel's ends, its stations; which way
+ * it's going, its speed, seconds left stopped at a station, how far its doors are open (0–1).
+ */
+export interface Metro {
+  x: number;
+  y: number;
+  lo: number;
+  hi: number;
+  stops: number[];
+  dir: 1 | -1;
+  v: number;
+  wait: number;
+  doors: number;
+  cars: number;
+  anim: number;
+  /** Stopped at the end of the line (it goes back the other way next) */
+  end: boolean;
+  /** At this stop the squad, if they're on the platform, gets on */
+  board: boolean;
+}
+/** How long one metro car is (px) */
+export const METRO_CAR = 34;
 
 /** The ways a level can end. Every level picks one at random (never the last one again). */
 export type Finale = "salvo" | "nuke" | "cruise" | "silo" | "mirv";
@@ -438,6 +713,12 @@ export interface GameOptions {
   colors?: string[];
   /** Level options for the first level (tests) */
   level?: LevelOptions;
+  /** False: the squad's gunship never comes (tests of the squad on foot) */
+  gunship?: boolean;
+  /** False: the battle never ebbs and flows, it's a skirmish throughout (tests of one thing at a time) */
+  waves?: boolean;
+  /** How the first level ends (otherwise at random) */
+  finale?: Finale;
 }
 
 const SCORE: Record<EnemyKind, number> = {
@@ -620,6 +901,12 @@ export const SIZE: Record<EnemyKind | BarrelKind | "player", [number, number]> =
 const BARREL_BLAST: Record<BarrelKind, number> = { barrel: 20, fuel: 34, tanker: 60, ammo: 16, egg: 0, propane: 24, canister: 18, cylinder: 22, mine: 22, tnt: 32 };
 /** Dust a blast kicks up, by the block the ground is made of (others: a dun grey-brown). */
 const DUST_COLOR: Partial<Record<number, string>> = {
+  [CLAY]: "#c0906a",
+  [LOAM]: "#7a5a3a",
+  [GRAVEL]: "#9a948a",
+  [PEAT]: "#5a4632",
+  [PERMAFROST]: "#a8b0b8",
+  [TUFF]: "#c8bca8",
   [DIRT]: "#9a7a58",
   [SAND]: "#e0c08a",
   [SANDSTONE]: "#d0a878",
@@ -630,6 +917,9 @@ const DUST_COLOR: Partial<Record<number, string>> = {
   [MUD]: "#6a5a40",
   [REDROCK]: "#b8704e",
 };
+
+/** What a mine cart's carrying, in pieces: coal, gold, copper ore, or nothing but its own timber */
+const CART_LOAD = ["#2a2a30", "#ffd23f", "#c8906a", "#6a5a4a"];
 
 const sign = (v: number) => (v < 0 ? -1 : 1);
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
@@ -667,23 +957,80 @@ export class Game {
   popups: Popup[] = [];
   missiles: Missile[] = [];
   /** Mushroom clouds and shockwaves from the ICBMs */
-  mushrooms: { x: number; y: number; t: number }[] = [];
+  mushrooms: { x: number; y: number; t: number; s?: number }[] = [];
+  /** Roads with their traffic; smoke rising off the big blasts for a while after */
+  roads: Road[] = [];
+  plumes: { x: number; y: number; t: number; s: number }[] = [];
+  /**
+   * Where the day turns (the cities): the time of day (0 noon … 0.5 midnight … back to noon) and
+   * the weather, and seconds until it changes
+   */
+  clock = 0;
+  sky: Sky = "clear";
+  private skyT = 40;
+  /** Freight trains on the main lines, metro trains in the tunnels, and the one the squad's riding */
+  freights: Freight[] = [];
+  metros: Metro[] = [];
+  ride: Metro | null = null;
+  private rideHops = 0;
+  /**
+   * The station the squad's waiting at for a train (world px; -1: none), how much longer they'll
+   * wait, the train that's coming for them, and the stations they've already thought about it at
+   */
+  private platform = -1;
+  private platformT = 0;
+  private called: Metro | null = null;
+  private platforms = new Set<number>();
+  /** The battle's tide (an index into WAVES), seconds until it turns, and until the next reinforcements */
+  wave = 1;
+  private waveT = 24;
+  private surge = 0;
+  /** How many of the enemy there usually are on screen in a skirmish (a running average): the waves are reckoned from it */
+  private usual = 10;
   waves: { x: number; y: number; t: number }[] = [];
   /** Short-lived fires left by explosions */
   fires: { x: number; y: number; t: number }[] = [];
   /** Bombers, fighters and attack jets on both sides */
-  jets: { x: number; y: number; vx: number; bombs: number; dropT: number; kind: PlaneType; ally: boolean; fireCd: number; hp: number; down: boolean; vy: number; dead: boolean; big?: boolean }[] = [];
+  jets: Jet[] = [];
+  /** Our submarines out in the sea, and the missiles both sides' submarines have sent up at aircraft */
+  navy: Sub[] = [];
+  sams: Sam[] = [];
+  private navyCd = 0;
   /** Players waiting for the next transport to drop them back in */
   private dropQueue: number[] = [];
   /** The allied column fighting alongside the squad */
   allies: Ally[] = [];
+  /** Mine carts rolling on the rails */
+  carts: Cart[] = [];
+  /**
+   * The squad's gunship while it's in (it's one of the allies too): it comes in, sets down for
+   * them, carries them on over the land, biome after biome, until it's shot down (they bail out)
+   * or has to set them down (a boss ahead, the stronghold). `crew`: who's aboard, by id.
+   */
+  ship: Ally | null = null;
+  shipMode: ShipMode = "inbound";
+  crew: number[] = [];
+  private shipT = 0;
+  private shipCd = 22;
+  /** Where it sets down for the squad to board (world px) */
+  private shipPad = 0;
+  private noShip = false;
+  private noWaves = false;
+  private forceFinale: Finale | null = null;
+  /** It left without anyone aboard (none of the squad were up to board): it comes back soon */
+  private shipEmpty = false;
+  /** Ground to bring down: loose blocks and broken-off rock to check (column, row pairs), and blocks falling whatever they're made of */
+  private unstable: number[] = [];
+  private crumbling = new Set<number>();
+  private seen = new Uint32Array(RING * ROWS);
+  private stamp = 0;
   /** Manholes in the road that enemies climb out of */
   hatches: { x: number; y: number; n: number; cd: number; open: number }[] = [];
   private allyCd = 1;
   /** Muzzle flashes */
   flashes: { x: number; y: number; t: number; c: string }[] = [];
   /** Laser beams and tesla lightning (seconds left to show) */
-  beams: { x0: number; y0: number; x1: number; y1: number; t: number; c: string }[] = [];
+  beams: { x0: number; y0: number; x1: number; y1: number; t: number; c: string; w?: number }[] = [];
   zaps: { pts: [number, number][]; t: number }[] = [];
   /** Supply crates parachuting in: a weapon (index into WEAPONS) or a jetpack (-1) */
   drops: { x: number; y: number; vy: number; weapon: number; ground: boolean; t: number }[] = [];
@@ -749,6 +1096,11 @@ export class Game {
     this.rand = rng((opts.seed ?? 1) * 7919 + 3);
     this.maxEnemies = opts.maxEnemies ?? 70;
     this.maxParticles = opts.maxParticles ?? 2600;
+    this.noShip = opts.gunship === false;
+    this.noWaves = opts.waves === false;
+    // (some time of day or other: where the day turns, every battle starts at a different hour)
+    this.clock = ((opts.seed ?? 1) * 0.6180339) % 1;
+    this.forceFinale = opts.finale ?? null;
     this.colors = opts.colors ?? ["#4aa3ff", "#ffcc33", "#c77dff", "#ff6a3d", "#5fd16a", "#3fd8e0", "#ff6fae", "#e8e2d0"];
     this.current = theme;
     this.level = createLevel(theme, opts.seed ?? 1, opts.level);
@@ -779,11 +1131,19 @@ export class Game {
       anim: id,
       spin: 0,
       kick: 0,
+      back: 0,
+      bestX: 0,
+      bestY: 0,
+      progT: 0,
+      ray: 0,
+      rayA: 0,
+      rayCut: 0,
       burn: 0,
       weapon: id,
       weaponT: 0,
       jet: 0,
       queued: false,
+      aboard: false,
       score: 0,
       kills: 0,
     }));
@@ -846,7 +1206,30 @@ export class Game {
 
   /** How many enemies at once: more when the view is wider (zoomed out). */
   private cap() {
-    return Math.round(this.maxEnemies * clamp(this.lastView.w / 560, 1, 2.6));
+    // (and the tide of the battle: half as many in a lull, three times as many in an onslaught)
+    return Math.round(this.maxEnemies * clamp(this.lastView.w / 560, 1, 2.6) * WAVES[this.wave].k);
+  }
+
+  /** How dark it is: the theme's own darkness, or where the day turns, the time of day (dusk, a night, the dawn). */
+  get night() {
+    if (!this.theme.cycle) return this.theme.night;
+    return 0.7 * (0.5 - 0.5 * Math.cos(this.clock * Math.PI * 2));
+  }
+
+  /** What the squad's riding in, all aboard (the camera follows it): a metro train, or their gunship (`air`). */
+  get carrier(): { x: number; y: number; air: boolean } | null {
+    if (!this.crew.length) return null;
+    if (this.ride) return { x: this.ride.x, y: this.ride.y, air: false };
+    if (this.ship && !this.ship.dead) return { x: this.ship.x, y: this.ship.y, air: true };
+    return null;
+  }
+
+  /** One of the theme's foot soldiers, by its weights. */
+  private troop(): EnemyKind {
+    const entries = Object.entries(this.theme.troops) as [EnemyKind, number][];
+    let x = this.rand() * entries.reduce((s, [, w]) => s + w, 0);
+    for (const [k, w] of entries) if ((x -= w) < 0) return k;
+    return "mook";
   }
 
   /** Run `fn` in `delay` seconds of game time. */
@@ -878,8 +1261,24 @@ export class Game {
     this.waves = [];
     this.fires = [];
     this.jets = [];
+    this.navy = [];
+    this.sams = [];
     this.allies = [];
     this.hatches = [];
+    this.carts = [];
+    this.freights = [];
+    this.roads = [];
+    this.plumes = [];
+    this.metros = [];
+    this.ride = null;
+    this.platform = -1;
+    this.called = null;
+    this.platforms.clear();
+    this.ship = null;
+    this.crew = [];
+    this.shipCd = 22;
+    this.unstable = [];
+    this.crumbling.clear();
     this.flashes = [];
     this.beams = [];
     this.zaps = [];
@@ -906,7 +1305,7 @@ export class Game {
     this.killsAt = this.kills;
     this.meetBoss();
     for (const p of this.players) {
-      Object.assign(p, { dead: false, hp: PLAYER_HP, inv: 2.5, chute: true, ground: false, vx: 0, vy: 0, stuckT: 0, stall: 0, spin: 0, target: null, burn: 0, weapon: p.id, weaponT: 0, jet: 0, queued: false });
+      Object.assign(p, { dead: false, hp: PLAYER_HP, inv: 2.5, chute: true, ground: false, vx: 0, vy: 0, stuckT: 0, stall: 0, spin: 0, target: null, burn: 0, weapon: p.id, weaponT: 0, jet: 0, queued: false, aboard: false });
       p.x = this.advance + OFFSETS[p.id] + (this.rand() - 0.5) * 8;
       p.y = BASE_ROW * TILE - 90 - p.id * 9;
     }
@@ -930,7 +1329,7 @@ export class Game {
     if (this.bolts.length) this.bolts = this.bolts.filter((b) => b.t < 0.5);
     this.lastView = view;
     const L = this.level;
-    L.intensity = this.intensity * CHAOS * (1 + 0.1 * Math.min(this.levelNo - 1, 6));
+    L.intensity = this.intensity * CHAOS * (1 + 0.1 * Math.min(this.levelNo - 1, 6)) * WAVES[this.wave].k;
 
     // Over a border: the land has run on into the next biome, and this is the next level
     while (L.borders.length && this.advance > L.borders[0].col * TILE) {
@@ -964,17 +1363,38 @@ export class Game {
 
     if (!frozen) {
       this.flow(view);
+      this.updateWave(dt, view);
       this.moveSquad(dt);
       for (const p of this.players) this.updatePlayer(p, dt, view);
-      for (const e of this.enemies) this.updateEnemy(e, dt, view);
+      for (const e of this.enemies) {
+        this.updateEnemy(e, dt, view);
+        if (e.alive && FLYING.has(e.kind)) this.aboveLand(e);
+      }
       this.manageAllies(dt, view);
-      for (const a of this.allies) this.updateAlly(a, dt, view);
+      for (const a of this.allies) {
+        this.updateAlly(a, dt, view);
+        if (!a.dead && ALLY_AIR.has(a.kind)) {
+          // (ours too stay up over the land, not in a mountain or the rock over a cavern)
+          const top = this.landTop(a.x, ALLY_SIZE[a.kind][0]) * TILE - ALLY_SIZE[a.kind][1] - 6;
+          if (a.y > top) a.y = top;
+        }
+      }
+      this.manageShip(dt, view);
+      this.manageNavy(dt, view);
+      for (const s of this.navy) this.updateSub(s, dt);
+      this.updateCarts(dt);
+      this.updateFreights(dt);
+      this.updateMetros(dt);
+      this.updateRoads(dt);
+      this.updateSky(dt);
       this.updateHatches(dt, view);
       this.ambient(dt, view);
     }
     for (const b of this.barrels) this.updateBarrel(b, dt);
+    this.settle();
     this.updateShots(dt, view);
     this.updateMissiles(dt);
+    this.updateSams(dt, view);
     this.updateEffects(dt, view);
 
     // Forget what fell behind
@@ -983,6 +1403,10 @@ export class Game {
     this.barrels = this.barrels.filter((b) => b.alive && b.x > left);
     this.allies = this.allies.filter((a) => (!a.dead || a.deadT > 0) && a.x > left - 60);
     this.hatches = this.hatches.filter((h) => h.x > left);
+    this.freights = this.freights.filter((f) => f.hi > left - 200);
+    this.roads = this.roads.filter((rd) => rd.hi > left - 200);
+    this.metros = this.metros.filter((m) => m.hi > left - 200 || m === this.ride);
+    this.carts = this.carts.filter((k) => k.x > left);
   }
 
   /** The level's beats: the boss when the squad reaches the arena, the ICBMs at the stronghold. */
@@ -1018,10 +1442,28 @@ export class Game {
     if (!threat || this.holdT > 4) this.advance += this.theme.speed * dt;
     // Never far ahead of the squad as a whole (stragglers still catch up: see updatePlayer)
     const mean = alive.length ? alive.reduce((s, p) => s + p.x, 0) / alive.length : this.advance;
-    this.advance = Math.min(this.advance, front + 50, mean + 40, this.holdAt);
+    // (and waiting on a platform for the train they've decided to take)
+    this.advance = Math.min(this.advance, front + 50, mean + 40, this.holdAt, this.platform >= 0 ? this.platform + 30 : Infinity);
   }
 
   private spawn(s: Spawn) {
+    if (s.kind === "minecart") {
+      this.addCart(s.x, s.y);
+      return;
+    }
+    if (s.kind === "metro") {
+      this.addMetro(s);
+      return;
+    }
+    if (s.kind === "freight") {
+      this.addLine(s);
+      return;
+    }
+    if (s.kind === "road" || s.kind === "motorway") {
+      const [lo, hi, n = 0, ...rest] = s.extra ?? [s.x, s.x + 400, 0];
+      this.roads.push({ lo, hi, y: s.y, lights: rest.slice(0, n), stops: rest.slice(n), fast: s.kind === "motorway", cars: [], spawnT: this.rand() * 2 });
+      return;
+    }
     if (s.kind === "manhole") {
       this.hatches.push({ x: s.x, y: s.y, n: 2 + Math.floor(this.rand() * 3), cd: 0, open: 0 });
       return;
@@ -1035,7 +1477,526 @@ export class Game {
     let y = s.y;
     // (ships ride in the water under the pier: they aren't lifted on top of it)
     if (s.kind !== "battleship" && s.kind !== "submarine") while (y > TILE && this.solid(s.x, y - 1)) y -= TILE;
-    this.enemies.push(this.vary(this.makeEnemy(s.kind, s.x, y)));
+    const e = this.vary(this.makeEnemy(s.kind, s.x, y));
+    // Ships set off whichever way they happen to be heading
+    if (SHIPS.has(e.kind)) e.facing = this.rand() < 0.5 ? -1 : 1;
+    this.enemies.push(e);
+  }
+
+  /** A train's make-up: an engine (two now and then) and four to nine wagons; on a station's line, as often as not a passenger train, its engine and coaches. */
+  private makeUp(f: Freight) {
+    const r = this.rand;
+    f.cars = [0];
+    f.passenger = f.stop !== undefined && r() < 0.7;
+    f.halted = false;
+    if (f.passenger) {
+      for (let k = 3 + Math.floor(r() * 4); k > 0; k--) f.cars.push(5);
+      f.speed = 60 + r() * 20;
+    } else {
+      if (r() < 0.35) f.cars.push(0);
+      for (let k = 4 + Math.floor(r() * 6); k > 0; k--) f.cars.push(1 + Math.floor(r() * 4));
+      f.speed = 46 + r() * 30;
+    }
+    f.livery = Math.floor(r() * 4);
+  }
+
+  /** A stretch of main line: it carries the one before it on if they meet (its trains run the whole of it), otherwise it's a new line with its own. */
+  private addLine(s: Spawn) {
+    const [lo, hi, stop] = s.extra ?? [s.x, s.x + 400];
+    const prev = this.freights.find((f) => Math.abs(f.y - s.y) <= TILE * 2 && f.hi >= lo - 3 * TILE && f.hi <= lo + 3 * TILE);
+    if (prev) {
+      prev.hi = Math.max(prev.hi, hi);
+      if (stop !== undefined && prev.stop === undefined) prev.stop = stop;
+      return;
+    }
+    const dir = this.rand() < 0.5 ? 1 : -1;
+    const f: Freight = { x: dir > 0 ? lo : hi, y: s.y, dir, speed: 0, cars: [], livery: 0, lo, hi, wait: this.rand() * 4, anim: 0, stop };
+    this.makeUp(f);
+    this.freights.push(f);
+  }
+
+  /** Freight trains run their line end to end, out of the tunnel at one end and into it at the other; a while later, another comes. */
+  private updateFreights(dt: number) {
+    for (const f of this.freights) {
+      if (f.wait > 0) {
+        if ((f.wait -= dt) <= 0) {
+          f.dir = this.rand() < 0.5 ? 1 : -1;
+          f.x = f.dir > 0 ? f.lo : f.hi;
+          this.makeUp(f);
+        }
+        continue;
+      }
+      const len = f.cars.length * CAR_LEN;
+      // A passenger train calls at the station: it slows into it, stands there with its doors open, and pulls out
+      let v = f.speed;
+      if (f.passenger && f.stop !== undefined && !f.halted) {
+        const to = (f.stop - (f.x - (f.dir * len) / 2)) * f.dir;
+        if (to <= 0) {
+          f.halted = true;
+          f.halt = 5 + this.rand() * 3;
+        } else v = f.speed * clamp(to / 140, 0.12, 1);
+      }
+      if (f.halt && f.halt > 0) {
+        f.halt -= dt;
+        continue;
+      }
+      f.x += f.dir * v * dt;
+      f.anim += v * dt * 0.3;
+      if (f.dir > 0 ? f.x - len > f.hi : f.x + len < f.lo) {
+        f.wait = 4 + this.rand() * 10;
+        continue;
+      }
+      // Exhaust from the engines, on the open line
+      for (let k = 0; k < f.cars.length && f.cars[k] === 0; k++) {
+        const ex = f.x - f.dir * (k * CAR_LEN + 12);
+        if (ex > f.lo && ex < f.hi && this.rand() < dt * 5) this.puff(ex, f.y - 24, 2 + this.rand() * 2);
+      }
+    }
+  }
+
+  /** A metro train on its line, waiting at its first station. */
+  private addMetro(s: Spawn) {
+    const [lo, hi, ...stops] = s.extra ?? [];
+    if (lo === undefined || hi === undefined) return;
+    const cars = 4;
+    const half = (cars * METRO_CAR) / 2;
+    const dir: 1 | -1 = s.x <= (lo + hi) / 2 ? 1 : -1;
+    this.metros.push({ x: clamp(s.x, lo + half + 4, hi - half - 4), y: s.y, lo, hi, stops, dir, v: 0, wait: 1 + this.rand() * 3, doors: 1, cars, anim: 0, end: false, board: true });
+  }
+
+  /**
+   * Metro trains: away from a station up to speed, braking into the next to stop there with
+   * their doors open, back the other way from the end of the line. Down on the line, the squad
+   * may get on at a station (going their way) and ride a stop or two, or to the end of the line.
+   */
+  private updateMetros(dt: number) {
+    // The squad down on a platform (not the end of the line): at some stations they wait for a train
+    const up = this.players.filter((p) => !p.dead && !p.aboard && !p.chute);
+    if (!this.ride && this.platform < 0 && up.length >= 3) {
+      const mx = up.reduce((s, p) => s + p.x, 0) / up.length;
+      const my = up.reduce((s, p) => s + p.y, 0) / up.length;
+      for (const m of this.metros) {
+        if (Math.abs(my - m.y) > 16 || mx < m.lo || mx > m.hi) continue;
+        const s = m.stops.find((sx) => Math.abs(sx - mx) < 48 && sx < m.hi - 240);
+        if (s === undefined || this.platforms.has(s)) break;
+        this.platforms.add(s);
+        if (this.rand() < 0.65) {
+          this.platform = s;
+          this.platformT = 16;
+          this.called = m;
+          this.popups.push({ x: s, y: m.y - 34, text: "WAIT FOR THE TRAIN", c: "#9ad8ff", t: 0 });
+        }
+        break;
+      }
+    }
+    if (this.platform >= 0 && ((this.platformT -= dt) <= 0 || this.ride)) {
+      this.platform = -1;
+      this.called = null;
+    }
+    for (const m of this.metros) {
+      const half = (m.cars * METRO_CAR) / 2;
+      const a = m.lo + half + 4;
+      const b = m.hi - half - 4;
+      if (b <= a) continue;
+      if (m.wait > 0) {
+        m.doors = Math.min(1, m.doors + dt * 3);
+        m.wait -= dt;
+        if (m.doors >= 1) {
+          if (this.ride === m && (m.end || this.rideHops <= 0)) this.alightAll(m);
+          else if (!this.ride && m.board && m.dir > 0 && !m.end && m.wait > 0.6) this.boardMetro(m);
+        }
+        if (m.wait <= 0 && m.end) {
+          m.dir = m.dir > 0 ? -1 : 1;
+          m.end = false;
+        }
+        continue;
+      }
+      if (m.doors > 0) {
+        // (doors closing before it pulls away)
+        m.doors = Math.max(0, m.doors - dt * 3);
+        continue;
+      }
+      // Where it stops next: the next station on, or the end of the line (or, sent for the squad,
+      // the station they're waiting at, whichever way that is)
+      const pickup = this.called === m && !this.ride ? clamp(this.platform, a, b) : NaN;
+      if (!Number.isNaN(pickup) && Math.abs(pickup - m.x) > 1) m.dir = pickup > m.x ? 1 : -1;
+      const last = m.dir > 0 ? b : a;
+      let target = last;
+      for (const s of m.stops) {
+        const sx = clamp(s, a, b);
+        if ((sx - m.x) * m.dir > 2 && Math.abs(sx - m.x) < Math.abs(target - m.x)) target = sx;
+      }
+      if (!Number.isNaN(pickup)) target = pickup;
+      if (Math.abs(target - m.x) < 1 && !Number.isNaN(pickup)) {
+        // (there already: it opens up for them, heading their way)
+        m.dir = 1;
+        m.wait = 3;
+        m.end = false;
+        m.board = true;
+        continue;
+      }
+      const dist = Math.abs(target - m.x);
+      m.v = Math.min(Math.min(130, Math.sqrt(2 * 80 * dist) + 6), m.v + 55 * dt);
+      const step = m.v * dt;
+      if (step >= dist) {
+        m.x = target;
+        m.v = 0;
+        m.wait = 2.6 + this.rand() * 1.6;
+        m.end = Math.abs(target - last) < 1;
+        m.board = this.rand() < 0.8;
+        if (this.ride === m) this.rideHops--;
+        if (target === pickup) {
+          // Come for the squad: it opens its doors for them, going their way
+          m.dir = 1;
+          m.end = false;
+          m.board = true;
+          m.wait = 3.5;
+        }
+      } else m.x += m.dir * step;
+      m.anim += step * 0.3;
+      if (this.ride === m) this.advance = Math.max(this.advance, m.x);
+    }
+  }
+
+  /** The squad, on the platform as a train going their way stands there with its doors open, gets on. */
+  private boardMetro(m: Metro) {
+    if (this.ship) return;
+    const half = (m.cars * METRO_CAR) / 2;
+    const up = this.players.filter((p) => !p.dead && !p.aboard && !p.chute);
+    const near = up.filter((p) => Math.abs(p.x - m.x) < half + 30 && Math.abs(p.y - m.y) < 14);
+    if (!up.length || near.length < Math.max(3, up.length * 0.6)) return;
+    // (the rest come running and jump on as the doors close)
+    this.ride = m;
+    for (const p of up) if (Math.abs(p.y - m.y) < 40 && Math.abs(p.x - m.x) < 320) this.board(p);
+    this.rideHops = 1 + Math.floor(this.rand() * 2);
+    this.popups.push({ x: m.x, y: m.y - 30, text: "ALL ABOARD", c: "#5ab0ff", t: 0 });
+  }
+
+  /** Off the train, out onto the platform. */
+  private alightAll(m: Metro) {
+    const half = (m.cars * METRO_CAR) / 2;
+    for (const id of [...this.crew]) {
+      const p = this.players[id];
+      p.aboard = false;
+      const x = m.x - half + 10 + this.rand() * (half * 2 - 20);
+      Object.assign(p, { x, y: m.y, vx: 0, vy: 0, ground: true, chute: false, inv: 1, stuckT: 0, stall: 0, progT: 0, back: 0, jet: 0, bestX: x, bestY: m.y, lastX: x });
+    }
+    this.crew = [];
+    this.ride = null;
+  }
+
+  /**
+   * The tide of the battle turns every so often: a lull, a skirmish, an assault, now and then an
+   * all-out onslaught. In an assault or an onslaught reinforcements pour in from ahead, on foot
+   * and in armour, as long as there's room for them.
+   */
+  private updateWave(dt: number, view: View) {
+    if (this.noWaves) return;
+    if ((this.waveT -= dt) <= 0) {
+      const r = this.rand();
+      let next = r < 0.22 ? 0 : r < 0.58 ? 1 : r < 0.86 ? 2 : 3;
+      if (next === this.wave) next = (next + 1 + Math.floor(this.rand() * 3)) % 4;
+      // (the fighting dies down before it starts again: no lull straight after an onslaught, nor an onslaught straight out of a lull)
+      if ((this.wave === 3 && next === 0) || (this.wave === 0 && next === 3)) next = 1;
+      this.wave = next;
+      this.waveT = [14, 24, 20, 16][next] + this.rand() * 12;
+      if (next === 3) this.say("Onslaught", "Enemy forces x3 - hold the line", "#ff3b3b");
+      else this.popups.push({ x: view.x + view.w / 2, y: view.y + 50, text: ["LULL IN THE FIGHTING", "SKIRMISH", "ENEMY ASSAULT"][next], c: next === 2 ? "#ff9a2a" : "#9ad8ff", t: 0 });
+    }
+    if (this.phase !== "play" || this.theme.enemies <= 0) return;
+    // (how many there are on screen now; in a skirmish that's what's usual)
+    let here = 0;
+    for (const e of this.enemies) if (e.alive && !e.boss && e.x > view.x && e.x < view.x + view.w) here++;
+    if (this.wave === 1) this.usual += (here - this.usual) * (1 - Math.exp(-dt / 20));
+    if (this.wave === 0 && (this.surge -= dt) <= 0) {
+      // A lull: whoever's left over from the last attack falls back, the foot soldiers off ahead at a run
+      this.surge = 0.5;
+      if (here > Math.max(3, this.usual * WAVES[0].k)) {
+        let far: Enemy | null = null;
+        for (const e of this.enemies)
+          if (e.alive && !e.boss && !e.retreat && e.scale <= 1.4 && !ARMOURED.has(e.kind) && !FLYING.has(e.kind) && e.kind !== "turret" && e.kind !== "mortar" && e.kind !== "worm" && !e.chute && e.x > view.x && e.x < view.x + view.w && (!far || e.x > far.x)) far = e;
+        if (far) far.retreat = true;
+      }
+    }
+    if (this.wave < 2 || this.buried(view)) return;
+    // An assault, an onslaught: they keep coming until there are twice, three times as many as usual
+    if ((this.surge -= dt) > 0 || here >= Math.max(8, this.usual) * WAVES[this.wave].k || this.enemies.length >= this.cap()) return;
+    this.surge = this.wave === 3 ? 0.3 : 0.9;
+    const n = this.wave === 3 ? 6 + Math.floor(this.rand() * 5) : 3 + Math.floor(this.rand() * 4);
+    if (this.rand() < 0.4) {
+      // Dropped in by parachute, out of the sky over the squad's heads
+      for (let k = 0; k < n; k++) {
+        const m = this.makeEnemy(this.troop(), view.x + view.w * (0.35 + this.rand() * 0.6), view.y + 6 + this.rand() * 20);
+        m.chute = true;
+        m.ground = false;
+        this.enemies.push(this.vary(m));
+      }
+      return;
+    }
+    // Running in from just ahead, on foot and (in an onslaught) in armour
+    const x = view.x + view.w - 10 + this.rand() * 40;
+    const y = surfaceY(this.level, x, view.y - 40);
+    if (y >= LEVEL_H || waterAt(this.level, x, y - 2)) return;
+    for (let k = 0; k < n; k++) this.enemies.push(this.vary(this.makeEnemy(this.troop(), x + k * 9, y)));
+    if (this.wave === 3 && this.rand() < 0.3) this.enemies.push(this.vary(this.makeEnemy((["apc", "lighttank", "armoredcar", "medtank"] as const)[Math.floor(this.rand() * 4)], x + 50, y)));
+  }
+
+  /** A mine cart on the rails at (x, y: its wheels): it rolls from one end of them to the other and back (on a short stretch it stays put). */
+  private addCart(x: number, y: number) {
+    const L = this.level;
+    const row = Math.floor(y / TILE) - 1;
+    const c = Math.floor(x / TILE);
+    if (kindAt(L, c, row) !== RAIL) return;
+    let lo = c;
+    let hi = c;
+    while (kindAt(L, lo - 1, row) === RAIL && c - lo < 90) lo--;
+    while (kindAt(L, hi + 1, row) === RAIL && hi - c < 90) hi++;
+    const r = this.rand;
+    const loads = [0, 0, 1, 2, 3] as const;
+    this.carts.push({ x, y: (row + 1) * TILE, vx: hi - lo >= 4 ? (r() < 0.5 ? -1 : 1) * (16 + r() * 26) : 0, lo: lo * TILE + 8, hi: (hi + 1) * TILE - 8, load: loads[Math.floor(r() * loads.length)], anim: 0 });
+  }
+
+  /** Mine carts roll on, clank off the buffers at the end of their line, and run down any of the enemy in the way. */
+  private updateCarts(dt: number) {
+    const L = this.level;
+    for (const k of this.carts) {
+      // (the rails blown out from under it: it stops where it is)
+      if (kindAt(L, Math.floor(k.x / TILE), Math.floor(k.y / TILE) - 1) !== RAIL) k.vx = 0;
+      if (!k.vx) continue;
+      k.x += k.vx * dt;
+      k.anim += k.vx * dt * 0.35;
+      if (k.x < k.lo || k.x > k.hi) {
+        k.x = clamp(k.x, k.lo, k.hi);
+        k.vx = -k.vx;
+        this.burst(k.x - sign(k.vx) * 7, k.y - 3, 3, ["#ffe27a", "#ffffff"]);
+      }
+      if (this.rand() < dt * 3) this.add({ k: SPARK, x: k.x + (this.rand() - 0.5) * 10, y: k.y - 1, vx: -k.vx * 0.4 + (this.rand() - 0.5) * 20, vy: -20 - this.rand() * 30, life: 0.2, c: "#ffd27a", s: 1 });
+      if (Math.abs(k.vx) > 12)
+        for (const e of this.enemies)
+          if (e.alive && !e.boss && e.scale <= 1.4 && !ARMOURED.has(e.kind) && !FLYING.has(e.kind) && Math.abs(e.x - k.x) < 9 && Math.abs(e.y - k.y) < 8) this.killEnemy(e, -5, k.vx * 3, -150);
+    }
+  }
+
+  /**
+   * A dive bomber's run: it cruises in, tips over into a steep dive as it reaches its target,
+   * lets go of its bomb low down (it carries on the way the plane was going) and pulls out,
+   * climbing back to its height. `phase` 0 cruising, 1 diving, 2 pulling out, 3 done.
+   */
+  private diveBomb(j: Jet, dt: number, over: boolean, pid: number, view: View) {
+    const alt = j.alt ?? j.y;
+    // (the ground or the sea below, whichever it meets first)
+    let gy = Math.max(0, view.y);
+    while (gy < LEVEL_H && !this.solid(j.x, gy) && !waterAt(this.level, j.x, gy)) gy += TILE;
+    const low = gy - 64;
+    if (!j.phase && over && j.bombs > 0) j.phase = 1;
+    if (j.phase === 1) {
+      j.vy = Math.min(j.vy + 420 * dt, 190);
+      if (j.y >= low) {
+        j.bombs = 0;
+        j.phase = 2;
+        this.shots.push({ kind: SHELL, x: j.x, y: j.y + 5, vx: j.vx * 0.55, vy: Math.max(60, j.vy * 0.8), life: 4, dmg: 0, pid, pierce: 0 });
+      }
+    } else if (j.phase === 2) {
+      j.vy = Math.max(j.vy - 520 * dt, -150);
+      if (j.y + j.vy * dt <= alt) {
+        j.y = alt;
+        j.vy = 0;
+        j.phase = 3;
+      }
+    }
+    j.y += j.vy * dt;
+  }
+
+  /** The water in the column at x around (x, y): its surface and its floor (px), or null if (x, y) isn't in water. */
+  private waterSpan(x: number, y: number) {
+    const L = this.level;
+    const c = Math.floor(x / TILE);
+    const r = Math.floor(y / TILE);
+    if (kindAt(L, c, r) !== WATER) return null;
+    let top = r;
+    while (top > 0 && kindAt(L, c, top - 1) === WATER) top--;
+    let bot = r;
+    while (bot < ROWS - 1 && kindAt(L, c, bot + 1) === WATER) bot++;
+    return { top: top * TILE, floor: (bot + 1) * TILE };
+  }
+
+  /**
+   * A submarine under way: along its heading, turning about where the water ends ahead at its
+   * depth (a shore, the seabed rising), easing up or down towards `dive` px below the surface
+   * (0: surfaced), never down on the seabed. `s.y` is the middle of its hull.
+   */
+  private roam(s: { x: number; y: number; facing: 1 | -1 }, dive: number, dt: number, speed: number) {
+    const span = this.waterSpan(s.x, s.y) ?? this.waterSpan(s.x, s.y + TILE);
+    if (!span) return;
+    const want = clamp(span.top + 2 + dive, span.top + 2, span.floor - 9);
+    s.y += clamp(want - s.y, -14 * dt, 14 * dt);
+    const ax = s.x + s.facing * 40;
+    const clear = waterAt(this.level, ax, Math.max(span.top + 1, s.y - 5)) && waterAt(this.level, ax, s.y) && waterAt(this.level, ax, s.y + 6);
+    if (clear) s.x += s.facing * speed * dt;
+    else s.facing = s.facing > 0 ? -1 : 1;
+  }
+
+  /** Air rising through the water. */
+  private bubble(x: number, y: number) {
+    this.add({ k: BUBBLE, x, y, vx: (this.rand() - 0.5) * 6, vy: -22 - this.rand() * 18, life: 3, c: "", s: this.rand() < 0.3 ? 2 : 1 });
+  }
+
+  /**
+   * Keep a couple of our submarines in the sea when there's open water in view: they come in from
+   * the edge of the view, under water, and leave once they're well behind.
+   */
+  private manageNavy(dt: number, view: View) {
+    if ((this.navyCd -= dt) > 0) return;
+    this.navyCd = 2.5;
+    this.navy = this.navy.filter((s) => s.x > view.x - 220 && s.x < view.x + view.w + 420);
+    if (this.navy.length >= clamp(Math.round(view.w / 420), 1, 3)) return;
+    for (const x of [view.x + view.w + 50, view.x - 50]) {
+      // Somewhere deep enough: the surface in view, six blocks of water under it at least
+      const c = Math.floor(x / TILE);
+      let r = Math.max(0, Math.floor(view.y / TILE));
+      while (r < ROWS && kindAt(this.level, c, r) !== WATER) r++;
+      const span = r < ROWS ? this.waterSpan(x, r * TILE + 1) : null;
+      if (!span || span.top > view.y + view.h || span.floor - span.top < 6 * TILE) continue;
+      const depth = 24 + this.rand() * Math.max(8, span.floor - span.top - 50);
+      this.navy.push({ x, y: span.top + depth, facing: x > view.x ? -1 : 1, dive: depth, diveT: 6 + this.rand() * 6, samCd: 1 + this.rand() * 2, t: 0 });
+      return;
+    }
+  }
+
+  /** One of our submarines: roams the sea, changing depth, and sends missiles up at the enemy's aircraft. */
+  private updateSub(s: Sub, dt: number) {
+    s.t += dt;
+    if ((s.diveT -= dt) <= 0) {
+      s.dive = this.rand() < 0.15 ? 0 : 20 + this.rand() * 100;
+      s.diveT = 6 + this.rand() * 8;
+    }
+    this.roam(s, s.dive, dt, 14);
+    if (this.rand() < 0.08) this.bubble(s.x + (this.rand() - 0.5) * 40, s.y - 4);
+    if ((s.samCd -= dt) <= 0) s.samCd = this.launchSam(s.x - s.facing * 8, s.y - 6, "ally") ? 3.5 + this.rand() * 3 : 1;
+  }
+
+  /** What a submarine's missiles can go after: the other side's aircraft, up in the sky. */
+  private airTargets(side: "ally" | "enemy"): AirTarget[] {
+    const out: AirTarget[] = [];
+    for (const j of this.jets)
+      if (j.ally !== (side === "ally") && !j.down && !j.dead)
+        out.push({
+          ref: j,
+          x: () => j.x,
+          y: () => j.y,
+          vx: () => j.vx,
+          up: () => !j.down && !j.dead,
+          hit: () => {
+            j.hp = 0;
+            j.down = true;
+            this.popups.push({ x: j.x, y: j.y - 10, text: j.ally ? "JET DOWN" : "SPLASH ONE", c: j.ally ? "#5ab0ff" : "#ffcc33", t: 0 });
+          },
+        });
+    if (side === "ally") {
+      for (const e of this.enemies)
+        if (e.alive && FLYING.has(e.kind) && e.kind !== "drone" && e.kind !== "jetpacker")
+          out.push({ ref: e, x: () => e.x, y: () => centreY(e), vx: () => e.vx, up: () => e.alive, hit: () => this.hurtEnemy(e, e.boss ? 40 : 999, -5, 1) });
+    } else {
+      for (const a of this.allies)
+        if (!a.dead && ALLY_AIR.has(a.kind)) out.push({ ref: a, x: () => a.x, y: () => a.y, vx: () => a.vx, up: () => !a.dead, hit: () => this.hurtAlly(a, a.kind === "gunship" ? 26 : 999) });
+    }
+    return out;
+  }
+
+  /**
+   * Send a missile up from a submarine at (x, y) at the nearest of the other side's aircraft
+   * that's in reach and not already being chased. False if there's nothing to shoot at.
+   */
+  private launchSam(x: number, y: number, side: "ally" | "enemy") {
+    if (this.sams.length >= 10) return false;
+    const v = this.lastView;
+    const chased = new Set(this.sams.map((s) => s.target?.ref));
+    let best: AirTarget | null = null;
+    let bestD = 560;
+    for (const a of this.airTargets(side)) {
+      const ax = a.x();
+      if (chased.has(a.ref) || ax < v.x - 40 || ax > v.x + v.w + 160 || a.y() > y - 40) continue;
+      const d = Math.abs(ax - x);
+      if (d < bestD) {
+        best = a;
+        bestD = d;
+      }
+    }
+    if (!best) return false;
+    const wet = waterAt(this.level, x, y);
+    this.sams.push({ x, y, vx: 0, vy: wet ? -70 : -160, side, target: best, t: 0, wet, out: wet ? -1 : 0 });
+    for (let k = 0; k < 6; k++) this.bubble(x + (this.rand() - 0.5) * 8, y);
+    return true;
+  }
+
+  /** The submarines' missiles: up through the water, out of the sea in a burst of spray, a climb, then in on the target. */
+  private updateSams(dt: number, view: View) {
+    const keep: Sam[] = [];
+    for (const s of this.sams) {
+      s.t += dt;
+      if (s.wet) {
+        s.y += s.vy * dt;
+        if (this.rand() < 0.7) this.bubble(s.x + (this.rand() - 0.5) * 4, s.y + 6);
+        if (!waterAt(this.level, s.x, s.y)) {
+          // Out of the sea: spray, and the motor lights
+          s.wet = false;
+          s.out = s.t;
+          s.vy = -180;
+          for (let k = 0; k < 16; k++) this.add({ k: SPARK, x: s.x, y: s.y + 2, vx: (this.rand() - 0.5) * 90, vy: -60 - this.rand() * 120, life: 0.5, c: this.rand() < 0.5 ? "#e0f6ff" : "#8fd3ff", s: 1 });
+          for (let k = 0; k < 6; k++) this.add({ k: MIST, x: s.x + (this.rand() - 0.5) * 16, y: s.y + 2, vx: (this.rand() - 0.5) * 30, vy: -10 - this.rand() * 20, life: 1, c: "", s: 2 });
+          this.flashes.push({ x: s.x, y: s.y + 4, t: 0.08, c: "#ffe27a" });
+        }
+        if (s.t < 5) keep.push(s);
+        continue;
+      }
+      const tgt = s.target && s.target.up() ? s.target : null;
+      const speed = Math.min(440, Math.hypot(s.vx, s.vy) + 520 * dt);
+      let a = Math.atan2(s.vy, s.vx);
+      // A moment's climb clear of the water, then it turns in on the target (leading it)
+      if (tgt && s.t - s.out > 0.3) {
+        const d = Math.hypot(tgt.x() - s.x, tgt.y() - s.y);
+        const lead = d / Math.max(120, speed);
+        const want = Math.atan2(tgt.y() - s.y, tgt.x() + tgt.vx() * lead - s.x);
+        let turn = want - a;
+        while (turn > Math.PI) turn -= Math.PI * 2;
+        while (turn < -Math.PI) turn += Math.PI * 2;
+        a += clamp(turn, -4.5 * dt, 4.5 * dt);
+      }
+      s.vx = Math.cos(a) * speed;
+      s.vy = Math.sin(a) * speed;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      this.add({ k: SMOKE, x: s.x - Math.cos(a) * 12, y: s.y - Math.sin(a) * 12, vx: (this.rand() - 0.5) * 10, vy: (this.rand() - 0.5) * 10, life: 1.4 + this.rand(), c: "", s: 2 + this.rand() * 2 });
+      this.add({ k: FLAME, x: s.x - Math.cos(a) * 10, y: s.y - Math.sin(a) * 10, vx: 0, vy: 0, life: 0.15, c: "", s: 2 });
+      const pid = s.side === "ally" ? -5 : -1;
+      if (tgt && Math.hypot(tgt.x() - s.x, tgt.y() - s.y) < 14) {
+        // Got it
+        tgt.hit();
+        this.explode(s.x, s.y, 20, pid, false);
+        continue;
+      }
+      // Lost it, or ran out of fuel: it goes off in the air
+      if (s.t - s.out > 6 || s.y < view.y - 260 || (!tgt && s.t - s.out > 1.2)) {
+        this.explode(s.x, s.y, 14, pid, false);
+        continue;
+      }
+      keep.push(s);
+    }
+    this.sams = keep;
+  }
+
+  /**
+   * A ship under way: sails along the water line at `speed`, turning about where the water ends
+   * ahead (a shore, a dock, the edge of what's been built). `half` is half its length; big ships
+   * also need two blocks of water under them.
+   */
+  private sail(e: Enemy, dt: number, speed: number, half: number) {
+    const row = Math.floor(e.y / TILE);
+    const c = Math.floor((e.x + e.facing * (half + 6)) / TILE);
+    const deep = half > 30;
+    const open = kindAt(this.level, c, row) === WATER && (!deep || kindAt(this.level, c, row + 1) === WATER);
+    if (open) e.x += e.facing * speed * dt;
+    else e.facing = e.facing > 0 ? -1 : 1;
   }
 
   /**
@@ -1122,7 +2083,8 @@ export class Game {
     this.phase = "nuke";
     this.phaseT = 0;
     const pool = FINALES.filter((f) => f !== this.lastFinale);
-    const f = pool[Math.floor(this.rand() * pool.length)];
+    const f = this.forceFinale ?? pool[Math.floor(this.rand() * pool.length)];
+    this.forceFinale = null;
     this.finale = this.lastFinale = f;
     const targets = this.level.plan.targets;
     this.holdAt = targets[0] - 200;
@@ -1231,18 +2193,129 @@ export class Game {
     const theirs = m.owner === "enemy";
     this.explode(x, y, r, -4, theirs);
     if (r >= 30) this.waves.push({ x, y, t: 0.4 - cls * 0.12 });
-    if (r >= 50) this.mushrooms.push({ x, y, t: cls === 3 ? 0 : 1.2 });
+    // (a mushroom cloud off the biggest, and off now and then one of the cruise missiles: never so many the sky fills with them)
+    if (r >= 50 && (cls === 3 || this.rand() < 0.3) && this.mushrooms.filter((m) => m.t < 6).length < 2) {
+      this.mushrooms.push({ x, y, t: cls === 3 ? 0 : 0.35, s: cls === 3 ? 1.1 : 0.65 });
+      this.surgeDust(x, y, r);
+    }
     this.flash = Math.max(this.flash, cls === 3 ? 0.75 : cls === 2 ? 0.25 : 0);
     this.shake = Math.max(this.shake, [3, 6, 10, 16][cls]);
     if (!theirs && cls >= 2)
       for (const e of this.enemies) if (e.alive && !e.boss && Math.abs(e.x - x) < r * 1.6) this.hurtEnemy(e, cls === 3 ? 60 : 24, -4, e.x - x);
     if (theirs && cls >= 1)
       for (const p of this.players) {
-        if (p.dead || p.chute || Math.hypot(p.x - x, p.y - y) > r * 1.4) continue;
+        if (p.dead || p.chute || p.aboard || Math.hypot(p.x - x, p.y - y) > r * 1.4) continue;
         p.vx = sign(p.x - x) * (120 + r * 2);
         p.vy = -(200 + r * 3);
         p.ground = false;
       }
+  }
+
+  /** A vehicle for a road: an expressway's fast traffic, or a city street's (fire engines out where there's a fire). */
+  private carKind(rd: Road): CarKind {
+    const r = this.rand();
+    if (rd.fast) return r < 0.45 ? "sedan" : r < 0.6 ? "van" : r < 0.82 ? "truck" : r < 0.9 ? "taxi" : r < 0.96 ? "bus" : "police";
+    if (this.fires.some((f) => f.x > rd.lo && f.x < rd.hi && Math.abs(f.y - rd.y) < 24) && r < 0.35) return "firetruck";
+    return r < 0.34 ? "sedan" : r < 0.5 ? "taxi" : r < 0.62 ? "van" : r < 0.78 ? "bus" : r < 0.84 ? "truck" : r < 0.91 ? "police" : r < 0.96 ? "ambulance" : "firetruck";
+  }
+
+  /**
+   * The traffic: in at either end of its road, up to speed, braking for the vehicle ahead and for
+   * red lights (not with its siren going), buses calling at their stops (passengers on and off),
+   * fire engines pulling up at fires to put them out; off at the far end.
+   */
+  private updateRoads(dt: number) {
+    for (const rd of this.roads) {
+      if ((rd.spawnT -= dt) <= 0) {
+        rd.spawnT = rd.fast ? 0.7 + this.rand() * 1.3 : 2 + this.rand() * 3.4;
+        const dir = this.rand() < 0.5 ? 1 : -1;
+        const kind = this.carKind(rd);
+        const x = dir > 0 ? rd.lo - 24 : rd.hi + 24;
+        const emergency = kind === "police" || kind === "ambulance" || kind === "firetruck";
+        if (!rd.cars.some((c) => c.dir === dir && Math.abs(c.x - x) < 70))
+          rd.cars.push({ x, dir, v: rd.fast ? 120 : 50, kind, color: Math.floor(this.rand() * 8), wait: 0, riders: kind === "bus" ? 2 + Math.floor(this.rand() * 8) : 0, anim: 0, siren: emergency && this.rand() < 0.8, last: NaN, spray: NaN });
+      }
+      for (const car of rd.cars) {
+        if (car.wait > 0) {
+          car.wait -= dt;
+          car.v = 0;
+          if (!Number.isNaN(car.spray)) this.hose(car, rd, dt);
+          if (car.wait <= 0) car.spray = NaN;
+          continue;
+        }
+        const half = CAR_SIZE[car.kind] / 2;
+        const top = rd.fast ? 150 + (car.color % 3) * 12 : car.siren ? 110 : car.kind === "bus" ? 48 : car.kind === "truck" ? 55 : 68 + (car.color % 3) * 6;
+        let gap = Infinity;
+        for (const o of rd.cars)
+          if (o !== car && o.dir === car.dir && (o.x - car.x) * car.dir > 0) gap = Math.min(gap, Math.abs(o.x - car.x) - half - CAR_SIZE[o.kind] / 2 - 6);
+        if (!car.siren)
+          for (const lx of rd.lights) {
+            const d = (lx - car.x) * car.dir - half - 6;
+            if (d >= -1 && d < 70 && lightState(this.t, lx) !== 0) gap = Math.min(gap, d);
+          }
+        if (car.kind === "bus")
+          for (const sx of rd.stops) {
+            const d = (sx - car.x) * car.dir;
+            if (d < -2 || d > 60 || car.last === sx) continue;
+            if (d < 2) {
+              car.wait = 2.4 + this.rand() * 1.6;
+              car.last = sx;
+              car.riders = clamp(car.riders + Math.floor(this.rand() * 6) - 2, 0, 12);
+            } else gap = Math.min(gap, d - 1);
+          }
+        if (car.kind === "firetruck")
+          for (const f of this.fires) {
+            if (Math.abs(f.y - rd.y) > 24 || f.t <= 0.3) continue;
+            const d = (f.x - car.x) * car.dir;
+            if (d < -8 || d > 90) continue;
+            if (d < 34) {
+              car.wait = 2.5;
+              car.spray = f.x;
+            } else gap = Math.min(gap, d - 34);
+          }
+        const want = gap <= 0 ? 0 : Math.min(top, Math.sqrt(2 * 160 * gap));
+        car.v = want < car.v ? want : Math.min(want, car.v + 70 * dt);
+        car.x += car.dir * car.v * dt;
+        car.anim += car.v * dt * 0.3;
+      }
+      rd.cars = rd.cars.filter((c) => (c.dir > 0 ? c.x < rd.hi + 40 : c.x > rd.lo - 40));
+    }
+  }
+
+  /** A fire engine at a fire: its hose on it, the water arcing over, the fire dying down. */
+  private hose(car: Car, rd: Road, dt: number) {
+    const nx = car.x + car.dir * 8;
+    const ny = rd.y - 14;
+    for (let k = 0; k < 3; k++) {
+      const d = car.spray - nx;
+      this.add({ k: SPARK, x: nx, y: ny, vx: d * 1.6 + (this.rand() - 0.5) * 20, vy: -70 - this.rand() * 30, life: 0.5 + this.rand() * 0.2, c: this.rand() < 0.5 ? "#cdeef8" : "#7ac8f0", s: 1 });
+    }
+    if (this.rand() < 0.3) this.add({ k: MIST, x: car.spray + (this.rand() - 0.5) * 10, y: rd.y - 6, vx: (this.rand() - 0.5) * 10, vy: -12, life: 0.8, c: "", s: 2 });
+    for (const f of this.fires) if (Math.abs(f.x - car.spray) < 16 && Math.abs(f.y - rd.y) < 24) f.t -= dt * 1.6;
+  }
+
+  /**
+   * The day turning, where it does (a whole day in four minutes or so), and the weather coming and
+   * going: clear, cloud, rain, a storm with its lightning, fog in the streets.
+   */
+  private updateSky(dt: number) {
+    if (!this.theme.cycle) return;
+    this.clock = (this.clock + dt / 240) % 1;
+    if ((this.skyT -= dt) > 0) return;
+    const r = this.rand();
+    const next: Sky = r < 0.34 ? "clear" : r < 0.58 ? "cloud" : r < 0.78 ? "rain" : r < 0.9 ? "storm" : "fog";
+    this.sky = next === this.sky ? "clear" : next;
+    this.skyT = 35 + this.rand() * 40;
+  }
+
+  /** The base surge of a big blast: dust rolling out along the ground, both ways, far and fast. */
+  private surgeDust(x: number, y: number, r: number) {
+    const gy = surfaceY(this.level, x, y - 30);
+    const dust = DUST_COLOR[this.theme.fill] ?? "#9a8a78";
+    for (let n = 0; n < 26; n++) {
+      const dir = n % 2 ? 1 : -1;
+      this.add({ k: DUST, x: x + dir * this.rand() * r * 0.3, y: gy - 3 - this.rand() * 8, vx: dir * (80 + this.rand() * (140 + r * 2)), vy: -6 - this.rand() * 14, life: 1.4 + this.rand() * 1.2, c: dust, s: 3 + this.rand() * 4 }, true);
+    }
   }
 
   /** A warhead lands: a huge blast, a mushroom cloud for the big ones, and anyone near it is thrown through the air. */
@@ -1250,14 +2323,15 @@ export class Game {
     const r = m.r ?? 56;
     this.explode(x, y, r, -4, false);
     if (r >= 40) {
-      this.mushrooms.push({ x, y, t: 0 });
+      this.mushrooms.push({ x, y, t: 0, s: r >= 90 ? 1.5 : r >= 56 ? 1 : 0.8 });
       this.waves.push({ x, y, t: 0 });
+      this.surgeDust(x, y, r);
     }
     this.flash = Math.max(this.flash, r >= 90 ? 0.95 : r >= 40 ? 0.6 : 0.35);
     this.shake = r >= 90 ? 18 : r >= 40 ? 12 : 7;
     for (const e of this.enemies) if (e.alive && Math.abs(e.x - x) < r * 3.6) this.hurtEnemy(e, 999, -4, e.x - x);
     for (const p of this.players) {
-      if (p.dead || p.chute) continue;
+      if (p.dead || p.chute || p.aboard) continue;
       const d = Math.hypot(p.x - x, p.y - 8 - y);
       if (d > r * 2.6) continue;
       // Thrown through the air, the closest on fire (they parachute into the next level)
@@ -1288,8 +2362,10 @@ export class Game {
       for (const e of this.enemies) if (e.alive) this.hurtEnemy(e, 999, -4, 1);
       for (const b of this.barrels) this.lightBarrel(b, -4, 0.1 + this.rand() * 0.6);
     });
-    this.at(1.1, () => (this.whiteUp = true));
-    this.at(1.8, () => {
+    // (a big mushroom cloud just gone up: a few seconds to watch it rise and roll over before the white-out)
+    const hold = this.mushrooms.some((m) => m.t < 1.5 && (m.s ?? 1) >= 1) ? 3.4 : 0;
+    this.at(1.1 + hold, () => (this.whiteUp = true));
+    this.at(1.8 + hold, () => {
       this.phase = "clear";
       this.banner = null;
       const bonus = 3000 + Math.floor(this.rand() * 13) * 500;
@@ -1300,7 +2376,7 @@ export class Game {
       this.cleared++;
       for (const p of this.players) p.score += bonus;
     });
-    this.at(5.2, () => this.nextLevel());
+    this.at(5.2 + hold, () => this.nextLevel());
   }
 
   /* -------------------------------------------------------------- */
@@ -1374,6 +2450,19 @@ export class Game {
       if (p.deadT <= 0) this.respawn(p, view);
       return;
     }
+    if (p.aboard) {
+      // Riding in a metro train or the gunship: where it goes, out of harm's way inside it
+      const a = this.ride ?? (this.ship && !this.ship.dead ? this.ship : null);
+      if (a) {
+        p.x = a.x + ((p.id % 4) - 1.5) * (this.ride ? 14 : 4);
+        p.y = this.ride ? a.y - 2 : a.y + 6;
+        p.vx = p.vy = 0;
+        p.lastX = p.x;
+        p.inv = Math.max(p.inv, 0.5);
+        return;
+      }
+      p.aboard = false;
+    }
     p.inv = Math.max(0, p.inv - dt);
     p.kick = Math.max(0, p.kick - dt);
     if (p.weaponT > 0 && (p.weaponT -= dt) <= 0) p.weapon = p.id;
@@ -1388,10 +2477,22 @@ export class Game {
       p.target = this.findTarget(p);
     }
     const tgt = p.target?.alive ? p.target : null;
+    if (p.ray > 0) this.deathRay(p, dt, tgt);
 
-    const desired = this.advance + OFFSETS[p.id] + Math.sin(this.t * 0.8 + p.id * 1.7) * 5;
+    // (the gunship's down for them: everyone runs for its door)
+    const ship = this.ship && this.shipMode === "board" && !this.ship.dead ? this.ship : null;
+    const desired = ship ? ship.x + ((p.id % 4) - 1.5) * 3 : this.advance + OFFSETS[p.id] + Math.sin(this.t * 0.8 + p.id * 1.7) * 5;
     const dx = desired - p.x;
-    const dir = Math.abs(dx) > 4 ? sign(dx) : 0;
+    let dir = Math.abs(dx) > 4 ? sign(dx) : 0;
+    if (p.back > 0) {
+      // Out from under the overhang; then a jump for its edge
+      p.back -= dt;
+      dir = -sign(dx);
+      if (p.back <= 0 && p.ground) {
+        p.vy = -JUMP;
+        p.ground = false;
+      }
+    }
     p.facing = tgt ? (tgt.x >= p.x ? 1 : -1) : ((dir || p.facing) as 1 | -1);
 
     p.fireCd -= dt;
@@ -1406,14 +2507,20 @@ export class Game {
     let vx = dir * RUN;
     // (looks further ahead than one step can reach, so a wall the step would hit is always seen first)
     const probe = p.x + dir * 6;
-    const blocked = dir !== 0 && (this.solid(probe, p.y - 2) || this.solid(probe, p.y - PH + 3));
+    // (at the heights the body's own collision checks too, so a climber is never clear of the
+    // wall by one reckoning and stopped by it in the other, hanging there at the top)
+    const blocked = dir !== 0 && (this.solid(probe, p.y - 2) || this.solid(probe, p.y - PH / 2) || this.solid(probe, p.y - PH + 2));
     p.climbing = false;
     if (blocked) {
       vx = 0;
-      if (p.ground) {
+      // (under a parachute it only drifts down: no climbing up a wall, or the inside of a pocket in the rock, hanging from it)
+      if (p.chute) {
+        /* down first */
+      } else if (p.ground) {
         p.vy = -JUMP;
         p.ground = false;
-      } else if (p.vy > -CLIMB) {
+      } else if (p.vy > -CLIMB && p.vy < 140) {
+        // (a wall is grabbed rising or near the top of a jump, not falling fast down a shaft)
         p.vy = -CLIMB;
         p.climbing = true;
       }
@@ -1460,7 +2567,11 @@ export class Game {
       this.burst(p.x, p.y - 10, 10, [this.colors[p.id], "#ffffff"]);
     }
     // Climbing into an overhang: count it as stuck straight away (the grenade comes sooner)
-    if (climbing && p.vy === 0) p.stuckT += dt;
+    if (climbing && p.vy === 0) {
+      p.stuckT += dt;
+      // (head against it: back off and come at it again, rather than pressing on underneath)
+      if (p.back <= 0 && p.stuckT > 0.3) p.back = 0.4;
+    }
     p.anim += dt * (vx ? 12 : 0);
     // Wading through a river throws up spray
     if (vx && p.ground && waterAt(this.level, p.x, p.y - 3) && this.rand() < 0.35)
@@ -1473,7 +2584,8 @@ export class Game {
     }
 
     // Stuck against something: blow it up; still stuck after a while: drop back in
-    if (dir && Math.abs(p.x - p.lastX) < 0.3) {
+    // (going up a cliff face is getting somewhere, however long the climb)
+    if (dir && Math.abs(p.x - p.lastX) < 0.3 && !(climbing && p.vy < 0)) {
       p.stuckT += dt;
       p.stall += dt;
     } else p.stuckT = p.stall = 0;
@@ -1484,7 +2596,22 @@ export class Game {
       else this.grenade(p, p.x + dir * 24);
       p.stuckT = 0;
     }
-    if (p.stall > 6) this.respawn(p, view);
+    // Well behind its place and getting no further on or higher up in all that time (round and round
+    // in a pocket blown in the rock, under a ledge it can't get up past): blast a way on, then drop back in
+    if (dx < 40 || p.chute) {
+      p.bestX = p.x;
+      p.bestY = p.y;
+      p.progT = 0;
+    } else if (p.x > p.bestX + 2 || p.y < p.bestY - 4) {
+      // (each its own best: a loop that gets higher only where it's further back still counts for nothing)
+      p.bestX = Math.max(p.bestX, p.x);
+      p.bestY = Math.min(p.bestY, p.y);
+      p.progT = 0;
+    } else if ((p.progT += dt) > 4 && p.progT - dt <= 4) {
+      this.grenade(p, p.x + sign(dx) * 20);
+      p.jet = 3;
+    }
+    if (p.stall > 6 || p.progT > 9) this.respawn(p, view);
   }
 
   /** Nearest enemy in range and in sight (lobbed weapons don't need sight); a barrel if an enemy stands next to it. */
@@ -1642,6 +2769,36 @@ export class Game {
         shot(a, 230, SAW, 1.2, 1.8, 8);
         p.fireCd = 0.6;
         break;
+      case 14: // pulse laser: bursts of searing bolts, each one through the first it hits and on
+        shot(a + (r() - 0.5) * 0.04, 560, PULSE, 1.3, 0.45, 1);
+        this.flashes.push({ x: gx + p.facing * 2, y: gy, t: 0.04, c: "#ffffff" });
+        p.burst++;
+        p.fireCd = p.burst % 4 === 0 ? 0.34 : 0.07;
+        break;
+      case 15: // death ray: a beam held on the target, burning through them, their cover and the ground itself
+        p.ray = 0.9;
+        p.rayA = a;
+        p.rayCut = 0;
+        p.fireCd = 2.2;
+        this.deathRay(p, 1 / 60, tgt);
+        break;
+      case 16: {
+        // prism laser: a beam that splits where it strikes, into three more at whoever's near
+        const hit = this.beamTo(p, gx, gy, a, W_RANGE[16], 2.6, this.colors[p.id], 2);
+        const near = this.enemies
+          .filter((e) => e.alive && e !== hit.first && Math.hypot(e.x - hit.x, centreY(e) - hit.y) < 130)
+          .sort((u, v) => Math.hypot(u.x - hit.x, u.y - hit.y) - Math.hypot(v.x - hit.x, v.y - hit.y))
+          .slice(0, 3);
+        near.forEach((e, i) => {
+          const q = this.aimPoint(e) ?? { x: e.x, y: centreY(e) };
+          this.hurtEnemy(e, 1.7, p.id, q.x - hit.x);
+          this.beams.push({ x0: hit.x, y0: hit.y, x1: q.x, y1: q.y, t: 0.14, c: RAINBOW[(i + p.id) % RAINBOW.length], w: 1 });
+          for (let k = 0; k < 3; k++) this.add({ k: GLINT, x: q.x, y: q.y, vx: (r() - 0.5) * 60, vy: -r() * 60, life: 0.4, c: RAINBOW[(i + k) % RAINBOW.length], s: 1 });
+        });
+        for (let k = 0; k < 6; k++) this.add({ k: GLINT, x: hit.x, y: hit.y, vx: (r() - 0.5) * 90, vy: -r() * 80, life: 0.5, c: RAINBOW[k % RAINBOW.length], s: k % 2 ? 2 : 1 });
+        p.fireCd = 0.55;
+        break;
+      }
       default: {
         // mortar tube: shells lobbed high, onto the enemy's head
         const v = lobAt(gx, gy, aim.x + (r() - 0.5) * 16, aim.y, SHOT_GRAV[MORTAR], 150);
@@ -1650,8 +2807,95 @@ export class Game {
         p.fireCd = 1.3;
       }
     }
-    if (p.weapon !== 5 && p.weapon !== 8 && p.weapon !== 9) this.flashes.push({ x: gx + p.facing * 2, y: gy, t: 0.05, c: this.colors[p.id] });
+    if (p.weapon !== 5 && p.weapon !== 8 && p.weapon !== 9 && p.weapon < 14) this.flashes.push({ x: gx + p.facing * 2, y: gy, t: 0.05, c: this.colors[p.id] });
     if (p.weapon === 0 || p.weapon === 1 || p.weapon === 4 || p.weapon === 7 || p.weapon === 10) this.add({ k: CASING, x: p.x, y: gy, vx: -p.facing * (20 + r() * 30), vy: -60 - r() * 40, life: 0.8, c: "#ffd27a", s: 1 });
+  }
+
+  /**
+   * A laser beam from (gx, gy) along `a`, up to `len` or the first wall: it burns everyone along
+   * it. Returns where it ended and the first it struck.
+   */
+  private beamTo(p: Player, gx: number, gy: number, a: number, len: number, dmg: number, c: string, w = 1) {
+    let end = len;
+    for (let d = 6; d < len; d += 4)
+      if (this.solid(gx + Math.cos(a) * d, gy + Math.sin(a) * d)) {
+        end = d;
+        break;
+      }
+    const x1 = gx + Math.cos(a) * end;
+    const y1 = gy + Math.sin(a) * end;
+    let first: Enemy | null = null;
+    let fd = Infinity;
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const q = this.aimPoint(e);
+      if (!q || segDist(q.x, q.y, gx, gy, x1, y1) >= SIZE[e.kind][0] + 3) continue;
+      this.hurtEnemy(e, dmg, p.id, Math.cos(a) * 60);
+      const d = Math.hypot(q.x - gx, q.y - gy);
+      if (d < fd) {
+        fd = d;
+        first = e;
+      }
+    }
+    // (it ends at the first it struck, for the prism: that's where it splits)
+    const hx = first ? (this.aimPoint(first) ?? { x: first.x, y: centreY(first) }).x : x1;
+    const hy = first ? (this.aimPoint(first) ?? { x: first.x, y: centreY(first) }).y : y1;
+    this.beams.push({ x0: gx, y0: gy, x1, y1, t: 0.12, c, w });
+    for (let k = 0; k < 4; k++) this.add({ k: SPARK, x: x1, y: y1, vx: (this.rand() - 0.5) * 80, vy: -this.rand() * 80, life: 0.25, c: "#ffffff", s: 1 });
+    return { x: hx, y: hy, first };
+  }
+
+  /**
+   * The death ray, held on: it swings onto the target and burns through everything along it,
+   * the enemy, barrels (they go up), and the ground itself, a block at a time.
+   */
+  private deathRay(p: Player, dt: number, tgt: Enemy | Barrel | null) {
+    p.ray -= dt;
+    const L = this.level;
+    const gx = p.x + p.facing * 7;
+    const gy = p.y - 9;
+    if (tgt) {
+      const aim = "kind" in tgt ? (this.aimPoint(tgt) ?? { x: tgt.x, y: tgt.y }) : { x: tgt.x, y: tgt.y - 6 };
+      let d = Math.atan2(aim.y - gy, aim.x - gx) - p.rayA;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      p.rayA += clamp(d, -2.4 * dt, 2.4 * dt);
+    }
+    const ux = Math.cos(p.rayA);
+    const uy = Math.sin(p.rayA);
+    const len = W_RANGE[15];
+    let end = len;
+    for (let d = 6; d < len; d += 3) {
+      const x = gx + ux * d;
+      const y = gy + uy * d;
+      if (!this.solid(x, y)) continue;
+      end = d;
+      // (the block it's on glows, and gives)
+      if ((p.rayCut += dt) > 0.06) {
+        p.rayCut = 0;
+        const c = Math.floor(x / TILE);
+        const row = Math.floor(y / TILE);
+        const kind = kindAt(L, c, row);
+        if (damageCell(L, c, row, 2)) {
+          this.debris(c, row, kind, 2);
+          this.dirtyAround(c, row);
+          this.loosen(c, row);
+        } else if (L.burn[cell(c, row)] < 3) L.burn[cell(c, row)]++;
+        this.dirty.push(c, row);
+      }
+      break;
+    }
+    const x1 = gx + ux * end;
+    const y1 = gy + uy * end;
+    for (const e of this.enemies) {
+      if (!e.alive) continue;
+      const q = this.aimPoint(e);
+      if (q && segDist(q.x, q.y, gx, gy, x1, y1) < SIZE[e.kind][0] + 4) this.hurtEnemy(e, 10 * dt, p.id, ux * 40);
+    }
+    for (const b of this.barrels) if (b.alive && segDist(b.x, b.y - 4, gx, gy, x1, y1) < 8) this.lightBarrel(b, p.id, 0.05);
+    this.beams.push({ x0: gx, y0: gy, x1, y1, t: 0.05, c: this.colors[p.id], w: 3 });
+    if (this.rand() < 0.6) this.add({ k: GLINT, x: x1, y: y1, vx: (this.rand() - 0.5) * 70, vy: -this.rand() * 70, life: 0.35, c: this.rand() < 0.5 ? "#ffffff" : this.colors[p.id], s: 2 });
+    if (this.rand() < 0.4) this.flame(x1, y1);
   }
 
   private grenade(p: Player, tx: number) {
@@ -1686,7 +2930,45 @@ export class Game {
 
   /** A player jumps from a transport: back in, on a parachute. */
   private release(p: Player, x: number, y: number) {
-    Object.assign(p, { dead: false, queued: false, hp: PLAYER_HP, inv: 1.5, x, y, vx: 0, vy: 0, ground: false, chute: true, stuckT: 0, stall: 0, spin: 0, burn: 0, jet: 0, target: null });
+    // (when the squad's down in a cavern, whoever drops back in joins them down there: just over the
+    // nearest of them, not somewhere found from the squad's average height, up in a pocket in the cavern roof)
+    let mate: Player | null = null;
+    for (const q of this.players) if (!q.dead && !q.chute && q !== p && (!mate || Math.abs(q.x - x) < Math.abs(mate.x - x))) mate = q;
+    let from = y;
+    if (mate && mate.y - crustOf(this.level, Math.floor(mate.x / TILE)) * TILE > 12 * TILE) {
+      x = clamp(x, mate.x - 30, mate.x + 30);
+      from = Math.max(y, mate.y - 40);
+    }
+    Object.assign(p, { dead: false, queued: false, hp: PLAYER_HP, inv: 1.5, x, y: this.openAir(x, from), vx: 0, vy: 0, ground: false, chute: true, stuckT: 0, stall: 0, spin: 0, burn: 0, jet: 0, target: null });
+  }
+
+  /**
+   * The first spot at x, from y on down, with room to stand (y itself if it's open already): so
+   * when the squad is deep in a cavern, whoever drops back in comes down inside it, not in the rock.
+   */
+  private openAir(x: number, y: number) {
+    for (let yy = Math.max(PH, y); yy < LEVEL_H - TILE; yy += TILE) if (!this.solid(x, yy) && !this.solid(x, yy - PH + 2)) return yy;
+    return y;
+  }
+
+  /**
+   * Keep something flying up over the land's surface: helicopters hovering at the view's height
+   * would otherwise sink into a mountain's flank, or into the rock over a cavern the squad is in.
+   */
+  private aboveLand(e: Enemy) {
+    const top = this.landTop(e.x, SIZE[e.kind][0]) * TILE - SIZE[e.kind][1] - 6;
+    if (e.y > top) e.y = top;
+  }
+
+  /** The highest the land's surface comes (as a row) under something `hw` px either side of x. */
+  private landTop(x: number, hw: number) {
+    const L = this.level;
+    return Math.min(crustOf(L, Math.floor((x - hw) / TILE)), crustOf(L, Math.floor(x / TILE)), crustOf(L, Math.floor((x + hw) / TILE)));
+  }
+
+  /** The view's top is down under the land's surface (deep in a cavern): no sky to bring things down out of. */
+  private buried(view: View) {
+    return view.y > crustOf(this.level, Math.floor((view.x + view.w / 2) / TILE)) * TILE + 24;
   }
 
   /** The nearest player or allied vehicle in range (and in sight, if asked). */
@@ -1710,7 +2992,7 @@ export class Game {
     let bestD = range;
     const ey = e.y - Math.min(14, SIZE[e.kind][1] - 4);
     for (const p of this.players) {
-      if (p.dead) continue;
+      if (p.dead || p.aboard) continue;
       const d = Math.abs(p.x - e.x);
       if (d >= bestD || Math.abs(p.y - e.y) > dy) continue;
       if (sight && !lineOfSight(this.level, e.x, ey, p.x, p.y - 9)) continue;
@@ -1739,6 +3021,18 @@ export class Game {
         this.add({ k: FLAME, x: e.x + (this.rand() - 0.5) * 4, y, vx: -e.vx * 0.15, vy: -20, life: 0.35 + this.rand() * 0.25, c: "", s: 2 });
         if (this.rand() < 0.5) this.add({ k: FLAME, x: e.x, y: y + 2, vx: 0, vy: -10, life: 0.25, c: "", s: 1 });
         if (this.rand() < 0.35) this.puff(e.x, y - 2, 2);
+      }
+      return;
+    }
+    if (e.retreat) {
+      // Falling back in a lull: off ahead at a run, gone once it's out of sight
+      e.facing = 1;
+      e.vx = 70;
+      this.integrate(e, dt, 3, 14);
+      e.anim += dt * 10;
+      if (e.x > view.x + view.w + 30) {
+        e.alive = false;
+        e.deadT = 0;
       }
       return;
     }
@@ -2350,8 +3644,11 @@ export class Game {
    * a flak car shooting at anything in the air, a rocket car firing salvos.
    */
   private updateTrain(e: Enemy, dt: number) {
+    // Up and down its line: running in on the squad, backing off, coming on again, never far
     e.facing = -1;
-    e.vx = e.x > Math.max(e.home - 220, this.advance + 150) ? -22 : 0;
+    const tx = Math.max(e.home - 320, this.advance + 150 + Math.sin(this.t * 0.3 + e.home * 0.013) * 110);
+    e.vx = clamp((tx - e.x) * 0.7, -30, 30);
+    if (Math.abs(e.vx) < 2) e.vx = 0;
     this.integrate(e, dt, 64, 15);
     e.anim += dt * Math.abs(e.vx) * 0.3;
     if (this.rand() < 0.4) this.puff(e.x - 52, e.y - 30, 3);
@@ -2381,19 +3678,34 @@ export class Game {
   }
 
   /**
-   * A submarine: patrols the ocean, surfaces to fire missiles and its deck gun, then dives again
-   * (under water it can't be hit). `spin` 0: on the surface, 1: submerged.
+   * An enemy submarine: roams the sea at whatever depth it fancies (deep runs, shallow runs),
+   * sends missiles up from under the water at our aircraft, and now and then surfaces to fire
+   * its deck gun and missiles at the squad. Under water it can't be shot. `spin` 0: on the
+   * surface, 1: submerged; `hover`: the depth it's heading for; `life`: until it picks another.
    */
   private updateSubmarine(e: Enemy, dt: number) {
     e.anim += dt;
-    if (Math.abs(e.x - e.home) > 30) e.facing = e.x > e.home ? -1 : 1;
-    e.x += e.facing * 6 * dt;
+    if (e.samCd === undefined) {
+      // (just in: it dives straight away)
+      e.samCd = 2 + this.rand() * 3;
+      e.life = this.rand() * 3;
+      e.hover = 24 + this.rand() * 60;
+    }
     e.life -= dt;
     if (e.life <= 0) {
-      e.spin = e.spin ? 0 : 1;
-      e.life = e.spin ? 4 + this.rand() * 3 : 7 + this.rand() * 4;
-      for (let k = 0; k < 10; k++) this.add({ k: MIST, x: e.x + (this.rand() - 0.5) * 50, y: e.y - 2, vx: (this.rand() - 0.5) * 20, vy: -20 - this.rand() * 30, life: 1, c: "", s: 2 });
+      e.hover = this.rand() < 0.3 ? 0 : 18 + this.rand() * 100;
+      e.life = e.hover ? 6 + this.rand() * 7 : 5 + this.rand() * 4;
     }
+    this.roam(e, e.hover, dt, e.hover ? 15 : 10);
+    const span = this.waterSpan(e.x, e.y);
+    const was = e.spin;
+    e.spin = span && e.y - span.top > 9 ? 1 : 0;
+    // Breaking the surface, or going under: a burst of spray
+    if (was !== e.spin && span)
+      for (let k = 0; k < 10; k++) this.add({ k: MIST, x: e.x + (this.rand() - 0.5) * 50, y: span.top - 1, vx: (this.rand() - 0.5) * 20, vy: -20 - this.rand() * 30, life: 1, c: "", s: 2 });
+    if (e.spin && this.rand() < 0.1) this.bubble(e.x + (this.rand() - 0.5) * 40, e.y - 4);
+    e.samCd -= dt;
+    if (e.samCd <= 0) e.samCd = this.inView(e) && this.launchSam(e.x - e.facing * 8, e.y - 6, "enemy") ? 4 + this.rand() * 3 : 1;
     if (e.spin || !this.inView(e)) return;
     const p = this.nearestFoe(e, 460, false, 300);
     if (!p) return;
@@ -2419,7 +3731,7 @@ export class Game {
   private manageAllies(dt: number, view: View) {
     if ((this.allyCd -= dt) > 0 || this.phase === "clear") return;
     const ground = this.allies.filter((a) => !a.dead && !ALLY_AIR.has(a.kind));
-    const air = this.allies.filter((a) => !a.dead && ALLY_AIR.has(a.kind));
+    const air = this.allies.filter((a) => !a.dead && ALLY_AIR.has(a.kind) && a.kind !== "gunship");
     const wantG = clamp(Math.round(view.w / 200), 2, 9);
     const wantA = clamp(Math.round(view.w / 460), 1, 3);
     const r = this.rand;
@@ -2458,14 +3770,21 @@ export class Game {
         a.x += 30 * dt;
         a.y += a.vy * dt;
         if (this.rand() < 0.6) this.puff(a.x, a.y, 3);
+        if (a.kind === "gunship") {
+          // (spinning down on fire)
+          a.anim += dt * 3;
+          if (this.rand() < 0.8) this.add({ k: FLAME, x: a.x + (this.rand() - 0.5) * 14, y: a.y - 4, vx: -20, vy: -30, life: 0.35, c: "", s: 2 });
+        }
         if (this.solid(a.x, a.y + 6) || a.y > LEVEL_H) {
-          this.explode(a.x, a.y, 26, -5, false);
+          this.explode(a.x, a.y, a.kind === "gunship" ? 44 : 26, -5, false, a.kind === "gunship" ? PAL_NAPALM : PAL_FIRE);
+          if (a.kind === "gunship") this.fires.push({ x: a.x, y: surfaceY(L, a.x, a.y - 20), t: 6 });
           a.deadT = 0;
         }
       } else if (this.rand() < 0.3) this.puff(a.x, a.y - 10, 3);
       return;
     }
-    if (air) {
+    if (a.kind === "gunship") this.flyShip(a, dt, view);
+    else if (air) {
       const tx = Math.max(view.x + 30, this.advance + 30 + a.slot * 50 + Math.sin(this.t * 0.5 + a.slot) * 20);
       const ty = Math.max(view.y + 22, surfaceY(L, a.x, view.y) - 70 - (a.slot % 2) * 20) + Math.sin(this.t * 2 + a.slot) * 3;
       a.x += (tx - a.x) * (1 - Math.exp(-dt * 1.1));
@@ -2497,8 +3816,18 @@ export class Game {
     const tgt = a.target?.alive ? a.target : null;
     if (!tgt) return;
     const aim = this.aimPoint(tgt) ?? { x: tgt.x, y: tgt.y };
-    const gy = air ? a.y + 4 : a.y - 16;
-    const gx = a.x + 10;
+    const gy = a.kind === "gunship" ? a.y + 7 : air ? a.y + 4 : a.y - 16;
+    const gx = a.kind === "gunship" ? a.x + 16 : a.x + 10;
+    if (a.kind === "gunship" && this.crew.length && (a.burst += dt) > 0.12) {
+      // The squad aboard at the door guns, in bursts (their kills, their score)
+      a.burst = 0;
+      const id = this.crew[Math.floor(this.rand() * this.crew.length)];
+      const dx = a.x - 2;
+      const dy = a.y + 4;
+      const ang = Math.atan2(aim.y - dy, aim.x - dx) + (this.rand() - 0.5) * 0.12;
+      this.shots.push({ kind: BULLET, x: dx, y: dy, vx: Math.cos(ang) * 400, vy: Math.sin(ang) * 400, life: 1.2, dmg: 2, pid: id, pierce: 0 });
+      this.flashes.push({ x: dx, y: dy, t: 0.05, c: this.colors[id] });
+    }
     a.aimA = Math.atan2(aim.y - gy, aim.x - gx);
     a.fireCd -= dt;
     a.altCd -= dt;
@@ -2513,6 +3842,10 @@ export class Game {
         this.shots.push({ kind: FLAK, x: gx, y: gy, vx: Math.cos(a.aimA) * 320, vy: Math.sin(a.aimA) * 320, life: d / 320, dmg: 0, pid: -5, pierce: 0 });
         a.burst++;
         a.fireCd = a.burst % 6 === 0 ? 0.9 : 0.14;
+      } else if (a.kind === "gunship") {
+        // Its chin cannon, in long bursts
+        bullet(3, 420, 0.08);
+        a.fireCd = this.rand() < 0.1 ? 0.6 : 0.08;
       } else if (a.kind !== "lifter" && a.kind !== "mlrs") {
         bullet(a.kind === "ifv" ? 2 : 1, 380, 0.12);
         a.burst++;
@@ -2543,6 +3876,17 @@ export class Game {
           this.shots.push({ kind: ROCKET, x: gx, y: gy + 2, vx: Math.cos(ang) * 120, vy: Math.sin(ang) * 120, life: 2.4, dmg: 0, pid: -5, pierce: 0 });
         }
         a.altCd = 2.6 + this.rand();
+        break;
+      case "gunship":
+        // A salvo from its rocket pods, and now and then a guided missile
+        for (let j = 0; j < 4; j++)
+          this.at(j * 0.09, () => {
+            if (a.dead) return;
+            const ang = a.aimA + (this.rand() - 0.5) * 0.16;
+            this.shots.push({ kind: ROCKET, x: a.x + 6, y: a.y + 9, vx: Math.cos(ang) * 130, vy: Math.sin(ang) * 130, life: 2.4, dmg: 0, pid: -5, pierce: 0 });
+          });
+        if (this.rand() < 0.35) this.missiles.push({ x: a.x, y: a.y + 10, tx: tgt.x, ty: surfaceY(this.level, tgt.x, 0), speed: 170, max: 520, up: false, boost: true, owner: "ally", cls: 0 });
+        a.altCd = 2 + this.rand() * 0.8;
         break;
       case "lifter":
         // Drops the squad a supply crate
@@ -2588,8 +3932,203 @@ export class Game {
       this.explode(a.x, a.y - 8, 26, -5, false);
       this.fires.push({ x: a.x, y: a.y, t: 4 });
     }
-    this.popups.push({ x: a.x, y: a.y - 24, text: "ALLY DOWN", c: "#5ab0ff", t: 0 });
+    if (a.kind === "gunship") this.shipDown(a);
+    else this.popups.push({ x: a.x, y: a.y - 24, text: "ALLY DOWN", c: "#5ab0ff", t: 0 });
     this.allyCd = Math.max(this.allyCd, 5);
+  }
+
+  /* -------------------------------------------------------------- */
+  /* The squad's gunship                                             */
+  /* -------------------------------------------------------------- */
+
+  /**
+   * Now and then, out in the open, the squad's gunship comes in for them: it sets down, they run
+   * to it and climb in, and it carries them on over the land, low and fast with its guns going,
+   * level after level, until the enemy shoots it down (they bail out on parachutes) or it has to
+   * set them down (a boss ahead, the stronghold, or the fuel's run low).
+   */
+  private manageShip(dt: number, view: View) {
+    const s = this.ship;
+    if (s && (!this.allies.includes(s) || (s.dead && s.deadT <= 0))) this.ship = null;
+    if (this.ship || this.noShip || this.ride) return;
+    if ((this.shipCd -= dt) > 0) return;
+    this.shipCd = 3;
+    const plan = this.level.plan;
+    const arena = this.level.bossQueue[0];
+    if (this.phase !== "play" || this.levelT < 10 || this.buried(view) || plan.fortPlaced || (arena && arena.col * TILE - this.advance < 900)) return;
+    const up = this.players.filter((p) => !p.dead && !p.chute && !p.aboard);
+    if (up.length < 5) return;
+    // (somewhere it can set down: the ground ahead of the squad, on land, not up a cliff from them)
+    const tx = this.advance + 30;
+    const g = surfaceY(this.level, tx, view.y - 40);
+    if (waterAt(this.level, tx, g - 2) || Math.abs(g - up.reduce((m, p) => m + p.y, 0) / up.length) > 40) return;
+    const ship = this.makeAlly("gunship", view.x - 70, Math.max(view.y + 10, g - 120), 9);
+    this.ship = ship;
+    this.allies.push(ship);
+    this.shipMode = "inbound";
+    this.shipT = 0;
+    // (a little way on from the squad: they reach it about when it's down)
+    this.shipPad = this.advance + 110;
+    this.crew = [];
+    this.popups.push({ x: this.advance, y: g - 70, text: "GUNSHIP INBOUND", c: "#5ab0ff", t: 0 });
+  }
+
+  /**
+   * The top of whatever's under the gunship from `x0` to `x1`, looking down from well above it
+   * (the land, and the towers, bunkers and buildings standing on it), as a y in px.
+   */
+  private shipFloor(x0: number, x1: number, y: number) {
+    let top = Infinity;
+    const from = Math.max(0, y - 260);
+    for (let x = x0; x <= x1; x += 12) top = Math.min(top, surfaceY(this.level, x, from), this.landTop(x, 0) * TILE);
+    return top;
+  }
+
+  /** Where the gunship hovers to set down at x: its skids just over what's under it (no lower than any of ours may fly). */
+  private hoverY(x: number, y: number) {
+    const [hw, hh] = ALLY_SIZE.gunship;
+    return Math.min(this.shipFloor(x - hw, x + hw, y), this.landTop(x, hw) * TILE) - hh - 7;
+  }
+
+  /** How the gunship flies: in to the squad, down to the ground for them, on over the land, down to set them off, and away. */
+  private flyShip(a: Ally, dt: number, view: View) {
+    this.shipT += dt;
+    a.anim += dt;
+    const ease = (v: number, to: number, rate: number) => v + (to - v) * (1 - Math.exp(-dt * rate));
+    const plan = this.level.plan;
+    const arena = this.level.bossQueue[0];
+    switch (this.shipMode) {
+      case "inbound": {
+        // In over the squad's heads to the landing spot ahead of them, and down to just over the ground there
+        const tx = this.shipPad;
+        const ty = this.hoverY(tx, a.y);
+        a.x = Math.min(a.x + 170 * dt, ease(a.x, tx, 2.2));
+        const near = Math.abs(a.x - tx) < 70;
+        a.y += clamp((near ? ty : Math.min(a.y, ty - 50)) - a.y, -110 * dt, 100 * dt);
+        if (Math.abs(a.x - tx) < 4 && Math.abs(a.y - ty) < 4) {
+          this.shipMode = "board";
+          this.shipT = 0;
+          this.popups.push({ x: a.x, y: a.y - 28, text: "ALL ABOARD", c: "#5ab0ff", t: 0 });
+        } else if (this.shipT > 16) this.shipMode = "leave";
+        break;
+      }
+      case "board": {
+        // Holding just over the ground with its doors open: the squad runs to it and climbs in
+        // (anyone not there in time is pulled up on the rope)
+        const hy = this.hoverY(a.x, a.y);
+        a.y = ease(a.y, hy - 1 + Math.sin(this.t * 3) * 1.5, 3);
+        for (const p of this.players)
+          if (!p.dead && !p.aboard && !p.chute && ((Math.abs(p.x - a.x) < 14 && Math.abs(p.y - (hy + 21)) < 20) || (this.shipT > 9 && Math.abs(p.x - a.x) < 220))) this.board(p);
+        if (this.players.every((p) => p.dead || p.aboard || p.chute) || this.shipT > 9.5) {
+          if (!this.crew.length) {
+            this.shipMode = "leave";
+            this.shipEmpty = true;
+          }
+          else {
+            this.shipMode = "fly";
+            this.shipT = 0;
+            this.advance = Math.max(this.advance, a.x);
+          }
+        }
+        break;
+      }
+      case "fly": {
+        // On over the land, low and fast with its guns going, climbing over whatever's ahead: the squad's advance goes with it
+        const floor = this.shipFloor(a.x - 36, a.x + 180, a.y);
+        const ty = floor - 62 + Math.sin(this.t * 1.7) * 4;
+        const climb = a.y - ty;
+        a.vx = 96 * clamp(1 - (climb - 30) / 140, 0.25, 1);
+        a.x += a.vx * dt;
+        a.y += clamp(ty - a.y, -140 * dt, 100 * dt);
+        this.advance = Math.max(this.advance, a.x);
+        // (whoever's waiting to come back in is picked up on the way)
+        while (this.dropQueue.length) {
+          const p = this.players[this.dropQueue.shift()!];
+          Object.assign(p, { dead: false, queued: false, hp: PLAYER_HP, burn: 0, spin: 0 });
+          this.board(p);
+        }
+        // The enemy sends helicopters up after it, the longer it's up the more of them
+        if (this.shipT > 24 && this.shipT % 10 < dt && this.enemies.length < this.cap()) {
+          const h = this.makeEnemy(this.rand() < 0.6 ? "attackheli" : "heli", view.x + view.w + 40, a.y - 20 - this.rand() * 30);
+          h.hover = clamp(a.y - view.y - 10 + (this.rand() - 0.5) * 40, 20, view.h - 60);
+          h.home = Math.floor(this.rand() * 100);
+          this.enemies.push(h);
+        }
+        // Where it has to set them down: a boss ahead, the stronghold, the fuel low
+        const end = plan.fortPlaced ? (plan.targets[0] ?? plan.stronghold * TILE) : plan.stronghold * TILE;
+        const low = this.shipT > 80;
+        if (this.phase !== "play" || (arena && arena.col * TILE - a.x < 420) || (plan.fortPlaced && end - a.x < 520) || low) {
+          if (low) this.popups.push({ x: a.x, y: a.y - 26, text: "FUEL LOW", c: "#ffcc33", t: 0 });
+          this.shipMode = "land";
+          this.shipT = 0;
+        }
+        break;
+      }
+      case "land": {
+        // Down to the ground, and everyone out
+        const ty = this.hoverY(a.x, a.y);
+        a.x += 20 * dt;
+        a.y += clamp(ty - a.y, -80 * dt, 90 * dt);
+        this.advance = Math.max(this.advance, a.x - 20);
+        if (Math.abs(a.y - ty) < 6 || this.shipT > 6) {
+          const wet = waterAt(this.level, a.x, ty + 2);
+          for (const id of [...this.crew]) this.unload(this.players[id], a, wet || this.shipT > 6);
+          this.shipMode = "leave";
+          this.shipT = 0;
+        }
+        break;
+      }
+      case "leave":
+        // Up and away
+        a.x += 110 * dt;
+        a.y -= 70 * dt;
+        if (a.y < view.y - 80 || a.x > view.x + view.w + 120) {
+          a.dead = true;
+          a.deadT = 0;
+          this.ship = null;
+          this.shipCd = this.shipEmpty ? 10 : 50 + this.rand() * 40;
+          this.shipEmpty = false;
+        }
+        break;
+    }
+    a.facing = 1;
+  }
+
+  /** A player climbs into the gunship (or a metro train): straight in, where it is. */
+  private board(p: Player) {
+    if (p.aboard) return;
+    p.aboard = true;
+    p.chute = false;
+    p.jet = 0;
+    p.vx = p.vy = 0;
+    p.ray = 0;
+    const host = this.ride ?? this.ship;
+    if (host) {
+      p.x = host.x;
+      p.y = this.ride ? host.y - 2 : host.y + 6;
+    }
+    if (!this.crew.includes(p.id)) this.crew.push(p.id);
+  }
+
+  /** A player gets out of the gunship: down the rope at its door, or (it's going down, or it's over water) by parachute. */
+  private unload(p: Player, a: Ally, chute: boolean) {
+    p.aboard = false;
+    this.crew = this.crew.filter((id) => id !== p.id);
+    const k = this.rand();
+    Object.assign(p, { x: a.x - 10 + k * 20, y: a.y + 14, vx: (k - 0.5) * 90, vy: chute ? -80 - this.rand() * 60 : 0, ground: false, chute, inv: 2, stuckT: 0, stall: 0, progT: 0, back: 0, jet: 0 });
+    p.bestX = p.x;
+    p.bestY = p.y;
+    p.lastX = p.x;
+  }
+
+  /** The gunship's going down: everyone aboard bails out, and it's a while before another comes. */
+  private shipDown(a: Ally) {
+    for (const id of [...this.crew]) this.unload(this.players[id], a, true);
+    this.popups.push({ x: a.x, y: a.y - 30, text: "GUNSHIP DOWN - BAIL OUT", c: "#ff6a3d", t: 0 });
+    this.say("Gunship down", "Bail out!", "#ff6a3d");
+    this.shake = Math.max(this.shake, 6);
+    this.shipCd = 45 + this.rand() * 45;
+    this.shipMode = "leave";
   }
 
   /** Manholes: once the squad is near, enemies climb out of the sewers, the cover flying off. */
@@ -2755,25 +4294,27 @@ export class Game {
   }
 
   /**
-   * A battleship riding at anchor in the harbour: its two turrets lob heavy shells at the squad,
-   * its deck gun sprays the pier, smoke pours from its funnel.
+   * A battleship steaming slowly across the sea (or its harbour basin), turning about at the
+   * shore: its two turrets lob heavy shells at the squad, its deck gun sprays them, smoke pours
+   * from its funnel. (Its guns and funnel are placed for it facing left: `fore` mirrors them.)
    */
   private updateBattleship(e: Enemy, dt: number) {
     e.anim += dt;
-    e.facing = -1;
+    this.sail(e, dt, 10, 56);
+    const fore = -e.facing;
     e.scanT -= dt;
     if (e.scanT <= 0) {
       e.scanT = 0.4;
       e.target = this.nearestPlayer(e, 420, false, 260);
     }
-    if (this.rand() < 0.5) this.puff(e.x + 6, e.y - 34, 3);
+    if (this.rand() < 0.5) this.puff(e.x + 14 * fore, e.y - 34, 3);
     const p = e.target && !e.target.dead ? e.target : null;
     if (p) e.aimA = Math.atan2(p.y - (e.y - 22), p.x - e.x);
     e.fireCd -= dt;
     if (p && e.fireCd <= 0) {
       // A salvo from both turrets
       e.fireCd = 2.4 + this.rand() * 1.4;
-      for (const dx of [-22, 18]) {
+      for (const dx of [-30 * fore, 38 * fore]) {
         const gx = e.x + dx + Math.cos(e.aimA) * 10;
         const gy = e.y - 20;
         const v = lobAt(gx, gy, p.x + (this.rand() - 0.5) * 40, p.y, SHOT_GRAV[CANNON], 200);
@@ -2792,7 +4333,7 @@ export class Game {
       this.players.find((q) => !q.dead && q.jet > 0 && Math.abs(q.x - e.x) < 320) ??
       null;
     if (air && e.hover <= 0) {
-      for (const dx of [-30, 8, 30]) {
+      for (const dx of [-14 * fore, 14 * fore, 28 * fore]) {
         const gx = e.x + dx;
         const gy = e.y - 16;
         const a = Math.atan2(air.y - gy, air.x - gx) + (this.rand() - 0.5) * 0.12;
@@ -2809,10 +4350,8 @@ export class Game {
   }
 
   private updateBoat(e: Enemy, dt: number) {
-    // Patrols up and down the river, its gunner hosing the banks
-    // (rivers with a boat are at least eight blocks wide: it stays clear of the banks)
-    if (Math.abs(e.x - e.home) > 10) e.facing = e.x > e.home ? -1 : 1;
-    e.x += e.facing * 8 * dt;
+    // Races up and down the water it's on, bank to bank, its gunner hosing the shore
+    this.sail(e, dt, 26, 19);
     e.anim += dt;
     e.scanT -= dt;
     if (e.scanT <= 0) {
@@ -3136,7 +4675,9 @@ export class Game {
       if (this.rand() < 0.6) this.add({ k: FLAME, x: b.x + (this.rand() - 0.5) * hw * 2, y: b.y - hh, vx: 0, vy: -30, life: 0.3, c: "", s: 1 });
       if (b.fuse < 0) {
         b.alive = false;
-        this.explode(b.x, b.y - hh / 2, BARREL_BLAST[b.type], b.owner, true);
+        // (gas goes up blue, chemicals green, fuel in a deep red fireball)
+        const pal = b.type === "propane" || b.type === "cylinder" ? PAL_GAS : b.type === "canister" ? PAL_CHEM : b.type === "fuel" || b.type === "tanker" ? PAL_NAPALM : PAL_FIRE;
+        this.explode(b.x, b.y - hh / 2, BARREL_BLAST[b.type], b.owner, true, pal);
         if (b.type === "ammo") this.burst(b.x, b.y - 6, 30, ["#ffe27a", "#ff9a2a", "#ffffff"]);
         if (b.type === "tanker") this.fires.push({ x: b.x, y: b.y, t: 6 }, { x: b.x - 20, y: b.y, t: 4 }, { x: b.x + 20, y: b.y, t: 4 });
       }
@@ -3221,6 +4762,7 @@ export class Game {
           this.dirty.push(c, r);
           this.debris(c, r, broke, 1);
           this.dirtyAround(c, r);
+          this.loosen(c, r);
         }
         this.add({ k: SPARK, x: s.x, y: s.y, vx: -s.vx * 0.1 + (this.rand() - 0.5) * 40, vy: -40 * this.rand(), life: 0.15, c: "#ffe27a", s: 1 });
         continue;
@@ -3246,7 +4788,7 @@ export class Game {
   private hitBodies(s: Shot) {
     if (s.pid === -1) {
       for (const p of this.players) {
-        if (p.dead || Math.abs(p.x - s.x) > 4 || s.y < p.y - PH || s.y > p.y) continue;
+        if (p.dead || p.aboard || Math.abs(p.x - s.x) > 4 || s.y < p.y - PH || s.y > p.y) continue;
         if (EXPLOSIVE.has(s.kind)) {
           this.explodeShot(s);
           return true;
@@ -3264,7 +4806,8 @@ export class Game {
           this.explodeShot(s);
           return true;
         }
-        this.hurtAlly(a, s.dmg * 0.5);
+        // (the gunship's armoured: small arms do it less harm)
+        this.hurtAlly(a, s.dmg * (a.kind === "gunship" ? 0.3 : 0.5));
         this.add({ k: SPARK, x: s.x, y: s.y, vx: 0, vy: -30, life: 0.12, c: "#ffe27a", s: 1 });
         return true;
       }
@@ -3307,7 +4850,7 @@ export class Game {
 
   private explodeShot(s: Shot, x = s.x, y = s.y) {
     if (s.kind === BIGBOMB) {
-      this.mushrooms.push({ x, y, t: 0.8 });
+      if (this.rand() < 0.4 && this.mushrooms.filter((m) => m.t < 6).length < 2) this.mushrooms.push({ x, y, t: 0.3, s: 0.55 });
       this.waves.push({ x, y, t: 0.25 });
       this.flash = Math.max(this.flash, 0.4);
       this.shake = Math.max(this.shake, 14);
@@ -3319,19 +4862,25 @@ export class Game {
       for (let k = 0; k < 6; k++) this.add({ k: CINDER, x, y: gy - 4, vx: (this.rand() - 0.5) * 220, vy: -60 - this.rand() * 120, life: 1, c: "", s: 2 });
     }
     const r = s.kind === ROCKET && s.pid === -1 ? 14 : (BLAST_R[s.kind] ?? 18);
+    // (each in its own colours: plasma and lightning blue-violet, napalm deep red, fireballs and meteors magma, the big bombs white-gold)
+    const pal = s.kind === BOLT || s.kind === PLASMA || s.kind === ELASER ? PAL_PLASMA : s.kind === NAPALM ? PAL_NAPALM : s.kind === FIREBALL || s.kind === METEOR ? PAL_MAGMA : s.kind === BIGBOMB ? PAL_NUKE : PAL_FIRE;
     // Enemy fire and artillery hurt the squad; its own explosives, the visitor's and the ICBMs don't
-    this.explode(x, y, r, s.pid, s.pid === -3 || s.pid === -1);
+    this.explode(x, y, r, s.pid, s.pid === -3 || s.pid === -1, pal);
   }
 
-  /** An explosion: breaks blocks, scorches what's left, throws everyone about, sets off barrels. */
-  explode(x: number, y: number, r: number, pid: number, hurtsPlayers: boolean) {
+  /**
+   * An explosion: digs a crater (loose ground slides in after it, rock left hanging comes down),
+   * scorches what's left, throws everyone about, sets off barrels, wrecks mine carts; and goes up
+   * in a fireball in its colours (`pal`: PAL_*), with a flash, shock rings, sparks and glints, burning
+   * chunks trailing smoke, little secondary bursts round it, a smoke ring and dust along the ground.
+   */
+  explode(x: number, y: number, r: number, pid: number, hurtsPlayers: boolean, pal = pid === -4 ? PAL_NUKE : PAL_FIRE) {
     const L = this.level;
     this.booms++;
-    // The ground takes less than the people do, so the level stays runnable (the visitor's own blasts dig full craters)
-    // The ground is tougher than it was: a blast wears blocks down by how close they are and how
-    // big it is, so soft soil goes but stone, concrete and the rest hold against all but the
-    // big ones (and granite against everything). The visitor's own clicks still dig clean.
-    const dig = pid === -2 ? r : pid === -4 ? r * 0.6 : r * 0.45;
+    // Blasts dig deep: by how close blocks are and how big it is, soft soil goes at once, stone
+    // and concrete after a hit or two, granite only to the big ones or a hammering. The visitor's
+    // own clicks dig clean.
+    const dig = pid === -2 ? r : pid === -4 ? r * 0.7 : r * 0.62;
     for (const [c, row] of blastCells(L, x, y, dig)) {
       const i = cell(c, row);
       const kind = L.fg[i];
@@ -3340,11 +4889,12 @@ export class Game {
         L.hp[i] = 0;
       } else {
         const d = Math.hypot(c * TILE + TILE / 2 - x, row * TILE + TILE / 2 - y);
-        if (!damageCell(L, c, row, Math.max(1, Math.round((r / 9) * (1 - d / (dig + 4)))))) continue;
+        if (!damageCell(L, c, row, Math.max(1, Math.round((r / 7) * (1 - d / (dig + 4)))))) continue;
       }
       this.dirty.push(c, row);
       this.dirtyAround(c, row);
-      if (this.rand() < (r > 40 ? 0.3 : 1)) this.debris(c, row, kind, r > 40 ? 1 : 2);
+      if (this.rand() < (r > 40 ? 0.35 : 1)) this.debris(c, row, kind, r > 40 ? 1 : 3);
+      this.loosen(c, row);
     }
     for (const [c, row] of blastCells(L, x, y, dig + 8)) {
       const i = cell(c, row);
@@ -3352,6 +4902,26 @@ export class Game {
         L.burn[i]++;
         this.dirty.push(c, row);
       }
+    }
+    // Traffic caught in it: wrecked, burning where it stood, going up a moment later
+    for (const rd of this.roads)
+      for (let i = rd.cars.length - 1; i >= 0; i--) {
+        const car = rd.cars[i];
+        if (Math.abs(car.x - x) > r + CAR_SIZE[car.kind] / 2 || Math.abs(rd.y - 6 - y) > r + 8) continue;
+        rd.cars.splice(i, 1);
+        this.fires.push({ x: car.x, y: rd.y, t: 4 + this.rand() * 4 });
+        // (it goes up a moment later, and what's left of it stays there burning)
+        this.at(0.12 + this.rand() * 0.3, () => {
+          this.explode(car.x, rd.y - 6, car.kind === "truck" || car.kind === "bus" ? 22 : 16, -3, false, PAL_NAPALM);
+          L.props.push({ kind: "sprite", id: car.kind === "bus" || car.kind === "truck" || car.kind === "firetruck" ? "buswreck" : "carwreck", x: car.x, y: rd.y, flip: car.dir < 0, back: false });
+        });
+      }
+    for (let i = this.carts.length - 1; i >= 0; i--) {
+      const k = this.carts[i];
+      if (Math.hypot(k.x - x, k.y - 5 - y) > r + 8) continue;
+      this.carts.splice(i, 1);
+      // In pieces, its load thrown everywhere
+      for (let n = 0; n < 12; n++) this.add({ k: DEBRIS, x: k.x + (this.rand() - 0.5) * 12, y: k.y - 5, vx: (this.rand() - 0.5) * 220, vy: -80 - this.rand() * 180, life: 1.4 + this.rand(), c: n % 2 ? "#6a5a4a" : CART_LOAD[k.load], s: this.rand() < 0.3 ? 2 : 1 });
     }
     this.smashProps(x, y, r);
     for (const e of this.enemies) {
@@ -3380,7 +4950,7 @@ export class Game {
       }
     }
     for (const p of this.players) {
-      if (p.dead) continue;
+      if (p.dead || p.aboard) continue;
       const d = Math.hypot(p.x - x, p.y - 8 - y);
       if (d > r + 4) continue;
       p.vx = sign(p.x - x) * 80;
@@ -3391,8 +4961,12 @@ export class Game {
       for (const a of this.allies) {
         if (a.dead) continue;
         const d = Math.hypot(a.x - x, a.y - 8 - y);
-        const reach = r + ALLY_SIZE[a.kind][0];
-        if (d < reach) this.hurtAlly(a, (8 * (1 - d / reach) + 2) * Math.max(1, r / 24));
+        const reach = r + ALLY_SIZE[a.kind][0] * (a.kind === "gunship" ? 0.45 : 1);
+        // (the gunship's armoured: a near miss does it little, none takes more than a few hits' worth off it)
+        if (d < reach) {
+          const hurt = (8 * (1 - d / reach) + 2) * Math.max(1, r / 24);
+          this.hurtAlly(a, a.kind === "gunship" ? Math.min(9, hurt * 0.4) : hurt);
+        }
       }
     // Aircraft caught in it (flak, mostly): the enemy's guns bring down ours, ours theirs
     for (const j of this.jets) {
@@ -3405,29 +4979,68 @@ export class Game {
         }
       }
     }
-    this.blasts.push({ x, y, r: r * 0.9, t: 0 });
-    this.fireball(x, y, r);
+    this.blasts.push({ x, y, r: r * 0.9, t: 0, pal });
+    this.fireball(x, y, r, pal);
     const big = r > 40;
-    const sparks = big ? 40 : 18;
-    for (let n = 0; n < sparks; n++) {
+    const cols = PAL_SPARKS[pal] ?? PAL_SPARKS[PAL_FIRE];
+    // Sparks every which way, in the fire's own colours
+    for (let n = big ? 46 : 12 + Math.round(r * 0.6); n > 0; n--) {
       const a = this.rand() * Math.PI * 2;
-      const v = 80 + this.rand() * (big ? 340 : 200);
-      this.add({ k: SPARK, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: 0.3 + this.rand() * 0.6, c: this.rand() < 0.5 ? "#ffe27a" : "#ff9a2a", s: 1 });
+      const v = 80 + this.rand() * (big ? 360 : 210);
+      this.add({ k: SPARK, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, life: 0.3 + this.rand() * 0.6, c: cols[n % cols.length], s: 1 });
     }
-    // Burning chunks thrown out in arcs
-    for (let n = big ? 14 : 3 + Math.floor(r / 6); n > 0; n--) {
+    // Glints: sparkles hanging in the air after it, twinkling as they drift down
+    for (let n = big ? 22 : 3 + Math.floor(r / 4); n > 0; n--)
+      this.add({ k: GLINT, x: x + (this.rand() - 0.5) * r * 1.8, y: y + (this.rand() - 0.6) * r * 1.2, vx: (this.rand() - 0.5) * 40, vy: -30 - this.rand() * 50, life: 0.6 + this.rand() * 1, c: cols[Math.floor(this.rand() * cols.length)], s: this.rand() < 0.35 ? 2 : 1 });
+    // Burning chunks thrown out in arcs, trailing flame and smoke
+    for (let n = big ? 16 : 3 + Math.floor(r / 5); n > 0; n--) {
       const a = -Math.PI / 2 + (this.rand() - 0.5) * 2.4;
-      const v = 90 + this.rand() * (big ? 260 : 150);
-      this.add({ k: CINDER, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.9 + this.rand() * 0.9, c: "", s: this.rand() < 0.3 ? 2 : 1 });
+      const v = 90 + this.rand() * (big ? 280 : 160);
+      this.add({ k: CINDER, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.9 + this.rand() * 1, c: cols[Math.floor(this.rand() * 3)], s: this.rand() < 0.3 ? 2 : 1 });
     }
-    for (let n = 0; n < (big ? 12 : 6); n++) this.puff(x + (this.rand() - 0.5) * r, y + (this.rand() - 0.5) * r * 0.6, 2 + this.rand() * (big ? 8 : 3));
+    for (let n = 0; n < (big ? 14 : 6); n++) this.puff(x + (this.rand() - 0.5) * r, y + (this.rand() - 0.5) * r * 0.6, 2 + this.rand() * (big ? 8 : 3));
+    // The bigger ones: a pall of thick smoke billowing out of the fireball, and a column of it
+    // going on rising off the spot for a good while after
+    if (r >= 22) {
+      for (let n = Math.round(r / 3); n > 0; n--) {
+        const a = this.rand() * Math.PI * 2;
+        const d = this.rand() * r * 0.7;
+        this.add({ k: this.rand() < 0.5 ? SMOKE : BIGSMOKE, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * 0.6, vx: Math.cos(a) * 18, vy: -16 - this.rand() * 26, life: 1.8 + this.rand() * 1.8, c: "", s: 3 + this.rand() * (r / 6) }, true);
+      }
+      this.plumes.push({ x, y: Math.min(y, groundOf(L, Math.floor(x / TILE)) * TILE), t: 2.5 + r / 10, s: Math.min(3, r / 28) });
+      // Shrapnel streaking out, fast and far
+      for (let n = Math.round(r / 4); n > 0; n--) {
+        const a = this.rand() * Math.PI * 2;
+        const v = 260 + this.rand() * 260;
+        this.add({ k: SPARK, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, life: 0.25 + this.rand() * 0.3, c: "#fff6c8", s: 2 });
+      }
+    }
+    // A ring of smoke rolling out of the bigger ones
+    if (r >= 20)
+      for (let n = 0, m = big ? 18 : 10; n < m; n++) {
+        const a = (n / m) * Math.PI * 2;
+        this.add({ k: SMOKE, x: x + Math.cos(a) * r * 0.3, y: y + Math.sin(a) * r * 0.15, vx: Math.cos(a) * (40 + r), vy: Math.sin(a) * (12 + r * 0.3) - 10, life: 0.8 + this.rand() * 0.6, c: "", s: 2 + this.rand() * 2 });
+      }
+    // Little secondary bursts round it a moment after, as what's in it goes up
+    if (r >= 16)
+      for (let n = big ? 4 + Math.floor(this.rand() * 3) : 1 + Math.floor(this.rand() * 2); n > 0; n--) {
+        const a = this.rand() * Math.PI * 2;
+        const d = r * (0.4 + this.rand() * 0.6);
+        const bx = x + Math.cos(a) * d;
+        const by = y + Math.sin(a) * d * 0.7;
+        this.at(0.06 + this.rand() * (big ? 0.5 : 0.25), () => {
+          this.fireball(bx, by, r * (0.3 + this.rand() * 0.2), pal);
+          for (let k = 0; k < 6; k++) this.add({ k: SPARK, x: bx, y: by, vx: (this.rand() - 0.5) * 200, vy: -this.rand() * 160, life: 0.3 + this.rand() * 0.3, c: cols[k % cols.length], s: 1 });
+          this.blasts.push({ x: bx, y: by, r: r * 0.3, t: 0.07, pal });
+        });
+      }
     const gy = groundOf(L, Math.floor(x / TILE)) * TILE;
     if (Math.abs(gy - y) < r + 8) {
       // Dust rolling out along the ground
       const dust = DUST_COLOR[this.theme.fill] ?? "#9a8a78";
-      for (let n = big ? 16 : 6; n > 0; n--) {
+      for (let n = big ? 18 : 7; n > 0; n--) {
         const dir = n % 2 ? 1 : -1;
-        this.add({ k: DUST, x: x + dir * this.rand() * 6, y: gy - 2 - this.rand() * 4, vx: dir * (40 + this.rand() * (big ? 160 : 90)), vy: -8 - this.rand() * 22, life: 0.8 + this.rand() * 0.7, c: dust, s: 2 + this.rand() * (big ? 4 : 2) });
+        this.add({ k: DUST, x: x + dir * this.rand() * 6, y: gy - 2 - this.rand() * 4, vx: dir * (40 + this.rand() * (big ? 170 : 100)), vy: -8 - this.rand() * 22, life: 0.8 + this.rand() * 0.7, c: dust, s: 2 + this.rand() * (big ? 4 : 2) });
       }
       if (this.rand() < 0.75) this.fires.push({ x, y: gy, t: 1.5 + this.rand() * 3 });
     }
@@ -3470,13 +5083,17 @@ export class Game {
       const dy = m.ty - m.y;
       const d = Math.hypot(dx, dy) || 1;
       const step = m.speed * dt;
-      // A trail of smoke and fire behind it (thick for the big ones)
+      // Where it's been: its trail, a ribbon of exhaust and smoke behind it (the renderer draws it)
+      const trail = (m.trail ??= []);
+      trail.push(m.x, m.y);
+      if (trail.length > 72) trail.splice(0, 2);
+      // ... and smoke left hanging in the air after it (thick for the big ones), sparks off its motor
       const cls = m.owner ? (m.cls ?? 1) : 3;
-      const ux = m.boost ? 0 : dx / d;
-      const uy = m.boost ? -1 : dy / d;
-      if (cls >= 2 || this.rand() < 0.5 + cls * 0.25)
-        this.add({ k: cls >= 2 ? BIGSMOKE : SMOKE, x: m.x - ux * 10, y: m.y - uy * 10, vx: (this.rand() - 0.5) * 10, vy: (this.rand() - 0.5) * 10, life: 1.2 + cls * 0.6 + this.rand(), c: "", s: 1 + cls + this.rand() * 2 });
-      this.add({ k: FLAME, x: m.x - ux * 8, y: m.y - uy * 8, vx: 0, vy: 0, life: 0.2, c: "", s: cls >= 2 ? 2 : 1 });
+      const ux = m.boost ? 0 : (m.hx ?? dx / d);
+      const uy = m.boost ? -1 : (m.hy ?? dy / d);
+      if (this.rand() < (cls >= 2 ? 0.6 : 0.25))
+        this.add({ k: cls >= 2 ? BIGSMOKE : SMOKE, x: m.x - ux * 14, y: m.y - uy * 14, vx: (this.rand() - 0.5) * 10, vy: (this.rand() - 0.5) * 10, life: 1.4 + cls * 0.7 + this.rand(), c: "", s: 1 + cls + this.rand() * 2 });
+      if (this.rand() < 0.5) this.add({ k: SPARK, x: m.x - ux * 10, y: m.y - uy * 10, vx: -ux * 60 + (this.rand() - 0.5) * 50, vy: -uy * 60 + (this.rand() - 0.5) * 50, life: 0.2 + this.rand() * 0.2, c: this.rand() < 0.5 ? "#ffe27a" : "#ff9a2a", s: 1 });
       if (m.boost) {
         // Climbing off the launcher, then over and down
         m.t = (m.t ?? 0) + dt;
@@ -3495,19 +5112,40 @@ export class Game {
         this.splitMirv(m);
         continue;
       }
+      // Curving in on its target rather than dead straight at it (turning harder the closer it
+      // gets), and straight at it for the last of the way
+      if (m.hx === undefined || m.hy === undefined) {
+        // (it swings in from one side or the other)
+        const a0 = Math.atan2(dy, dx) + (this.rand() < 0.5 ? -1 : 1) * (0.45 + this.rand() * 0.4) * (m.owner ? 0.6 : 1);
+        m.hx = Math.cos(a0);
+        m.hy = Math.sin(a0);
+      }
+      if (d < 70) {
+        m.hx = dx / d;
+        m.hy = dy / d;
+      } else {
+        let cur = Math.atan2(m.hy, m.hx);
+        let da = Math.atan2(dy, dx) - cur;
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        const turn = (0.5 + (1.1 * m.speed) / Math.max(40, d)) * dt;
+        cur += clamp(da, -turn, turn);
+        m.hx = Math.cos(cur);
+        m.hy = Math.sin(cur);
+      }
       if (d <= step) {
         if (m.owner) this.impact(m, m.tx, m.ty);
         else this.detonate(m);
         continue;
       }
-      if (this.solid(m.x + (dx / d) * step, m.y + (dy / d) * step)) {
+      if (this.solid(m.x + m.hx * step, m.y + m.hy * step)) {
         // (hit something on the way in: it goes off there)
-        if (m.owner) this.impact(m, m.x + (dx / d) * step, m.y + (dy / d) * step);
-        else this.detonate(m, m.x + (dx / d) * step, m.y + (dy / d) * step);
+        if (m.owner) this.impact(m, m.x + m.hx * step, m.y + m.hy * step);
+        else this.detonate(m, m.x + m.hx * step, m.y + m.hy * step);
         continue;
       }
-      m.x += (dx / d) * step;
-      m.y += (dy / d) * step;
+      m.x += m.hx * step;
+      m.y += m.hy * step;
       keep.push(m);
     }
     this.missiles = keep;
@@ -3521,13 +5159,21 @@ export class Game {
     const s = this.theme;
     const r = this.rand;
     const T = this.timers;
-    const k = this.intensity * (1 + 0.08 * Math.min(this.levelNo - 1, 6));
-    const calm = this.phase === "nuke" || this.phase === "clear";
+    const k = this.intensity * (1 + 0.08 * Math.min(this.levelNo - 1, 6)) * WAVES[this.wave].k;
+    // (deep in a cavern there's no sky overhead: no shells, paratroopers, aircraft or weather)
+    const buried = this.buried(view);
+    const calm = this.phase === "nuke" || this.phase === "clear" || buried;
+    if (buried && this.dropQueue.length) {
+      // Down there the fallen come straight back in, near the squad
+      const id = this.dropQueue.shift()!;
+      this.release(this.players[id], clamp(this.advance + OFFSETS[id] - 30, view.x + 20, view.x + view.w - 20), view.y + 12);
+    }
+    if (buried) this.weather = 0;
     if (!calm && s.artillery > 0 && (T.artillery -= dt) <= 0) {
       T.artillery = (0.4 + r() * 1.2) / (s.artillery * k);
       this.shots.push({ kind: SHELL, x: view.x + view.w * (0.4 + r() * 0.7), y: view.y - 10, vx: -15, vy: 260, life: 4, dmg: 0, pid: -3, pierce: 0 });
     }
-    if (s.meteors > 0 && (T.meteor -= dt) <= 0) {
+    if (!buried && s.meteors > 0 && (T.meteor -= dt) <= 0) {
       T.meteor = (0.5 + r()) / (s.meteors * k);
       this.shots.push({ kind: METEOR, x: view.x + view.w * (0.5 + r() * 0.8), y: view.y - 20, vx: -90, vy: 230, life: 4, dmg: 0, pid: -3, pierce: 0 });
     }
@@ -3536,35 +5182,45 @@ export class Game {
       // Reinforcements: a transport plane drops a stick of paratroopers ahead of the squad
       this.jets.push({ x: view.x + view.w + 60, y: view.y + 14 + r() * 16, vx: -320, bombs: 3 + Math.floor(r() * 4), dropT: 0, kind: "transport", ally: false, fireCd: 0, hp: 6, down: false, vy: 0, dead: false });
     }
-    if (s.jets > 0 && (T.jet -= dt) <= 0) {
+    if (!buried && s.jets > 0 && (T.jet -= dt) <= 0) {
       // (often, and low enough to be seen: across the middle of the view)
       T.jet = (3 + r() * 4) / Math.max(0.6, s.jets) / Math.sqrt(k);
-      const kind: PlaneType = (["bomber", "fighter", "attacker"] as const)[Math.floor(r() * 3)];
+      const kind = PLANE_MIX[Math.floor(r() * PLANE_MIX.length)];
       const ally = r() < 0.5;
-      const speed = kind === "bomber" ? 170 : kind === "fighter" ? 300 : 230;
+      const spec = PLANES[kind];
+      // (heavy and stealth bombers come over high; the rest across the middle of the view)
+      const y = spec.high ? view.y + 12 + r() * 18 : view.y + 24 + r() * view.h * 0.4;
       this.jets.push({
         x: ally ? view.x - 60 : view.x + view.w + 60,
-        y: view.y + 24 + r() * view.h * 0.4,
-        vx: (ally ? 1 : -1) * (speed + r() * 40),
-        bombs: calm ? 0 : kind === "bomber" ? 8 + Math.floor(r() * 5) : kind === "attacker" ? 4 : 2,
+        y,
+        vx: (ally ? 1 : -1) * (spec.speed + r() * 40),
+        bombs: calm ? 0 : spec.bombs + Math.floor(r() * (spec.more + 1)),
         dropT: 0.3,
         kind,
         ally,
         fireCd: 0.2,
-        hp: kind === "bomber" ? 4 : 2,
+        hp: spec.hp,
         down: false,
         vy: 0,
         dead: false,
         // (some bombers carry one huge bomb instead of a stick of small ones)
         big: kind === "bomber" && r() < 0.35,
+        alt: y,
+        phase: 0,
       });
     }
     // Players to drop back in: a transport comes over from behind
-    if (this.dropQueue.length && !this.jets.some((j) => j.kind === "transport" && j.ally && !j.down)) {
+    if (!buried && this.dropQueue.length && !this.jets.some((j) => j.kind === "transport" && j.ally && !j.down)) {
       this.jets.push({ x: view.x - 50, y: view.y + 16, vx: 380, bombs: 0, dropT: 0, kind: "transport", ally: true, fireCd: 0, hp: 6, down: false, vy: 0, dead: false });
     }
     for (const j of this.jets) {
       j.x += j.vx * dt;
+      if (!j.down) {
+        // (over the great mountains they climb, rather than flying into them)
+        const L = this.level;
+        const top = Math.min(crustOf(L, Math.floor((j.x - 30) / TILE)), crustOf(L, Math.floor(j.x / TILE)), crustOf(L, Math.floor((j.x + 30) / TILE))) * TILE - 28;
+        if (j.y > top) j.y = Math.max(top, j.y - 260 * dt);
+      }
       if (j.kind === "transport" && !j.down) {
         j.dropT -= dt;
         if (j.ally) {
@@ -3595,7 +5251,7 @@ export class Game {
         if (this.rand() < 0.6) this.flame(j.x, j.y);
         if (this.solid(j.x, j.y + 4) || j.y > LEVEL_H) {
           j.dead = true;
-          this.explode(j.x, Math.min(j.y, LEVEL_H - 8), j.kind === "bomber" ? 40 : 28, j.ally ? -5 : -3, !j.ally);
+          this.explode(j.x, Math.min(j.y, LEVEL_H - 8), j.kind === "bomber" || j.kind === "heavy" ? 40 : 28, j.ally ? -5 : -3, !j.ally);
         }
         continue;
       }
@@ -3603,8 +5259,48 @@ export class Game {
       j.fireCd -= dt;
       // Over its target area: the enemy's over the squad and the column, ours over the enemy ahead
       const over = j.ally ? j.x > this.advance + 70 && j.x < view.x + view.w * 0.96 : j.x > this.advance - 120 && j.x < this.advance + 170;
-      if (!over) continue;
       const pid = j.ally ? -5 : -3;
+      if (j.kind === "dive") {
+        this.diveBomb(j, dt, over, pid, view);
+        continue;
+      }
+      if (!over) continue;
+      if (j.kind === "heavy" && j.bombs > 0 && j.dropT <= 0) {
+        // Carpet bombing: a long, close-spaced stick from high up
+        j.bombs--;
+        j.dropT = 0.06 + r() * 0.05;
+        this.shots.push({ kind: SHELL, x: j.x + (r() - 0.5) * 8, y: j.y + 5, vx: j.vx * 0.3, vy: 30, life: 5, dmg: 0, pid, pierce: 0 });
+        continue;
+      }
+      if (j.kind === "stealth" && j.bombs > 0 && j.dropT <= 0) {
+        // A few precise bombs, each released right over something worth hitting
+        const dir = sign(j.vx);
+        // (its bombs fall almost straight down: it lets go right over the target)
+        const below = (tx: number) => Math.abs(tx - j.x) < 10;
+        const hit = j.ally
+          ? this.enemies.some((e) => e.alive && !FLYING.has(e.kind) && below(e.x))
+          : this.players.some((p) => !p.dead && below(p.x)) || this.allies.some((a) => !a.dead && !ALLY_AIR.has(a.kind) && below(a.x));
+        if (hit) {
+          j.bombs--;
+          j.dropT = 0.35;
+          this.shots.push({ kind: SHELL, x: j.x, y: j.y + 4, vx: dir * 4, vy: 60, life: 5, dmg: 0, pid, pierce: 0 });
+        }
+        continue;
+      }
+      if (j.kind === "rocketjet" && j.bombs > 0 && j.fireCd <= 0) {
+        // A salvo of four rockets down at the ground ahead
+        j.bombs--;
+        j.fireCd = 0.9 + r() * 0.5;
+        const dir = sign(j.vx);
+        for (let n = 0; n < 4; n++)
+          this.at(n * 0.07, () => {
+            if (j.down) return;
+            const a = Math.atan2(0.62, dir) + (this.rand() - 0.5) * 0.12;
+            this.shots.push({ kind: ROCKET, x: j.x, y: j.y + 3, vx: Math.cos(a) * 220, vy: Math.sin(a) * 220, life: 2.5, dmg: 0, pid: j.ally ? -5 : -1, pierce: 0 });
+            this.flashes.push({ x: j.x, y: j.y + 3, t: 0.05, c: "#ffe27a" });
+          });
+        continue;
+      }
       if (j.kind === "bomber" && j.big && j.bombs > 0 && j.x * sign(j.vx) > (j.ally ? this.advance + 140 : this.advance + 30) * sign(j.vx)) {
         j.bombs = 0;
         this.shots.push({ kind: BIGBOMB, x: j.x, y: j.y + 6, vx: j.vx * 0.2, vy: 30, life: 8, dmg: 0, pid, pierce: 0 });
@@ -3724,8 +5420,10 @@ export class Game {
           this.enemies.push(d);
         }
     }
+    // (where the weather comes and goes, it's the weather of the moment)
+    const amb = s.cycle ? (this.sky === "rain" ? "rain" : this.sky === "storm" ? "storm" : s.ambient === "rain" || s.ambient === "storm" ? "none" : s.ambient) : s.ambient;
     // Lightning in a storm (a few seconds apart: a flash in the sky, never a strobe)
-    if (s.ambient === "storm" && (T.bolt -= dt) <= 0) {
+    if (amb === "storm" && (T.bolt -= dt) <= 0) {
       T.bolt = 5 + r() * 9;
       this.bolts.push({ x: view.x + view.w * (0.1 + r() * 0.8), t: 0, seed: Math.floor(r() * 1e6) });
       this.shake = Math.max(this.shake, 1.5);
@@ -3737,11 +5435,11 @@ export class Game {
       if (silo) this.missiles.push({ x: silo.x, y: silo.y, tx: silo.x, ty: -999, speed: 80, up: true });
     }
     // Weather (particles per second)
-    const rate = { none: 0, fireflies: 3, smoke: 4, embers: 14, ash: 28, snow: 34, rain: 60, storm: 90, sand: 34, spores: 10 }[s.ambient];
-    this.weather += rate * dt;
+    const rate = { none: 0, fireflies: 3, smoke: 4, embers: 14, ash: 28, snow: 34, rain: 60, storm: 90, sand: 34, spores: 10 }[amb];
+    this.weather += buried ? 0 : rate * dt;
     for (; this.weather >= 1; this.weather--) {
       const x = view.x + r() * view.w;
-      switch (s.ambient) {
+      switch (amb) {
         case "fireflies":
           this.add({ k: FIREFLY, x, y: view.y + view.h * (0.3 + r() * 0.4), vx: (r() - 0.5) * 8, vy: (r() - 0.5) * 6, life: 2 + r() * 2, c: "#d8ff7a", s: 1 });
           break;
@@ -3756,7 +5454,7 @@ export class Game {
           break;
         case "rain":
         case "storm":
-          this.add({ k: RAIN, x: x + 60, y: view.y - 4, vx: s.ambient === "storm" ? -110 : -60, vy: 320 + r() * 60, life: 1.4, c: "#8ab0d0", s: 1 });
+          this.add({ k: RAIN, x: x + 60, y: view.y - 4, vx: amb === "storm" ? -110 : -60, vy: 320 + r() * 60, life: 1.4, c: "#8ab0d0", s: 1 });
           break;
         case "sand":
           this.add({ k: SANDGRAIN, x: view.x + view.w + 4, y: view.y + r() * view.h, vx: -160 - r() * 80, vy: (r() - 0.5) * 20, life: 4, c: r() < 0.5 ? "#e8c890" : "#c8a060", s: 1 });
@@ -3783,6 +5481,14 @@ export class Game {
   }
 
   private updateEffects(dt: number, view: View) {
+    // Smoke columns rising off the big blasts, thinning out as they go
+    for (const pl of this.plumes) {
+      pl.t -= dt;
+      if (this.rand() < dt * 9 * pl.s)
+        this.add({ k: this.rand() < 0.6 ? SMOKE : BIGSMOKE, x: pl.x + (this.rand() - 0.5) * 12 * pl.s, y: pl.y - 6, vx: 6 + (this.rand() - 0.5) * 8, vy: -22 - this.rand() * 18, life: 2.6 + this.rand() * 2, c: "", s: 2 + this.rand() * 3 * pl.s });
+      if (this.rand() < dt * 3) this.add({ k: EMBER, x: pl.x + (this.rand() - 0.5) * 10, y: pl.y - 4, vx: (this.rand() - 0.5) * 16, vy: -30 - this.rand() * 30, life: 1.5, c: "", s: 1 });
+    }
+    this.plumes = this.plumes.filter((pl) => pl.t > 0 && pl.x > view.x - 100);
     for (const f of this.fires) {
       f.t -= dt;
       if (this.rand() < 0.6) this.flame(f.x + (this.rand() - 0.5) * 10, f.y);
@@ -3792,10 +5498,14 @@ export class Game {
     this.blasts = this.blasts.filter((b) => b.t < 0.5);
     for (const m of this.mushrooms) {
       m.t += dt;
-      if (m.t < 3 && this.rand() < 0.8)
-        this.add({ k: BIGSMOKE, x: m.x + (this.rand() - 0.5) * 20, y: m.y - this.rand() * Math.min(1, m.t) * 110, vx: (this.rand() - 0.5) * 12, vy: -10, life: 2 + this.rand() * 2, c: "", s: 3 + this.rand() * 4 });
+      // (the cloud itself is drawn whole; a little smoke and ash drifting off it, embers falling out of it)
+      const s = m.s ?? 1;
+      if (m.t < 4 && this.rand() < 0.35)
+        this.add({ k: BIGSMOKE, x: m.x + (this.rand() - 0.5) * 50 * s, y: m.y - this.rand() * Math.min(1, m.t / 2) * 140 * s, vx: (this.rand() - 0.5) * 14, vy: -8, life: 2 + this.rand() * 2, c: "", s: 3 + this.rand() * 4 });
+      if (m.t > 0.6 && m.t < 5 && this.rand() < 0.5)
+        this.add({ k: EMBER, x: m.x + (this.rand() - 0.5) * 80 * s, y: m.y - (60 + this.rand() * 80) * s * Math.min(1, m.t / 2.5), vx: (this.rand() - 0.5) * 20, vy: 20 + this.rand() * 30, life: 1.5 + this.rand(), c: "", s: 1 });
     }
-    this.mushrooms = this.mushrooms.filter((m) => m.t < 6);
+    this.mushrooms = this.mushrooms.filter((m) => m.t < 9);
     for (const w of this.waves) w.t += dt;
     this.waves = this.waves.filter((w) => w.t < 1);
     for (const f of this.flashes) f.t -= dt;
@@ -3847,6 +5557,8 @@ export class Game {
         const nx = p.x + p.vx * dt;
         const ny = p.y + p.vy * dt;
         if (this.solid(nx, ny)) {
+          // (where a burning chunk lands, now and then a little fire takes)
+          if (p.life > p.max * 0.4 && Math.abs(p.vy) > 60 && this.rand() < 0.06 && this.fires.length < 60) this.fires.push({ x: p.x, y: Math.floor(ny / TILE) * TILE, t: 1 + this.rand() * 2 });
           p.vy *= -0.35;
           p.vx *= 0.55;
         } else {
@@ -3854,8 +5566,14 @@ export class Game {
           p.y = ny;
         }
         if (this.rand() < 0.45) this.add({ k: FLAME, x: p.x, y: p.y, vx: 0, vy: -8, life: 0.2 + this.rand() * 0.15, c: "", s: 1 });
+        // (and a trail of smoke behind it, while it's still burning hot)
+        if (p.life > p.max * 0.4 && this.rand() < 0.22) this.add({ k: SMOKE, x: p.x, y: p.y, vx: 0, vy: -6, life: 0.6 + this.rand() * 0.4, c: "", s: 1 });
       } else {
         if (p.k === SPARK) p.vy += 160 * dt;
+        else if (p.k === GLINT) {
+          p.vx *= Math.exp(-dt * 2.4);
+          p.vy = p.vy * Math.exp(-dt * 2) + 34 * dt;
+        }
         else if (p.k === BLAZE) {
           const k = Math.exp(-dt * 3.2);
           p.vx *= k;
@@ -3871,6 +5589,11 @@ export class Game {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         if ((p.k === SNOWFLAKE || p.k === RAIN || p.k === ASHFALL) && this.solid(p.x, p.y)) p.life = 0;
+        // (bubbles wobble up, and pop at the surface)
+        if (p.k === BUBBLE) {
+          p.vx += (this.rand() - 0.5) * 30 * dt;
+          if (!waterAt(this.level, p.x, p.y)) p.life = 0;
+        }
       }
     }
   }
@@ -3884,7 +5607,7 @@ export class Game {
    * A cluster of fireballs (the renderer draws them as one lumpy, outlined blob): big ones
    * in the middle, smaller ones round the edge, all swelling, rising and cooling.
    */
-  private fireball(x: number, y: number, r: number) {
+  private fireball(x: number, y: number, r: number, pal = PAL_FIRE) {
     const balls = Math.min(22, 4 + Math.round(r / 2.5));
     const slow = r > 40 ? 1.7 : 1;
     const reach = r * 0.55 + 1;
@@ -3901,7 +5624,7 @@ export class Game {
         vx: ux * (10 + d * 1.8),
         vy: uy * d * 1.2 - 18 - this.rand() * 28,
         life: (0.4 + this.rand() * 0.45 + core * 0.25) * slow,
-        c: "",
+        c: String(pal),
         s: Math.max(2, r * (0.18 + this.rand() * 0.2) * (0.65 + core * 0.5)),
       }, true);
     }
@@ -3926,6 +5649,145 @@ export class Game {
 
   private dirtyAround(c: number, r: number) {
     this.dirty.push(c - 1, r, c + 1, r, c, r - 1, c, r + 1);
+  }
+
+  /**
+   * A block at (c, r) just broke. Loose ground over it (sand, gravel, snow, scree, ash) slides
+   * down into the hole; and any piece of the land it leaves hanging in the air on its own (a
+   * chunk of rock cut off under a cliff top, a floating block, a tower platform with its footing
+   * shot away: a few dozen blocks at most, touching nothing else) comes down, block by block.
+   */
+  private loosen(c: number, r: number) {
+    this.unstable.push(c, r - 1, c - 1, r - 1, c + 1, r - 1, c - 1, r, c + 1, r);
+    for (const [nc, nr] of [
+      [c - 1, r],
+      [c + 1, r],
+      [c, r - 1],
+      [c, r + 1],
+    ])
+      this.cutOff(nc, nr);
+  }
+
+  /** If the block at (c, r) is part of a small piece of the land touching nothing else, set the whole piece falling. */
+  private cutOff(c: number, r: number) {
+    const L = this.level;
+    if (r < 0 || r >= ROWS - 3 || c < L.start || c >= L.next || !SOLID[L.fg[cell(c, r)]]) return;
+    const seen = this.seen;
+    const mark = ++this.stamp;
+    const piece: number[] = [];
+    const stack = [c, r];
+    seen[cell(c, r)] = mark;
+    while (stack.length) {
+      const y = stack.pop()!;
+      const x = stack.pop()!;
+      const i = cell(x, y);
+      // (anchored: too big to be a loose piece, down at the bedrock, made of what never breaks, or off the stored land)
+      if (piece.length > 90 || y >= ROWS - 3 || TILE_HP[L.fg[i]] === 255 || x <= L.start || x >= L.next - 1) return;
+      piece.push(x, y);
+      for (const [nx, ny] of [
+        [x - 1, y],
+        [x + 1, y],
+        [x, y - 1],
+        [x, y + 1],
+      ]) {
+        if (ny < 0) continue;
+        const j = cell(nx, ny);
+        if (seen[j] === mark || !SOLID[L.fg[j]]) continue;
+        seen[j] = mark;
+        stack.push(nx, ny);
+      }
+    }
+    // (bottom row first, so each block has somewhere to go)
+    const order: [number, number][] = [];
+    for (let k = 0; k < piece.length; k += 2) order.push([piece[k], piece[k + 1]]);
+    order.sort((a, b) => b[1] - a[1]);
+    for (const [x, y] of order) {
+      this.crumbling.add(cell(x, y));
+      this.unstable.push(x, y);
+    }
+  }
+
+  /** Is a player standing in block (c, r)? (Falling ground stops short of their heads.) */
+  private occupied(c: number, r: number) {
+    for (const p of this.players) {
+      if (p.dead || p.aboard || Math.floor(p.x / TILE) !== c) continue;
+      if (r >= Math.floor((p.y - PH) / TILE) && r <= Math.floor((p.y - 1) / TILE)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Falling ground, a row a step: each loose block with air under it drops (or, with something
+   * under it but a drop off to one side, slides off down the slope); each block of a piece cut
+   * loose drops whatever it's made of. Whatever was resting on one that moved is checked next.
+   */
+  private settle() {
+    if (!this.unstable.length) return;
+    const L = this.level;
+    const todo = this.unstable;
+    this.unstable = [];
+    let moves = 0;
+    for (let k = 0; k < todo.length; k += 2) {
+      const c = todo[k];
+      const r = todo[k + 1];
+      if (r < 0 || r >= ROWS - 3 || c <= L.start || c >= L.next - 1) continue;
+      const at = cell(c, r);
+      const kind = L.fg[at];
+      const falling = this.crumbling.has(at);
+      if (!kind || !SOLID[kind] || (!LOOSE[kind] && !falling)) {
+        if (falling) this.crumbling.delete(at);
+        continue;
+      }
+      if (moves >= 260) {
+        this.unstable.push(c, r);
+        continue;
+      }
+      // (it comes down through open air and crushes through leaves, vines and the like; not into water, lava or a ladder)
+      const open = (i: number) => {
+        const k = L.fg[i];
+        return k === AIR || (!SOLID[k] && k !== WATER && k !== LADDER && TILE_HP[k] !== 255);
+      };
+      let to = -1;
+      if (open(cell(c, r + 1))) to = c;
+      else if (LOOSE[kind] && !falling) {
+        const d = this.rand() < 0.5 ? 1 : -1;
+        for (const dir of [d, -d])
+          if (open(cell(c + dir, r)) && open(cell(c + dir, r + 1)) && c + dir > L.start && c + dir < L.next - 1) {
+            to = c + dir;
+            break;
+          }
+      }
+      if (to < 0) {
+        // (it's landed)
+        if (falling) {
+          this.crumbling.delete(at);
+          if (this.rand() < 0.5) this.add({ k: DUST, x: c * TILE + 4, y: r * TILE + 6, vx: (this.rand() - 0.5) * 30, vy: -6, life: 0.6, c: DUST_COLOR[this.theme.fill] ?? "#9a8a78", s: 2 });
+        }
+        continue;
+      }
+      if (this.occupied(to, r + 1)) {
+        this.unstable.push(c, r);
+        continue;
+      }
+      const dst = cell(to, r + 1);
+      L.fg[dst] = kind;
+      L.hp[dst] = L.hp[at];
+      L.burn[dst] = L.burn[at];
+      L.fg[at] = AIR;
+      L.hp[at] = 0;
+      L.burn[at] = 0;
+      if (falling) {
+        this.crumbling.delete(at);
+        this.crumbling.add(dst);
+      }
+      this.dirty.push(c, r, to, r + 1);
+      this.dirtyAround(c, r);
+      this.dirtyAround(to, r + 1);
+      moves++;
+      // (on down; and whatever was on it after it)
+      this.unstable.push(to, r + 1, c, r - 1, c - 1, r - 1, c + 1, r - 1);
+      if (this.rand() < 0.08) this.debris(c, r, kind, 1);
+    }
   }
 }
 

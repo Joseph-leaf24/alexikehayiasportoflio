@@ -76,7 +76,29 @@ export type Feature =
   | "lake"
   | "forest"
   | "railway"
-  | "nuclear";
+  | "nuclear"
+  /** A great mountain to climb, a hundred-odd blocks high, an outpost on its summit */
+  | "massif"
+  /** Down a sinkhole into a vast cavern deep in the earth, and back up a chimney */
+  | "abyss"
+  /** A working mine: down its shaft, along the gallery past the carts on the rails, up the far shaft */
+  | "mineshaft"
+  /** City blocks over a metro line: trains running between its stations, the squad on the street or down in the tunnels */
+  | "metro"
+  /** A rail yard on the main line: freight trains running through it, an armoured train patrolling it */
+  | "railyard"
+  /** Mills and works: sheds, smokestacks, gas holders, pipe bridges, conveyors, the yard between */
+  | "factory"
+  /** A long avenue: traffic both ways, buses calling at their stops, traffic lights, street lights */
+  | "boulevard"
+  /** A city park: lawns, big trees, a duck pond, a fountain, a bandstand, a playground */
+  | "park"
+  /** A river through the city and a suspension bridge across it, traffic over it, boats under it */
+  | "citybridge"
+  /** A waterworks: the pumping station, settling basins, clarifiers, a water tower */
+  | "waterplant"
+  /** A railway station: its building, the platform under a canopy, passenger trains calling */
+  | "station";
 
 /** Foot soldiers a theme fields. */
 export type Troop =
@@ -195,6 +217,10 @@ export interface Theme {
   bosses: BossKind[];
   /** A cave roof over the level */
   ceiling?: boolean;
+  /** How many times longer than usual a level of it runs (the cities and the industrial lands go on and on) */
+  long?: number;
+  /** Day turns to night and back, and the weather comes and goes (clear, cloud, rain, storms, fog) */
+  cycle?: boolean;
 }
 
 const base = {
@@ -792,6 +818,8 @@ export const THEMES: Record<string, Theme> = {
   },
   refinery: {
     ...base,
+    cycle: true,
+    long: 2.5,
     key: "refinery",
     name: "Refinery",
     sky: ["#1e1838", "#8a3a4a", "#ff8a3a"],
@@ -807,7 +835,7 @@ export const THEMES: Record<string, Theme> = {
     wall: METAL,
     build: METAL,
     skyline: METAL,
-    features: {
+    features: { waterplant: 1.5, station: 1,
       flat: 1,
       gap: 1,
       wall: 2,
@@ -827,6 +855,64 @@ export const THEMES: Record<string, Theme> = {
       metropolis: 3,
       highway: 2,
       airfield: 0.5,
+      railyard: 7,
+      factory: 6,
+    },
+    troops: {
+      mook: 5,
+      heavy: 2,
+      rocket: 2,
+      flamer: 2,
+      shield: 1,
+      minigunner: 1.2,
+      engineer: 1.5,
+      dynamiter: 1,
+      exosuit: 0.6,
+      jetpacker: 0.8,
+    },
+    enemies: 6.8,
+    barrels: 0.85,
+    artillery: 1.4,
+    helis: 2.4,
+    paras: 3,
+    jets: 1.8,
+    drones: 0.6,
+    ambient: "embers",
+    distant: 0.8,
+    bosses: ["mech", "gunship", "cannon"],
+  },
+  industry: {
+    ...base,
+    cycle: true,
+    long: 3.2,
+    key: "industry",
+    name: "Industrial zone",
+    sky: ["#2a2a3a", "#6a5a5a", "#d8a070"],
+    night: 0.2,
+    tint: "rgba(255,170,90,0.07)",
+    sun: "red",
+    backdrop: "factory",
+    relief: 0.55,
+    look: "factory",
+    top: CONCRETE,
+    fill: DIRT,
+    deep: STONE,
+    wall: METAL,
+    build: METAL,
+    skyline: METAL,
+    features: { waterplant: 2, station: 1.5, citybridge: 1,
+      railyard: 9,
+      factory: 7,
+      catwalk: 3,
+      tank: 2,
+      tanker: 2,
+      nuclear: 1.5,
+      highway: 1,
+      mgnest: 1,
+      flat: 1,
+      downtown: 1,
+      metropolis: 1,
+      bridge: 1,
     },
     troops: {
       mook: 5,
@@ -853,6 +939,8 @@ export const THEMES: Record<string, Theme> = {
   },
   city: {
     ...base,
+    cycle: true,
+    long: 3,
     key: "city",
     name: "City ruins",
     sky: ["#05060f", "#141b3a", "#2a2f5a"],
@@ -868,7 +956,7 @@ export const THEMES: Record<string, Theme> = {
     build: BRICK,
     skyline: BRICK,
     decor: "rubble",
-    features: {
+    features: { boulevard: 9, park: 3, citybridge: 2.5, waterplant: 1.5, station: 2.5, metro: 12, railyard: 1.5,
       ruins: 5,
       flat: 1,
       wreck: 2,
@@ -1063,6 +1151,8 @@ export const THEMES: Record<string, Theme> = {
   },
   silos: {
     ...base,
+    cycle: true,
+    long: 1.6,
     key: "silos",
     name: "Missile silos",
     sky: ["#2a1e3a", "#9a4a4a", "#ffb070"],
@@ -1078,7 +1168,7 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: CONCRETE,
     skyline: CONCRETE,
-    features: {
+    features: { station: 0.5, railyard: 3, factory: 1.5,
       silo: 4,
       bunker: 2,
       mgnest: 2,
@@ -1126,6 +1216,8 @@ export const THEMES: Record<string, Theme> = {
   },
   hq: {
     ...base,
+    cycle: true,
+    long: 1.5,
     key: "hq",
     name: "HQ assault",
     sky: ["#07060f", "#1a1030", "#3a1a3a"],
@@ -1140,7 +1232,7 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: CONCRETE,
     skyline: CONCRETE,
-    features: {
+    features: { boulevard: 2, park: 1, station: 1, metro: 2.5, railyard: 1.5,
       flat: 1,
       wall: 2,
       bunker: 3,
@@ -1469,6 +1561,8 @@ export const THEMES: Record<string, Theme> = {
   },
   suburbs: {
     ...base,
+    cycle: true,
+    long: 1.8,
     key: "suburbs",
     name: "Suburbia",
     sky: ["#3a7ac8", "#90c0e8", "#e8f4ff"],
@@ -1482,7 +1576,7 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: BRICK,
     decor: "jungle",
-    features: {
+    features: { boulevard: 3, park: 4, station: 1, waterplant: 1, metro: 2,
       flat: 1,
       downtown: 6,
       metropolis: 1,
@@ -1513,6 +1607,8 @@ export const THEMES: Record<string, Theme> = {
   },
   megacity: {
     ...base,
+    cycle: true,
+    long: 3,
     key: "megacity",
     name: "Megacity",
     sky: ["#0a0a1a", "#2a1a4a", "#6a3a6a"],
@@ -1527,7 +1623,7 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: CONCRETE,
     skyline: CONCRETE,
-    features: {
+    features: { boulevard: 9, park: 2.5, citybridge: 2.5, waterplant: 1, station: 2.5, metro: 12,
       metropolis: 8,
       downtown: 3,
       highway: 3,
@@ -1562,6 +1658,7 @@ export const THEMES: Record<string, Theme> = {
   },
   airbase: {
     ...base,
+    cycle: true,
     key: "airbase",
     name: "Air base",
     sky: ["#3a5a90", "#8ab0d8", "#e0f0ff"],
@@ -1574,7 +1671,7 @@ export const THEMES: Record<string, Theme> = {
     deep: STONE,
     wall: SANDBAG,
     build: CONCRETE,
-    features: {
+    features: { park: 0.5,
       airfield: 5,
       bunker: 2,
       mgnest: 2,
@@ -1713,7 +1810,99 @@ export const THEMES: Record<string, Theme> = {
     bosses: [],
     ceiling: true,
   },
+  summit: {
+    ...base,
+    key: "summit",
+    name: "Sky peaks",
+    sky: ["#3a6ab8", "#8ab4e0", "#e4f0fa"],
+    night: 0.04,
+    tint: "rgba(210,228,255,0.06)",
+    backdrop: "snow",
+    relief: 1.2,
+    look: "snow",
+    top: GRASS,
+    fill: DIRT,
+    deep: STONE,
+    wall: ICE,
+    build: CONCRETE,
+    decor: "pines",
+    features: { massif: 6, mineshaft: 1, pines: 3, forest: 2, flat: 2, slope: 2, mgnest: 1, bunker: 1, radar: 1, waterfall: 1, camp: 1 },
+    troops: { mook: 5, sniper: 3, heavy: 1, mortar: 1, rocket: 1, jetpacker: 1 },
+    enemies: 5,
+    barrels: 0.4,
+    artillery: 0.6,
+    helis: 1.4,
+    paras: 1,
+    jets: 1.2,
+    ambient: "snow",
+    distant: 0.4,
+    bosses: ["airship", "gunship"],
+  },
+  depths: {
+    ...base,
+    key: "depths",
+    name: "Into the depths",
+    sky: ["#3a3048", "#9a6a5a", "#e8b088"],
+    night: 0.1,
+    tint: "rgba(255,150,90,0.06)",
+    sun: "red",
+    backdrop: "canyon",
+    relief: 0.5,
+    look: "fort",
+    top: GRASS,
+    fill: DIRT,
+    deep: ROCK,
+    wall: SANDBAG,
+    build: METAL,
+    decor: "rubble",
+    features: { abyss: 6, mineshaft: 3, flat: 2, mgnest: 1, bunker: 1, tunnel: 1, railway: 1, wreck: 1, camp: 1 },
+    troops: { mook: 5, heavy: 2, flamer: 1, crawler: 1, engineer: 1, dynamiter: 1 },
+    enemies: 5.5,
+    barrels: 0.5,
+    artillery: 0.6,
+    helis: 1,
+    paras: 1,
+    jets: 1,
+    ambient: "embers",
+    distant: 0.5,
+    bosses: ["worm", "spider"],
+  },
 };
+
+/**
+ * Great mountains to climb, descents into the depths of the earth and mines to go through, in
+ * the country they suit: the share of each theme's set pieces (on top of what it already has)
+ * that should be one. (They're long, fifty to a hundred-odd columns each, so even a small share
+ * comes up often.)
+ */
+type Big = "massif" | "abyss" | "mineshaft";
+const BIG: Partial<Record<string, Partial<Record<Big, number>>>> = {
+  snow: { massif: 0.05, abyss: 0.015, mineshaft: 0.03 },
+  tundra: { massif: 0.04, abyss: 0.015, mineshaft: 0.04 },
+  canyon: { massif: 0.04, abyss: 0.02, mineshaft: 0.04 },
+  badlands: { massif: 0.03, abyss: 0.03, mineshaft: 0.04 },
+  sakura: { massif: 0.04, mineshaft: 0.015 },
+  autumn: { massif: 0.035, abyss: 0.015, mineshaft: 0.03 },
+  savanna: { massif: 0.025, abyss: 0.015, mineshaft: 0.03 },
+  temple: { massif: 0.02, abyss: 0.02, mineshaft: 0.015 },
+  jungle: { abyss: 0.02, mineshaft: 0.02 },
+  deepjungle: { abyss: 0.02, massif: 0.015, mineshaft: 0.025 },
+  desert: { abyss: 0.025, mineshaft: 0.035 },
+  inferno: { abyss: 0.04, mineshaft: 0.03 },
+  hive: { abyss: 0.04 },
+  fortress: { abyss: 0.015, mineshaft: 0.02 },
+  farmland: { abyss: 0.015, mineshaft: 0.02 },
+  village: { massif: 0.015, mineshaft: 0.025 },
+  swamp: { mineshaft: 0.02 },
+  monsoon: { mineshaft: 0.015 },
+  nightraid: { mineshaft: 0.02 },
+};
+for (const [key, add] of Object.entries(BIG)) {
+  const t = THEMES[key];
+  if (!t || !add) continue;
+  const total = (Object.values(t.features) as number[]).reduce((s, v) => s + v, 0);
+  for (const [f, share] of Object.entries(add) as [Big, number][]) t.features[f] = Math.round(total * share * 100) / 100;
+}
 
 /** The themes levels are drawn from (the cave is the 404's). */
 export const ROTATION = Object.keys(THEMES).filter((k) => k !== "cave");

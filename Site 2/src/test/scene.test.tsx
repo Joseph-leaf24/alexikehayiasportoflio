@@ -87,13 +87,16 @@ describe("PixelScene", () => {
 
   it("follows the squad as it pushes through the level", () => {
     useAnimationTimers();
+    // (a country without great mountains or descents into the depths: those take minutes to get through)
+    window.history.replaceState({}, "", "/?level=nightraid");
     renderScene();
     advance(50);
     const start = sceneState.cam.x;
     // (fights hold the squad up for a few seconds at a time, a defended city block longer, so give it a while)
     advance(16_000);
     expect(sceneState.cam.x).toBeGreaterThan(start + 80);
-  });
+    // (sixteen seconds of a whole battle, drawn: allow it the time under a busy test run)
+  }, 15_000);
 
   it("opens on the level named in ?level=, if there is one", () => {
     useAnimationTimers();

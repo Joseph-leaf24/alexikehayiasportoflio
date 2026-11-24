@@ -17,14 +17,17 @@ import type { BossKind, Theme, Troop } from "./themes";
 
 /** Edge of one block, in scene pixels. */
 export const TILE = 8;
-/** Rows of blocks: room for mountains over the ground, and tunnels and caves under it. */
-export const ROWS = 112;
+/**
+ * Rows of blocks: room over the ground for the great mountains (well over a hundred blocks
+ * high), and under it for the descents into the depths of the earth (eighty blocks down).
+ */
+export const ROWS = 240;
 /** Columns kept in memory (a power of two). */
 export const RING = 512;
 export const MASK = RING - 1;
 /** Where the lowland ground is (the landing zone, the plains between the hills). */
-export const BASE_ROW = 80;
-/** The highest a mountain top gets, and the lowest a valley floor. */
+export const BASE_ROW = 148;
+/** The highest the ordinary hills get, and the lowest a valley floor (the great mountains go far higher). */
 export const PEAK_ROW = BASE_ROW - 38;
 export const VALLEY_ROW = BASE_ROW + 6;
 export const LEVEL_H = ROWS * TILE;
@@ -95,7 +98,7 @@ export const SLATE = 57;
 export const SHOJI = 58;
 export const AZULEJO = 59;
 export const LIMESTONE = 60;
-/** More soils and rocks: clay, gravel, granite (it doesn't break), basalt, loam, chalk; and autumn and blossom leaves */
+/** More soils and rocks: clay, gravel, granite (the toughest rock there is, but it breaks), basalt, loam, chalk; and autumn and blossom leaves */
 export const CLAY = 61;
 export const GRAVEL = 62;
 export const GRANITE = 63;
@@ -104,21 +107,88 @@ export const LOAM = 65;
 export const CHALK = 66;
 export const REDLEAF = 67;
 export const PINKLEAF = 68;
-export const KINDS = 69;
+/**
+ * The earth's own variety. Rocks: layered shale, veined quartz, volcanic glass, magma rock with
+ * its cracks still glowing, sulphur crust, pale volcanic tuff. The cold: frozen ground, blue
+ * glacier ice, loose scree on the mountainsides. Soils: peat in the bogs, red laterite in the
+ * tropics, salt flats, ground full of roots, golden dry grass, moss-grown rock. Reef coral on the
+ * seabed, cobbled paths, fossils in the rock, copper ore and diamonds, amethyst geodes, the glowing
+ * fungus that grows down in the dark.
+ */
+export const SHALE = 69;
+export const QUARTZ = 70;
+export const OBSIDIAN = 71;
+export const MAGMA = 72;
+export const SULFUR = 73;
+export const PERMAFROST = 74;
+export const GLACIER = 75;
+export const SCREE = 76;
+export const PEAT = 77;
+export const LATERITE = 78;
+export const SALT = 79;
+export const CORAL = 80;
+export const COBBLE = 81;
+export const FOSSIL = 82;
+export const COPPER = 83;
+export const AMETHYST = 84;
+export const MYCELIUM = 85;
+export const MOSSROCK = 86;
+export const DRYGRASS = 87;
+export const ROOTS = 88;
+export const TUFF = 89;
+export const DIAMOND = 90;
+/** Reinforced concrete, steel bars right through it: the hardened buildings, bridge decks and overpasses (all but unbreakable) */
+export const REINFORCED = 91;
+export const KINDS = 92;
 
 /** What stops people and bullets. Leaves, trunks, pine boughs, vines, bamboo, water, lava, ladders and fences don't. */
 export const SOLID = new Uint8Array(KINDS).map((_, k) =>
   k === AIR || k === LEAF || k === TRUNK || k === LAVA || k === PINE || k === VINE || k === WATER || k === BAMBOO || k === LADDER || k === FENCE || k === RAIL || k === REDLEAF || k === PINKLEAF ? 0 : 1
 );
-/** Hits a block takes before it breaks (255: never, so blasts can't drain rivers or lava). */
-export const TILE_HP = Uint8Array.from([0, 2, 2, 4, 255, 3, 5, 1, 2, 1, 6, 1, 1, 1, 4, 2, 5, 6, 255, 3, 3, 1, 3, 1, 3, 1, 3, 2, 2, 4, 5, 1, 255, 1, 1, 1, 3, 1, 5, 2, 2, 3, 3, 4, 4, 3, 4, 5, 5, 1, 4, 2, 2, 3, 3, 2, 3, 3, 1, 3, 4, 2, 1, 255, 8, 2, 2, 1, 1]);
+/** Hits a block takes before it breaks (255: never, so blasts can't drain rivers or lava). Granite takes nine. */
+export const TILE_HP = Uint8Array.from([
+  0, 2, 2, 4, 255, 3, 5, 1, 2, 1, 6, 1, 1, 1, 4, 2, 5, 6, 255, 3, 3, 1, 3, 1, 3, 1, 3, 2, 2, 4, 5, 1, 255, 1, 1, 1, 3, 1, 5, 2, 2, 3, 3, 4, 4, 3, 4, 5, 5, 1, 4, 2, 2, 3, 3, 2, 3, 3, 1, 3, 4, 2, 1, 9, 8, 2, 2, 1, 1,
+  // shale, quartz, obsidian, magma, sulphur, permafrost, glacier, scree, peat, laterite, salt
+  3, 5, 7, 4, 2, 3, 4, 1, 2, 2, 2,
+  // coral, cobble, fossil, copper, amethyst, mycelium, moss rock, dry grass, roots, tuff, diamond
+  2, 4, 4, 5, 4, 2, 4, 2, 2, 2, 6,
+  // reinforced concrete
+  32,
+]);
+/**
+ * Loose ground that won't stay up with nothing under it: sand, gravel, snow, scree and ash slide
+ * down into a crater dug beneath them (a blast on a mountainside brings a slide of it down).
+ */
+export const LOOSE = new Uint8Array(KINDS).map((_, k) => (k === SAND || k === GRAVEL || k === SNOW || k === SCREE || k === ASH || k === SALT ? 1 : 0));
 
 /** Something the generator placed for game.ts to bring to life. x, y: world px (y = feet; a boat's y is the water line). */
 export interface Spawn {
-  kind: Troop | "mortar" | "mg" | "turret" | "jeep" | "truck" | "boat" | "barrel" | "fuel" | "tanker" | "ammo" | "egg" | "propane" | "canister" | "cylinder" | "battleship" | "apc" | "lighttank" | "mine" | "medtank" | "heavytank" | "flametank" | "rockettank" | "aatank" | "launcher" | "manhole" | "tnt" | "submarine" | "flakgun" | "howitzer" | "samsite" | "rocketpod" | "train" | "armoredcar" | "artytruck" | "hovercraft";
+  kind: Troop | "mortar" | "mg" | "turret" | "jeep" | "truck" | "boat" | "barrel" | "fuel" | "tanker" | "ammo" | "egg" | "propane" | "canister" | "cylinder" | "battleship" | "apc" | "lighttank" | "mine" | "medtank" | "heavytank" | "flametank" | "rockettank" | "aatank" | "launcher" | "manhole" | "tnt" | "submarine" | "flakgun" | "howitzer" | "samsite" | "rocketpod" | "train" | "armoredcar" | "artytruck" | "hovercraft"
+    /** A mine cart that rolls up and down the rails it stands on */
+    | "minecart"
+    /** A metro line's train: `extra` is the tunnel's ends and then its stations (world px) */
+    | "metro"
+    /** Trains on a stretch of line: `extra` is its ends (world px), then (a station) where they call, and 1 for passenger trains */
+    | "freight"
+    /** A road with traffic on it: `extra` is its ends (world px), how many traffic lights, where they are, then its bus stops */
+    | "road"
+    /** The same, an expressway: fast traffic, no lights, no stops */
+    | "motorway";
   x: number;
   y: number;
+  extra?: number[];
 }
+
+/** The essentials of a city: what a city block is most likely to have in it. */
+const CITY_ESSENTIAL = ["hospital", "gasstation", "police", "firestation", "school", "supermarket", "apartments", "officetower", "bank", "diner", "cinema", "hotel", "parkinggarage", "pharmacy", "postoffice", "library", "skyscraper", "pizzeria", "convenience", "tenement", "brownstone", "decotower", "neontenement", "busdepot", "garage", "clinic", "townhouse", "haussmann", "cafe", "gym", "bakery", "pub", "trainstation", "stockexchange", "museum"];
+/** The buildings built hard: reinforced concrete all through, all but impossible to bring down. */
+const HARDENED = new Set(["bank", "police", "stockexchange", "datacentre", "commandhq", "armory", "bunkerhq", "embassy", "courthouse", "powerstation", "reactor", "brutalist", "townhall", "radarstation"]);
+/** What's on a city's streets between its buildings. */
+const STREET_KIT = ["trafficlight", "busstop", "bench", "trashbin", "hydrant", "treeplanter", "streetlamp", "newsbox", "mailbox", "dumpster", "sedan", "taxi", "van", "policecar", "ambulance", "newsstand", "foodtruck", "kiosk", "vending", "metrosign"];
+/** The works an industrial land is made of. */
+const WORKS = ["factory", "warehouse", "brewery", "printworks", "powerstation", "waterworks", "recycling", "refinery", "chemplant", "sawmill"];
+/** A metro line's stations. */
+const STATIONS = ["CENTRAL", "MARKET", "HARBOUR", "PARK", "UNION", "CIVIC", "DOCKS", "OLD TOWN", "MUSEUM", "NORTH", "BRIDGE", "STADIUM", "GARDENS", "TOWER", "RIVER", "ARSENAL"];
 
 /** Static decorations drawn over the blocks (world px). */
 export type Prop =
@@ -145,7 +215,13 @@ export type Prop =
   /** A building's sign, centred on x with its bottom at y (`neon`: it glows) */
   | { kind: "sign"; x: number; y: number; text: string; ink: string; board: string; neon: boolean }
   /** A striped awning over a door, sticking out left of x */
-  | { kind: "awning"; x: number; y: number; w: number; color: string };
+  | { kind: "awning"; x: number; y: number; w: number; color: string }
+  /** Traffic lights at a crossing (red, amber, green in turn: the traffic stops at them) */
+  | { kind: "stoplight"; x: number; y: number }
+  /** A street light: lit at night, a pool of light under it */
+  | { kind: "streetlight"; x: number; y: number }
+  /** A suspension bridge's main cable, from (x, y) to (x2, y2), sagging `sag` px between, its hangers down to the deck at `deck` */
+  | { kind: "cable"; x: number; y: number; x2: number; y2: number; sag: number; deck: number };
 
 /** The shape of a level: how long, where the boss waits, where the stronghold is. */
 export interface Plan {
@@ -175,10 +251,14 @@ export interface Level {
   borders: { col: number; theme: Theme; boss: BossKind | null }[];
   /** Boss arenas placed, waiting for the squad */
   bossQueue: { col: number; kind: BossKind }[];
+  /** Out at sea: the last stretch generated was open sea, with no shore yet (more sea carries straight on from it) */
+  openSea: boolean;
   /** Picks the next biome (the game sets it; levels on their own keep their theme) */
   pickTheme?: (current: Theme) => Theme;
-  /** Ground row of each stored column */
+  /** Ground row of each stored column: what's walked on (in a cavern deep underground, its floor) */
   ground: Int16Array;
+  /** The land's surface row in each stored column, open to the sky (the rock darkens with depth below it) */
+  crust: Int16Array;
   /** Oldest column still stored, and the next one to generate (absolute column numbers) */
   start: number;
   next: number;
@@ -211,7 +291,8 @@ export interface LevelOptions {
 
 export function createLevel(theme: Theme, seed = 1, opts: LevelOptions = {}): Level {
   const rand = rng(seed);
-  const length = opts.length ?? 240 + int(rand, 160);
+  // (the cities and the industrial lands go on far longer than the rest)
+  const length = opts.length ?? Math.round((240 + int(rand, 160)) * (theme.long ?? 1));
   const kind = opts.boss !== undefined ? opts.boss : theme.bosses.length && rand() < 0.8 ? theme.bosses[int(rand, theme.bosses.length)] : null;
   return {
     fg: new Uint8Array(RING * ROWS),
@@ -219,6 +300,7 @@ export function createLevel(theme: Theme, seed = 1, opts: LevelOptions = {}): Le
     hp: new Uint8Array(RING * ROWS),
     burn: new Uint8Array(RING * ROWS),
     ground: new Int16Array(RING).fill(BASE_ROW),
+    crust: new Int16Array(RING).fill(BASE_ROW),
     start: 0,
     next: 0,
     h: BASE_ROW,
@@ -231,6 +313,7 @@ export function createLevel(theme: Theme, seed = 1, opts: LevelOptions = {}): Le
     forceFort: !!opts.stronghold,
     borders: [],
     bossQueue: [],
+    openSea: false,
     intensity: 1,
     rand,
     props: [],
@@ -256,6 +339,8 @@ export const waterAt = (L: Level, x: number, y: number) => kindAt(L, Math.floor(
 
 /** Ground row of a stored column (BASE_ROW outside them). */
 export const groundOf = (L: Level, c: number) => (c >= L.start && c < L.next ? L.ground[c & MASK] : BASE_ROW);
+/** Surface row of a stored column, open to the sky (BASE_ROW outside them). */
+export const crustOf = (L: Level, c: number) => (c >= L.start && c < L.next ? L.crust[c & MASK] : BASE_ROW);
 
 /** World-pixel y of the first solid block at or below `fromY` in a column. */
 export function surfaceY(L: Level, x: number, fromY = 0) {
@@ -347,51 +432,111 @@ export function terrainAt(L: Level, c: number) {
   return Math.max(PEAK_ROW, Math.min(VALLEY_ROW, Math.round(BASE_ROW - lift)));
 }
 
-/** Write one fresh column of ground with its top at row `h` (dropping the oldest stored column if the ring is full). */
-function column(L: Level, c: number, h: number) {
+/** What sort of ground a country has, for the rocks and soils in it. */
+type Ground = "volcanic" | "frozen" | "arid" | "wet" | "tropic" | "alien" | "temperate";
+function groundKind(t: Theme): Ground {
+  if (t.deep === HIVE) return "alien";
+  if (t.deep === ROCK || t.top === ASH) return "volcanic";
+  if (t.top === SNOW) return "frozen";
+  if (t.deep === SANDSTONE || t.deep === REDROCK || t.top === SAND) return "arid";
+  if (t.fill === MUD || t.top === MUD) return "wet";
+  if (t.fill === CLAY || t.decor === "jungle" || t.decor === "palms") return "tropic";
+  return "temperate";
+}
+
+/**
+ * Write one fresh column of ground with its top at row `h` (dropping the oldest stored column if
+ * the ring is full). `granite`: solid granite under the topsoil (the great mountains: the toughest
+ * rock there is, with no caves in it, so a cliff to climb has no holes for a climber to duck into).
+ *
+ * The rock and the soil depend on the country: layered shale and veins of quartz in temperate
+ * hills, obsidian bands, sulphur and still-glowing magma in volcanic ground, frozen earth and
+ * glacier ice in the cold, salt and fossils in the desert, peat in the bogs, red laterite and
+ * roots in the tropics; on top, dry grass in the meadows, moss on high rock, scree and snow up the
+ * highest hills. Ore all through it: coal near the top, copper and iron deeper, gold and the odd
+ * diamond deepest of all, and amethyst geodes down there too. `caves`: winding tunnels under
+ * it (not under granite, nor round a mine's workings, whose walls would have holes in them).
+ */
+function column(L: Level, c: number, h: number, granite = false, caves = !granite) {
   if (c - L.start >= RING) L.start = c - RING + 1;
   const t = L.theme;
   const sc = c & MASK;
+  const s = L.seed;
   for (let r = 0; r < ROWS; r++) {
     const i = r * RING + sc;
     L.fg[i] = L.bg[i] = L.hp[i] = L.burn[i] = 0;
   }
+  const kind = groundKind(t);
   // Cliffs show bare earth; high summits bare rock (snow stays snow)
   const left = c > L.start ? L.ground[(c - 1) & MASK] : h;
   const steep = Math.abs(left - h) >= 2;
-  const summit = h < BASE_ROW - 24 && t.top !== SNOW;
-  const top = summit ? t.deep : steep ? t.fill : t.top;
-  // Hard country: granite under the soil, which no blast can dig through
-  const hard = noise2(L.seed + 71, c / 45, 0.5) > 0.6;
+  const alt = BASE_ROW - h;
+  const summit = alt > 24 && t.top !== SNOW;
+  let top = summit ? t.deep : steep ? t.fill : t.top;
+  if (!granite && t.top !== CONCRETE && kind !== "alien") {
+    const meadow = noise2(s + 111, c / 18, 0);
+    if (t.top === GRASS && !steep && (kind === "tropic" && t.fill === CLAY ? meadow > 0.3 : meadow > 0.7)) top = DRYGRASS;
+    // The highest hills: snow on their tops in the cold and the temperate lands, scree on the dry ones, moss on the wet rock
+    if (alt > 30 && (kind === "temperate" || kind === "frozen")) top = SNOW;
+    else if (alt > 22 && (kind === "arid" || kind === "frozen")) top = SCREE;
+    else if (alt > 18 && (kind === "temperate" || kind === "wet" || kind === "tropic") && meadow < 0.45) top = MOSSROCK;
+    else if (steep && kind === "temperate" && noise2(s + 113, c / 5, 0) > 0.7) top = MOSSROCK;
+  }
+  // Hard country: granite under the soil, the toughest rock there is
+  const hard = granite || noise2(s + 71, c / 45, 0.5) > 0.6;
   // The soil gets thinner up a mountain, and rock shows through in seams
-  const soil = summit ? 1 : 3 + Math.round(noise2(L.seed + 3, c / 9, 0) * 3);
+  const soil = summit ? 1 : 3 + Math.round(noise2(s + 3, c / 9, 0) * 3);
   for (let r = h; r < ROWS; r++) {
     let k = r >= ROWS - 2 ? BEDROCK : r === h ? top : r <= h + soil ? t.fill : t.deep;
+    const depth = r - h;
     if (k === t.fill && r > h) {
-      // Pockets of other soils in the topsoil: loam, clay, gravel
-      const soilN = noise2(L.seed + 81, c / 12, r / 5);
-      if (soilN > 0.74) k = GRAVEL;
-      else if (soilN > 0.64) k = t.fill === DIRT || t.fill === LOAM ? CLAY : LOAM;
+      // Pockets of other soils in the topsoil: loam, clay, gravel; and the country's own
+      const soilN = noise2(s + 81, c / 12, r / 5);
+      if (kind === "frozen" && depth <= soil) k = soilN > 0.62 ? GRAVEL : PERMAFROST;
+      else if (soilN > 0.74) k = kind === "volcanic" ? TUFF : kind === "arid" ? SALT : GRAVEL;
+      else if (soilN > 0.62) k = kind === "wet" ? PEAT : kind === "tropic" ? LATERITE : kind === "volcanic" ? BASALT : t.fill === DIRT || t.fill === LOAM ? CLAY : LOAM;
+      // Roots under the grass and the trees
+      if (depth === 1 && (t.top === GRASS || t.top === MUD) && noise2(s + 117, c / 4, 0) > 0.55) k = ROOTS;
+      if (kind === "arid" && depth <= 2 && noise2(s + 119, c / 9, r / 3) > 0.8) k = SALT;
     }
     if (k === t.deep && r < ROWS - 2) {
-      // The rock beneath: granite where the country's hard (it won't break), bands of basalt and chalk elsewhere
-      if (hard && r > h + soil + 1) k = GRANITE;
+      // The rock beneath: granite where the country's hard, bands of other rock elsewhere
+      if (hard && depth > soil + 1) k = granite && noise2(s + 121, c / 6, r / 2) > 0.8 ? QUARTZ : GRANITE;
       else {
-        const rockN = noise2(L.seed + 91, c / 10, r / 6);
-        if (rockN > 0.72) k = BASALT;
-        else if (rockN < 0.16) k = CHALK;
+        const rockN = noise2(s + 91, c / 10, r / 6);
+        const band = noise2(s + 101, c / 40, r / 2.2);
+        if (kind === "volcanic") {
+          if (band > 0.74) k = OBSIDIAN;
+          else if (depth > 18 && rockN > 0.76) k = MAGMA;
+          else if (depth <= 3 && rockN > 0.6) k = SULFUR;
+          else if (rockN < 0.18) k = BASALT;
+        } else if (kind === "alien") {
+          if (rockN > 0.82) k = AMETHYST;
+        } else {
+          if (rockN > 0.72) k = BASALT;
+          else if (rockN < 0.16) k = kind === "arid" ? LIMESTONE : CHALK;
+          else if (band > 0.76) k = kind === "arid" ? LIMESTONE : SHALE;
+          else if (noise2(s + 103, c / 7, r / 5) > 0.86) k = QUARTZ;
+          // (fossils in the layered rock)
+          if ((k === SHALE || k === LIMESTONE || k === CHALK || k === t.deep) && noise2(s + 107, c / 2.5, r / 2.5) > 0.9) k = FOSSIL;
+        }
       }
     }
-    if (k === t.deep && r < ROWS - 2 && noise2(L.seed + 7, c / 6, r / 3) > 0.78) k = t.fill;
-    else if (k === t.deep && r < ROWS - 3) {
-      // Veins of ore: coal fairly near the top, iron deeper, a little gold deepest of all
-      const ore = noise2(L.seed + 41, c / 3.5, r / 2.5);
-      if (ore > 0.86) k = r > h + 22 && noise2(L.seed + 43, c / 9, r / 9) > 0.6 ? GOLD : r > h + 12 ? IRON : COAL;
+    if (k === t.deep && r < ROWS - 2 && noise2(s + 7, c / 6, r / 3) > 0.78) k = t.fill;
+    else if ((k === t.deep || k === GRANITE || k === SHALE) && r < ROWS - 3) {
+      // Veins of ore: coal fairly near the top, copper and iron deeper, gold deeper still and the odd diamond deepest of all
+      const ore = noise2(s + 41, c / 3.5, r / 2.5);
+      if (ore > 0.86) {
+        const deep = noise2(s + 43, c / 9, r / 9);
+        k = depth > 40 && deep > 0.72 ? DIAMOND : depth > 22 && deep > 0.6 ? GOLD : depth > 12 ? (deep > 0.5 ? COPPER : IRON) : depth > 6 && deep > 0.6 ? COPPER : COAL;
+      } else if (depth > 28 && noise2(s + 127, c / 5, r / 4) > 0.9) k = AMETHYST;
     }
     put(L, c, r, k, r <= h + soil ? t.fill : t.deep);
   }
-  // Caves: winding tunnels and the odd cavern, well under the surface (blast down to find them)
-  if (!t.ceiling && c >= 40)
+  // Caves: winding tunnels and the odd cavern, well under the surface (blast down to find them;
+  // none in solid granite, so a cliff to climb has no holes in it)
+  // (not under a city: its ground's solid, nothing to fall into through a crater in a street)
+  if (!t.ceiling && c >= 40 && caves && t.backdrop !== "city" && t.backdrop !== "megacity")
     for (let r = h + 7; r < ROWS - 4; r++) {
       const worm = Math.abs(noise2(L.seed + 13, c / 11, r / 6) - 0.5);
       const hall = noise2(L.seed + 17, c / 26, r / 9);
@@ -408,6 +553,7 @@ function column(L: Level, c: number, h: number) {
     for (let r = 0; r <= roof; r++) put(L, c, r, r === roof && L.rand() < 0.18 ? CRYSTAL : STONE, STONE);
   } else if (L.rand() < 0.05) put(L, c, Math.min(ROWS - 3, h + 6 + int(L.rand, 8)), CRYSTAL);
   L.ground[sc] = h;
+  L.crust[sc] = h;
 }
 
 const pick = <K extends string>(weights: Partial<Record<K, number>>, r: () => number): K => {
@@ -458,7 +604,7 @@ function placeAt(L: Level, id: AssetId, c: number, row: number, lift = 0) {
   const cols = Math.ceil(a.w / TILE);
   for (let k = 0; k < cols; k++) {
     const above = L.fg[cell(c + k, row - 1)];
-    if (above !== AIR && above !== LADDER) return false;
+    if (above !== AIR && above !== LADDER && above !== RAIL) return false;
   }
   const x = c * TILE + (cols * TILE) / 2;
   const y = row * TILE - lift;
@@ -480,9 +626,11 @@ function building(L: Level, c0: number, spec: BuildingSpec, out: Spawn[], troop:
   const r = L.rand;
   const t = L.theme;
   const g = L.h;
-  const wall = MATERIAL[spec.wall];
+  // (some built hard: their walls and floors of reinforced concrete, all but unbreakable)
+  const hard = HARDENED.has(spec.key) || r() < 0.1;
+  const wall = hard ? REINFORCED : MATERIAL[spec.wall];
   const back = MATERIAL[spec.back];
-  const slab = spec.floor ? MATERIAL[spec.floor] : wall;
+  const slab = hard ? REINFORCED : spec.floor ? MATERIAL[spec.floor] : wall;
   const fh = spec.fh;
   const bw = spec.width[0] + int(r, spec.width[1] - spec.width[0] + 1);
   const room = 12;
@@ -812,7 +960,7 @@ function placeProp(L: Level, id: AssetId, c: number, back = false) {
     if (!back && gk !== g) return false;
     g = Math.max(g, gk);
   }
-  if (!back) for (let k = 0; k < cols; k++) if (L.fg[cell(c + k, g - 1)] !== AIR) return false;
+  if (!back) for (let k = 0; k < cols; k++) if (L.fg[cell(c + k, g - 1)] !== AIR && L.fg[cell(c + k, g - 1)] !== RAIL) return false;
   const x = c * TILE + (cols * TILE) / 2;
   for (let i = L.props.length - 1; i >= Math.max(0, L.props.length - 4); i--) {
     const q = L.props[i];
@@ -891,7 +1039,7 @@ function feature(L: Level, out: Spawn[]) {
     if (floor >= ROWS - 4) return;
     const x0 = from + 1;
     const rw = w - 2;
-    const kinds = ["mine", "mine", "mine", "crypt", "bunker", "sewer", "subway", "cavern", "lab", "vault"] as const;
+    const kinds = ["mine", "mine", "mine", "mine", "mine", "crypt", "bunker", "sewer", "subway", "cavern", "lab", "vault"] as const;
     const kind = kinds[int(r, kinds.length)];
     const shell: Record<"mine" | "crypt" | "bunker" | "sewer" | "subway" | "cavern" | "lab" | "vault", number> = { mine: t.deep, crypt: STONE, bunker: CONCRETE, sewer: SEWER, subway: TILES, cavern: t.deep, lab: STEEL, vault: STEEL };
     const k = shell[kind];
@@ -931,7 +1079,9 @@ function feature(L: Level, out: Spawn[]) {
         placeProp(L, "headframe", sx - 1, true);
         for (let c = x0 + 1; c < x0 + rw - 1; c++) put(L, c, floor - 1, RAIL);
         for (let c = x0 + 2; c < x0 + rw - 2; c += 5) placeAt(L, "pitprops", c, floor);
-        item(["minecart", "orepile", "toolsrack", "orepile"], 3);
+        // (a cart rolling up and down its line, and the rest of the mine's kit)
+        spawn("minecart", x0 + 3 + int(r, Math.max(1, rw - 6)), floor);
+        item(["cartcoal", "orepile", "toolsrack", "orepile", "drillrig", "timbers", "dynamite", "carttipped"], 3);
         item(["minelantern"], 2);
         break;
       }
@@ -998,6 +1148,28 @@ function feature(L: Level, out: Spawn[]) {
     for (let rr = top + 2; rr < L.h - 2; rr += 3) for (let cc = from + 1; cc < from + bw - 1; cc += 2) if (r() < 0.55) L.bg[cell(cc, rr)] = 0;
     // A ragged top
     for (let cc = from; cc < from + bw; cc++) for (let k = int(r, 3); k > 0; k--) L.bg[cell(cc, top + k - 1)] = 0;
+  };
+  /**
+   * A city's tall buildings standing behind its streets: their walls dark against the sky over the
+   * roofs in front, windows in rows, the odd one with a mast on top (only where there's nothing in front).
+   */
+  const towers = (from: number, w: number) => {
+    if (t.backdrop !== "city" && t.backdrop !== "megacity") return;
+    const tall = t.backdrop === "megacity" ? 40 : 24;
+    for (let c = from; c < from + w; ) {
+      const bw = 5 + int(r, 8);
+      const bh = 16 + int(r, tall);
+      const top = Math.max(2, L.h - bh);
+      const mat = [CONCRETE, DARKBRICK, GLASS, CONCRETE, STONE][int(r, 5)];
+      backWall(L, c, top, bw, L.h - top, mat);
+      for (let row = top + 2; row < L.h - 2; row += 3)
+        for (let x = c + 1; x < c + bw - 1; x += 2) {
+          const i = cell(x, row);
+          if (!L.fg[i] && r() < 0.8) L.bg[i] = WINDOW;
+        }
+      if (r() < 0.3) backWall(L, c + (bw >> 1), top - 5, 1, 5, STEEL);
+      c += bw + int(r, 4);
+    }
   };
   const pine = (c: number, g: number) => {
     const ht = 7 + int(r, 5);
@@ -1080,6 +1252,58 @@ function feature(L: Level, out: Spawn[]) {
     fill(L, x0, g - 5, 8, 1, build);
   };
 
+  /**
+   * Open sea from `from`, `ow` columns: deep water from the shore's level down to a sandy,
+   * rolling seabed with weed and coral on it, and ships out on it (they sail it end to end).
+   * No islands: one unbroken stretch of water.
+   */
+  const sea = (from: number, ow: number) => {
+    const g = L.h;
+    // (some 28 blocks deep, whatever the world's height)
+    const bed = Math.min(ROWS - 4, g + 28);
+    for (let c = from; c < from + ow; c++) {
+      const floor = Math.min(ROWS - 3, Math.max(g + 6, bed - Math.round((noise2(L.seed + 61, c / 8, 0) - 0.4) * 10)));
+      column(L, c, floor);
+      put(L, c, floor, SAND);
+      for (let row = g + 1; row < floor; row++) put(L, c, row, WATER, 0);
+      // Reefs of coral on the seabed, in banks
+      const reef = noise2(L.seed + 63, c / 6, 0);
+      if (reef > 0.62 && floor > g + 6) {
+        put(L, c, floor, CORAL);
+        if (reef > 0.74) put(L, c, floor - 1, CORAL, 0);
+        if (reef > 0.86 && floor > g + 8) put(L, c, floor - 2, CORAL, 0);
+      }
+    }
+    for (let c = from + 2; c < from + ow - 2; c += 3 + int(r, 6)) {
+      const floor = L.ground[c & MASK];
+      if (floor > g + 6) placeAt(L, r() < 0.6 ? "seaweed" : "coral", c, floor);
+    }
+    for (let c = from + 12; c < from + ow - 8; c += 40 + int(r, 30)) out.push({ kind: "battleship", x: c * TILE, y: (g + 1) * TILE });
+    for (let k = 1 + int(r, 3); k > 0; k--) out.push({ kind: "submarine", x: (from + 6 + int(r, ow - 12)) * TILE, y: (g + 1) * TILE });
+    for (let k = 1 + int(r, 3); k > 0; k--) out.push({ kind: "boat", x: (from + 6 + int(r, ow - 12)) * TILE, y: (g + 1) * TILE });
+  };
+
+  /* ---- Out at sea: carry straight on across it, or come ashore ---- */
+  if (L.openSea) {
+    const total = (Object.values(t.features) as number[]).reduce((s, v) => s + v, 0);
+    const more = (t.features.ocean ?? 0) / Math.max(1e-6, total);
+    // (the land has to come back for a boss arena, the stronghold, or the border into the next biome)
+    const ashore = (plan.boss && !plan.bossPlaced && c0 >= plan.boss.col - 4) || c0 >= plan.stronghold || plan.fortPlaced;
+    if (!ashore && r() < more) {
+      // More sea: no shore between the two, it just carries on
+      w = 60 + int(r, 100);
+      sea(c0, w);
+    } else {
+      // A beach, with a lighthouse on it
+      w = 4;
+      ground(c0, w);
+      prop("lighthousebig", c0 + 1, true);
+      L.openSea = false;
+    }
+    L.next = c0 + w;
+    return;
+  }
+
   /* ---- The level's own shape: landing zone, boss arena, stronghold, run-off ---- */
   if (c0 < 40) {
     w = 40 - c0;
@@ -1123,7 +1347,7 @@ function feature(L: Level, out: Spawn[]) {
     for (const c of [c0 + 1, c0 + 2 + rw]) soft(c, g - 1, LEAF, c0, c0 + w);
     L.next = c0 + w;
     const next = L.pickTheme ? L.pickTheme(t) : t;
-    const length = 240 + int(r, 160);
+    const length = Math.round((240 + int(r, 160)) * (next.long ?? 1));
     const kind = next.bosses.length && r() < 0.7 ? next.bosses[int(r, next.bosses.length)] : null;
     L.segment++;
     L.theme = next;
@@ -1150,7 +1374,7 @@ function feature(L: Level, out: Spawn[]) {
     if (t.top === GRASS) for (let k = int(r, 3); k > 0; k--) prop((["hedge", "flowers", "stump", "logs", "boulders"] as const)[int(r, 5)], c0 + int(r, w - 2));
     scatter(c0, w, 2 + int(r, 3));
     standing(c0, w);
-    if (r() < 0.35) underground(c0, w);
+    if (r() < 0.45) underground(c0, w);
     if (t.enemies > 0 && c0 > 70 && r() < 0.3) for (let k = 1 + int(r, 3); k > 0; k--) spawn("mine", c0 + 2 + int(r, w - 4));
     enemies(c0, w);
     barrels(c0, w);
@@ -1234,8 +1458,9 @@ function feature(L: Level, out: Spawn[]) {
     case "metropolis": {
       // City blocks: buildings shoulder to shoulder, side streets between them with their
       // traffic and street furniture, everything a city has (a hospital, a fuel station, police,
-      // a fire station, a school, shops, offices, flats...), defended street by street
-      const ESSENTIAL = ["hospital", "gasstation", "police", "firestation", "school", "supermarket", "apartments", "officetower", "bank", "diner", "cinema", "hotel", "parkinggarage", "pharmacy", "postoffice", "library", "skyscraper", "pizzeria", "convenience", "tenement", "brownstone", "decotower", "neontenement", "busdepot", "garage", "clinic", "townhouse", "haussmann", "cafe", "gym", "bakery", "pub", "trainstation", "stockexchange", "museum"];
+      // a fire station, a school, shops, offices, flats...), defended street by street; taller
+      // towers standing behind
+      const ESSENTIAL = CITY_ESSENTIAL;
       const specs = buildingsFor(t.backdrop);
       let c = c0;
       const street = (from: number, n: number) => {
@@ -1244,17 +1469,19 @@ function feature(L: Level, out: Spawn[]) {
       };
       street(c, 4);
       c += 4;
-      for (let n = 4 + int(r, 5); n > 0; n--) {
+      // (block after block of them in the big cities)
+      const many = t.backdrop === "city" || t.backdrop === "megacity";
+      for (let n = many ? 7 + int(r, 7) : 4 + int(r, 5); n > 0; n--) {
         const spec = r() < 0.65 ? SPEC_BY_KEY.get(ESSENTIAL[int(r, ESSENTIAL.length)]) : specs[int(r, specs.length)];
         if (!spec || L.h - spec.fh * spec.floors[0] < 12) continue;
         const bw = building(L, c, spec, out, troop);
         for (let k = c; k < c + bw; k++) put(L, k, L.h, PAVEMENT, t.fill);
         c += bw;
-        if (r() < 0.55) continue;
+        if (r() < (many ? 0.65 : 0.55)) continue;
         // A side street
         const gap = 3 + int(r, 4);
         street(c, gap);
-        for (let j = 1 + int(r, 2); j > 0; j--) prop((["trafficlight", "busstop", "bench", "trashbin", "hydrant", "treeplanter", "streetlamp", "newsbox", "mailbox", "dumpster", "sedan", "taxi", "van", "policecar", "ambulance"] as const)[int(r, 15)], c + int(r, Math.max(1, gap - 2)));
+        for (let j = 1 + int(r, 2); j > 0; j--) prop(STREET_KIT[int(r, STREET_KIT.length)], c + int(r, Math.max(1, gap - 2)));
         if (r() < 0.5) spawn("manhole", c + 1 + int(r, Math.max(1, gap - 2)));
         if (r() < 0.35) {
           // Sandbags and a machine gun at the corner
@@ -1266,17 +1493,178 @@ function feature(L: Level, out: Spawn[]) {
       street(c, 3);
       c += 3;
       w = c - c0;
+      towers(c0, w);
       if (w >= 14 && r() < 0.5) underground(c0, w);
       enemies(c0, w, -1, 0.6);
       break;
     }
+    case "metro": {
+      // City blocks over a metro line, two to four stations along it. The squad either fights its
+      // way along the street over it or goes down the steps into it (a coin toss each line): the
+      // stations tiled, with their platforms, benches, ticket machines, maps and departure boards,
+      // and the trains running from one to the next, stopping at each with their doors open.
+      const specs = buildingsFor(t.backdrop);
+      const under = r() < 0.5;
+      const g = L.h;
+      const sw = 16;
+      const stops: number[] = [];
+      let c = c0;
+      const street = (from: number, n: number, k = ASPHALT) => {
+        ground(from, n, g);
+        for (let x = from; x < from + n; x++) put(L, x, g, k, t.fill);
+      };
+      street(c, 4);
+      c += 4;
+      const n = 2 + int(r, 3);
+      for (let i = 0; i < n; i++) {
+        // The station's square over it
+        stops.push(c);
+        street(c, sw, PAVEMENT);
+        c += sw;
+        if (i === n - 1) break;
+        // The blocks on to the next one
+        for (let b = 2 + int(r, 3); b > 0; b--) {
+          const spec = r() < 0.6 ? SPEC_BY_KEY.get(CITY_ESSENTIAL[int(r, CITY_ESSENTIAL.length)]) : specs[int(r, specs.length)];
+          if (!spec || g - spec.fh * spec.floors[0] < 12) continue;
+          const bw = building(L, c, spec, out, troop);
+          for (let x = c; x < c + bw; x++) put(L, x, g, PAVEMENT, t.fill);
+          c += bw;
+          if (r() < 0.5) {
+            const gap = 3 + int(r, 3);
+            street(c, gap);
+            prop(STREET_KIT[int(r, STREET_KIT.length)], c + int(r, Math.max(1, gap - 2)));
+            c += gap;
+          }
+        }
+        street(c, 3);
+        c += 3;
+      }
+      street(c, 4);
+      c += 4;
+      w = c - c0;
+      L.h = g;
+      // The tunnel, from the first station to the last (where it ends in a wall)
+      const tf = Math.min(ROWS - 10, g + 15);
+      const top = tf - 6;
+      const t0 = stops[0] + 1;
+      const t1 = stops[n - 1] + sw - 2;
+      for (let x = t0; x < t1; x++) {
+        for (let row = top; row < tf; row++) {
+          const i = cell(x, row);
+          L.fg[i] = L.hp[i] = L.burn[i] = 0;
+          L.bg[i] = CONCRETE;
+        }
+        // (its roof and its floor reinforced: a crater in the street over it doesn't come through)
+        put(L, x, top - 1, REINFORCED, CONCRETE);
+        put(L, x, tf, REINFORCED, CONCRETE);
+        put(L, x, tf - 1, RAIL, CONCRETE);
+        if (under) L.ground[x & MASK] = tf;
+      }
+      for (let x = t0 + 4; x < t1 - 2; x += 8) L.props.push({ kind: "lamp", x: px(x), y: top * TILE + 1 });
+      const names = [...STATIONS].sort(() => r() - 0.5);
+      stops.forEach((s0, i) => {
+        // Tiled walls, the platform, what's on it, its name over it
+        for (let x = Math.max(t0, s0); x < Math.min(t1, s0 + sw); x++) {
+          for (let row = top; row < tf - 1; row++) L.bg[cell(x, row)] = TILES;
+          put(L, x, tf, PAVEMENT, CONCRETE);
+        }
+        placeAt(L, "platformbench", s0 + 3, tf);
+        placeAt(L, "ticketmachine", s0 + 8, tf);
+        placeAt(L, r() < 0.5 ? "vending" : "metromap", s0 + 11, tf);
+        placeAt(L, "arrivalboard", s0 + 6, tf, (tf - top) * TILE - 9);
+        L.props.push({ kind: "sign", x: px(s0 + (sw >> 1)), y: (top + 2) * TILE, text: names[i % names.length], ink: "#ffffff", board: "#2a4a9a", neon: false });
+        for (let x = s0 + 2; x < s0 + sw - 1; x += 4) L.props.push({ kind: "lamp", x: px(x), y: top * TILE + 1 });
+        // Its stairwell up to the street (open, on the way down into it and back up out of it, if the squad goes that way)
+        const sx = i === 0 ? s0 + 2 : i === n - 1 ? t1 - 4 : s0 + 6;
+        const open = under && (i === 0 || i === n - 1);
+        for (let x = sx; x < sx + 4; x++)
+          for (let row = open ? g : g + 1; row < top; row++) {
+            const k = cell(x, row);
+            L.fg[k] = L.hp[k] = 0;
+            L.bg[k] = TILES;
+          }
+        if (!open) for (let x = sx; x < sx + 4; x++) put(L, x, g, METAL, t.fill);
+        climb(sx + 3, open ? g : g + 1, tf);
+        prop("metrosign", Math.max(c0, sx - 1));
+        if (under) enemies(s0 + 2, sw - 4, tf, 0.7);
+      });
+      // The trains: one on every line, another on the long ones
+      const stopsX = stops.map((s0) => (s0 + (sw >> 1)) * TILE);
+      out.push({ kind: "metro", x: stopsX[0], y: tf * TILE, extra: [t0 * TILE, t1 * TILE, ...stopsX] });
+      if (n >= 3) out.push({ kind: "metro", x: stopsX[n - 1], y: tf * TILE, extra: [t0 * TILE, t1 * TILE, ...stopsX] });
+      towers(c0, w);
+      if (!under) enemies(c0, w, g, 0.5);
+      break;
+    }
+    case "railyard": {
+      // A rail yard on the main line: the line the freight trains run through on (in and out of
+      // the tunnel mouths at the ends of the line), wagons standing on the sidings behind, signals
+      // and a signal gantry, a water crane or a signal box, lamps; its guards, and the armoured
+      // train patrolling the near track
+      w = 64 + int(r, 56);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) {
+        put(L, c, g, GRAVEL, t.fill);
+        put(L, c, g - 1, RAIL);
+      }
+      out.push({ kind: "freight", x: px(c0), y: g * TILE, extra: [c0 * TILE, (c0 + w) * TILE] });
+      for (let c = c0 + 4; c < c0 + w - 8; c += 6 + int(r, 10)) prop((["boxcar", "tankcar", "flatcar", "hopper", "boxcar"] as const)[int(r, 5)], c, true);
+      prop("signalgantry", c0 + 2 + int(r, 6), true);
+      prop("railtunnel", c0, true);
+      prop("railsignal", c0 + 1);
+      prop("railsignal", c0 + w - 2);
+      prop(r() < 0.5 ? "watercrane" : "signalbox", c0 + (w >> 1), true);
+      for (let c = c0 + 5; c < c0 + w; c += 12) prop("streetlamp", c);
+      for (let k = 1 + int(r, 3); k > 0; k--) prop((["pallets", "cablespool", "drums", "containerred", "containerblue", "forklift"] as const)[int(r, 6)], c0 + 3 + int(r, w - 6));
+      if (t.enemies > 0) out.push({ kind: "train", x: (c0 + w - 16) * TILE, y: g * TILE });
+      enemies(c0, w, -1, 0.9);
+      barrels(c0, w);
+      break;
+    }
+    case "factory": {
+      // Mills and works: a works building or two, smokestacks, gas holders, sheds and pylons behind,
+      // a pipe bridge over the yard, conveyors, a transformer, boilers, coal and scrap, forklifts
+      // and pallets; its guards
+      w = 34 + int(r, 30);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g, CONCRETE, t.fill);
+      let c = c0 + 1;
+      for (let k = 1 + int(r, 2); k > 0; k--) {
+        const spec = SPEC_BY_KEY.get(WORKS[int(r, WORKS.length)]);
+        if (!spec || g - spec.fh * spec.floors[0] <= 12 || c + spec.width[1] + 2 > c0 + w - 8) continue;
+        c += building(L, c, spec, out, troop) + 1;
+      }
+      for (let k = c0; k < c0 + w - 4; k += 6 + int(r, 8)) prop((["smokestack", "gasholder", "factoryshed", "storagetank", "pylon", "smokestack", "coolingtower", "pipebridge"] as const)[int(r, 8)], k, true);
+      for (let k = 2 + int(r, 3); k > 0; k--) prop((["transformer", "conveyor", "boiler", "coalheap", "forklift", "pallets", "containeryellow", "drums", "cablespool", "toxicdrum"] as const)[int(r, 10)], c + int(r, Math.max(1, c0 + w - c - 3)));
+      // A pipe bridge across the yard, on its stilts
+      if (c0 + w - c > 14) {
+        const py = g - 7;
+        for (let x = c + 1; x < c0 + w - 2; x++) put(L, x, py, PIPE);
+        L.props.push({ kind: "legs", x: (c + 1) * TILE, y: (py + 1) * TILE, w: (c0 + w - c - 3) * TILE, h: 6 * TILE });
+      }
+      enemies(c0, w, -1, 1);
+      barrels(c0, w);
+      break;
+    }
     case "highway": {
-      // A highway: asphalt with lane markings, lamps along it, traffic stopped on it, signs, a convoy
-      w = 32 + int(r, 22);
+      // An elevated expressway over the street: its reinforced deck on pillars, traffic racing
+      // along it both ways, sign gantries and lamps over it; under it the street, traffic stopped
+      // on it, signs, a convoy
+      w = 40 + int(r, 30);
       ground(c0, w);
       const g = L.h;
       for (let c = c0; c < c0 + w; c++) put(L, c, g, ASPHALT, t.fill);
-      for (let c = c0 + 2; c < c0 + w; c += 8) prop("streetlamp", c);
+      const deck = g - 9;
+      for (let c = c0 + 1; c < c0 + w - 1; c++) put(L, c, deck, REINFORCED, 0);
+      for (let c = c0 + 3; c < c0 + w - 2; c += 10) backWall(L, c, deck + 1, 2, g - deck - 1, CONCRETE);
+      for (let c = c0 + 3; c < c0 + w - 1; c += 9) L.props.push({ kind: "streetlight", x: px(c), y: deck * TILE });
+      for (let c = c0 + 6; c < c0 + w - 10; c += 24 + int(r, 10)) placeAt(L, "hwysign", c, deck);
+      climb(c0 + 1, deck, g);
+      out.push({ kind: "motorway", x: px(c0 + 1), y: deck * TILE, extra: [(c0 + 1) * TILE, (c0 + w - 1) * TILE, 0] });
+      enemies(c0 + 2, w - 4, deck, 0.4);
+      for (let c = c0 + 2; c < c0 + w; c += 8) L.props.push({ kind: "streetlight", x: px(c), y: g * TILE });
       for (let k = 2 + int(r, 3); k > 0; k--) prop((["sedan", "sedanblue", "hatchback", "taxi", "van", "deliverytruck", "pickup", "bus", "carwreck", "jerseybarrier", "trafficbarrels"] as const)[int(r, 11)], c0 + 3 + int(r, w - 8));
       standing(c0, w);
       if (r() < 0.6) prop("billboard", c0 + int(r, w - 4), true);
@@ -1317,6 +1705,7 @@ function feature(L: Level, out: Spawn[]) {
       };
       road(c, 3);
       c += 3;
+      const towersFrom = c0;
       for (let n = 1 + int(r, t.backdrop === "city" ? 3 : 2); n > 0; n--) {
         const spec = specs[int(r, specs.length)];
         if (L.h - spec.fh * spec.floors[0] < 12) break;
@@ -1330,38 +1719,19 @@ function feature(L: Level, out: Spawn[]) {
         c += gap;
       }
       w = c - c0;
+      towers(towersFrom, w);
       if (w >= 14 && r() < 0.55) underground(c0, w);
       enemies(c0, 3);
       break;
     }
     case "ocean": {
-      // Open sea, as deep as the world: everyone but the vehicles swims it. Reefs and islands,
-      // battleships, submarines and patrol boats out on it.
+      // Open sea, as deep as the world: everyone but the vehicles swims it. One unbroken stretch
+      // of water with ships sailing it; if the next stretch is sea too it just carries on (above)
       const ow = 120 + int(r, 120);
-      w = ow + 8;
+      w = ow + 4;
       ground(c0, 4);
-      const g = L.h;
-      const bed = ROWS - 4;
-      let island = 30 + int(r, 30);
-      for (let c = c0 + 4; c < c0 + 4 + ow; c++) {
-        const k = c - c0 - 4;
-        const isle = k >= island && k < island + 8;
-        const floor = isle ? g : Math.min(ROWS - 3, Math.max(g + 6, bed - Math.round((noise2(L.seed + 61, c / 8, 0) - 0.4) * 10)));
-        column(L, c, floor);
-        put(L, c, floor, isle ? t.top : SAND);
-        for (let row = g + 1; row < floor; row++) put(L, c, row, WATER, 0);
-        if (k === island + 8) island += 50 + int(r, 40);
-      }
-      for (let c = c0 + 10; c < c0 + ow; c += 3 + int(r, 6)) {
-        const floor = L.ground[c & MASK];
-        if (floor > g + 6) placeAt(L, r() < 0.6 ? "seaweed" : "coral", c, floor);
-        else if (floor === g && r() < 0.5) deco(c - 2, 5);
-      }
-      for (let c = c0 + 16; c < c0 + ow - 10; c += 28 + int(r, 14)) out.push({ kind: L.ground[c & MASK] > g ? "battleship" : "flakgun", x: c * TILE, y: (g + 1) * TILE });
-      for (let k = 2 + int(r, 3); k > 0; k--) out.push({ kind: "submarine", x: (c0 + 10 + int(r, ow - 20)) * TILE, y: (g + 1) * TILE });
-      for (let k = 1 + int(r, 3); k > 0; k--) out.push({ kind: "boat", x: (c0 + 10 + int(r, ow - 20)) * TILE, y: (g + 1) * TILE });
-      ground(c0 + 4 + ow, 4);
-      prop("lighthousebig", c0 + 5 + ow, true);
+      sea(c0 + 4, ow);
+      L.openSea = true;
       break;
     }
     case "lake": {
@@ -1385,6 +1755,313 @@ function feature(L: Level, out: Spawn[]) {
       if (r() < 0.6) out.push({ kind: "boat", x: (c0 + 3 + (lw >> 1)) * TILE, y: (g + 1) * TILE });
       break;
     }
+    case "massif": {
+      // A great mountain to climb, ninety to a hundred and thirty blocks over the plain: terraces
+      // up its face with sheer cliffs between (a ladder bolted to the tallest), pines and boulders
+      // low down, bare rock higher, snow and ice towards the top, an enemy outpost and a flag on
+      // the summit, then down the far side in great drops.
+      const g0 = L.h;
+      const peak = Math.max(10, g0 - (90 + int(r, 40)));
+      let c = c0;
+      ground(c, 4);
+      c += 4;
+      const ledge = (lw: number) => {
+        for (let x = c; x < c + lw; x++) column(L, x, L.h, true);
+        const g = L.h;
+        const alt = BASE_ROW - g;
+        // Its ground: moss-grown rock low down, scree in banks on the bare slopes higher up, then
+        // snow (blue glacier ice under it near the top)
+        const scree = alt > 20 && alt <= 62 && r() < 0.45;
+        for (let x = c; x < c + lw; x++) {
+          if (alt > 62) {
+            put(L, x, g, SNOW);
+            if (r() < 0.25) put(L, x, g + 1, ICE);
+            else if (alt > 85 && r() < 0.6) put(L, x, g + 1, GLACIER);
+          } else if (scree) {
+            put(L, x, g, SCREE);
+            if (r() < 0.5) put(L, x, g + 1, SCREE);
+          } else if (alt <= 30) put(L, x, g, r() < 0.7 ? MOSSROCK : GRASS);
+          else if (r() < 0.3) put(L, x, g, SHALE);
+        }
+        if (alt < 40 && lw >= 4 && r() < 0.5) pine(c + 1 + int(r, lw - 2), g);
+        else if (r() < 0.3) prop("boulders", c + int(r, lw));
+        if (lw >= 5 && r() < 0.15) L.props.push({ kind: "tent", x: px(c + 2), y: g * TILE });
+        if (r() < 0.55) enemies(c, lw, g, 0.6);
+        if (alt > 30 && r() < 0.18) spawn("sniper", c + lw - 1, g);
+        c += lw;
+      };
+      while (L.h > peak) {
+        const ch = Math.min(L.h - peak, r() < 0.22 ? 9 + int(r, 6) : 2 + int(r, 5));
+        if (ch >= 8) climb(c - 1, L.h - ch, L.h);
+        L.h -= ch;
+        ledge(3 + int(r, 4));
+      }
+      // The summit: a snowfield over the glacier with the enemy's outpost on it
+      const sw = 14 + int(r, 8);
+      const s0 = c;
+      for (let x = s0; x < s0 + sw; x++) column(L, x, L.h, true);
+      for (let x = s0; x < s0 + sw; x++) {
+        put(L, x, L.h, SNOW);
+        for (let d = 1, n = 1 + int(r, 3); d <= n; d++) put(L, x, L.h + d, GLACIER);
+      }
+      // A mine driven into the mountainside under the summit: an adit with its rails, a cart, timbers
+      if (sw >= 16) {
+        const ar = L.h + 6;
+        for (let x = s0 + 2; x < s0 + sw - 2; x++) for (let row = ar; row < ar + 4; row++) put(L, x, row, AIR, GRANITE);
+        for (let x = s0 + 2; x < s0 + sw - 2; x++) put(L, x, ar + 3, RAIL, GRANITE);
+        for (let x = s0 + 3; x < s0 + sw - 3; x += 5) L.props.push({ kind: "support", x: px(x), y: ar * TILE, h: 3 * TILE });
+        spawn("minecart", s0 + 4 + int(r, sw - 9), ar + 4);
+        placeAt(L, "orepile", s0 + sw - 6, ar + 4);
+        L.props.push({ kind: "lamp", x: px(s0 + (sw >> 1)), y: ar * TILE + 1 });
+      }
+      L.props.push({ kind: "flag", x: px(s0 + 2), y: L.h * TILE }, { kind: "radar", x: px(s0 + (sw >> 1)), y: L.h * TILE }, { kind: "antenna", x: px(s0 + sw - 3), y: L.h * TILE, h: 40 });
+      if (night) L.props.push({ kind: "searchlight", x: px(s0 + 5), y: L.h * TILE - 3 });
+      put(L, s0 + 4, L.h - 1, SANDBAG);
+      fill(L, s0 + 7, L.h - 2, 1, 2, SANDBAG);
+      spawn("mg", s0 + 5);
+      spawn(r() < 0.5 ? "turret" : "mortar", s0 + sw - 5);
+      enemies(s0, sw, L.h, 1.2);
+      c += sw;
+      // Down the far side
+      while (L.h < g0) {
+        L.h += Math.min(g0 - L.h, 5 + int(r, 10));
+        ledge(3 + int(r, 3));
+      }
+      ground(c, 4);
+      c += 4;
+      w = c - c0;
+      break;
+    }
+    case "abyss": {
+      // Down into the depths of the earth: a sinkhole the squad drops sixty to eighty blocks down,
+      // a vast cavern at the bottom (stalactites, crystals, lava pits, sometimes an underground
+      // lake, old mine workings, its own garrison), and a chimney to climb back up to daylight.
+      const g = L.h;
+      const deep = Math.min(ROWS - 10, g + 58 + int(r, 22));
+      const rock = t.deep;
+      /** A column of the land hollowed out from row `top` down to `floor` (walked on), open to the sky at the top of a shaft. */
+      const hollow = (c: number, top: number, floor: number, open = false) => {
+        column(L, c, g);
+        for (let row = top; row < floor; row++) {
+          const i = cell(c, row);
+          L.fg[i] = L.hp[i] = L.burn[i] = 0;
+          L.bg[i] = open && row < g + 3 ? 0 : rock;
+        }
+        for (let row = floor; row < floor + 3; row++) if (!L.fg[cell(c, row)]) put(L, c, row, rock, rock);
+        L.ground[c & MASK] = floor;
+      };
+      /** The first solid block over a cavern floor: its roof. */
+      const roofOf = (x: number) => {
+        let row = L.ground[x & MASK] - 1;
+        while (row > g && !L.fg[cell(x, row)]) row--;
+        return row;
+      };
+      let c = c0;
+      ground(c, 3);
+      c += 3;
+      // The sinkhole: ledges jutting from its walls, roots hanging in at the top, a ladder down the far side
+      const sw = 9 + int(r, 5);
+      const h0 = c;
+      for (let k = 0; k < sw; k++) hollow(h0 + k, g, deep, true);
+      /** Rough rock bulging out of one wall of a shaft from `x` (one or two blocks, row by row), `dir` into it. */
+      const rough = (x: number, dir: 1 | -1, top: number, bottom: number, salt: number) => {
+        for (let row = top; row < bottom; row++) {
+          const bulge = Math.round(noise2(L.seed + salt, row / 5, x / 7) * 2.6);
+          for (let k = 0; k < bulge; k++) put(L, x + dir * k, row, rock, rock);
+        }
+      };
+      // (rough rock down the near wall, clear of the bottom; the far wall, the way on, stays straight with the ladder down it)
+      rough(h0, 1, g + 3, deep - 14, 141);
+      // (ledges on the near wall only: one on the far wall would have the squad stood on it, climbing back up instead of dropping on down)
+      for (let row = g + 8; row < deep - 14; row += 9 + int(r, 6)) for (let k = 0, lw = 2 + int(r, 2); k < lw; k++) put(L, h0 + k, row, rock, rock);
+      for (let k = 0; k < sw; k++) if (r() < 0.5) for (let d = 0, n = 2 + int(r, 4); d < n; d++) soft(h0 + k, g + d, VINE, h0, h0 + sw);
+      climb(h0 + sw - 1, g, deep);
+      c += sw;
+      // The cavern
+      const cw = 70 + int(r, 60);
+      const cs = c;
+      for (let k = 0; k < cw; k++) {
+        const x = cs + k;
+        // (level with the bottom of the sinkhole and of the chimney where it meets them)
+        const ends = Math.min(1, k / 8, (cw - 1 - k) / 8);
+        const f = deep + Math.round((noise2(L.seed + 131, x / 14, 0) - 0.5) * 6 * ends);
+        hollow(x, f - 9 - Math.round(noise2(L.seed + 137, x / 9, 0) * 6), f);
+      }
+      for (let k = 2; k < cw - 2; k++) {
+        const x = cs + k;
+        const f = L.ground[x & MASK];
+        const roof = roofOf(x);
+        if (r() < 0.18) for (let d = 1, n = 1 + int(r, 3); d <= n; d++) put(L, x, roof + d, rock, rock);
+        else if (r() < 0.07) put(L, x, roof, CRYSTAL);
+        if (r() < 0.07) put(L, x, f - 1, rock, rock);
+        else if (r() < 0.05) put(L, x, f, CRYSTAL);
+        if (k % 11 === 5) L.props.push({ kind: "lamp", x: px(x), y: (roof + 1) * TILE });
+        if (k % 23 === 12) L.props.push({ kind: "brazier", x: px(x), y: f * TILE });
+      }
+      // Amethyst geodes in the roof and the walls; patches of the glowing fungus on the floor, mushrooms up out of it
+      for (let n = 2 + int(r, 3); n > 0; n--) {
+        const x = cs + 4 + int(r, cw - 8);
+        const row = roofOf(x) - 1 - int(r, 3);
+        for (let dx = -2; dx <= 2; dx++) for (let dy = -1; dy <= 1; dy++) if (Math.abs(dx) + Math.abs(dy) < 3 && L.fg[cell(x + dx, row + dy)]) put(L, x + dx, row + dy, AMETHYST, rock);
+      }
+      for (let n = 2 + int(r, 3); n > 0; n--) {
+        const x0 = cs + 6 + int(r, cw - 16);
+        for (let x = x0; x < x0 + 5 + int(r, 6); x++) {
+          const f = L.ground[x & MASK];
+          if (L.fg[cell(x, f)] && L.fg[cell(x, f)] !== CRYSTAL) put(L, x, f, MYCELIUM, rock);
+        }
+        prop("mushrooms", x0 + 1);
+      }
+      // Lava pits to jump: obsidian under them where the lava's cooled, magma rock round their rims
+      for (let n = 1 + int(r, 2); n > 0; n--) {
+        const x0 = cs + 10 + int(r, cw - 24);
+        const f = L.ground[x0 & MASK];
+        for (let x = x0; x < x0 + 3; x++) {
+          const i = cell(x, f);
+          L.fg[i] = L.hp[i] = 0;
+          L.bg[i] = rock;
+          put(L, x, f + 1, LAVA);
+          put(L, x, f + 2, LAVA);
+          put(L, x, f + 3, OBSIDIAN, rock);
+          L.ground[x & MASK] = f + 3;
+        }
+        for (const x of [x0 - 1, x0 + 3]) for (let row = f; row < f + 4; row++) if (SOLID[L.fg[cell(x, row)]] && L.fg[cell(x, row)] !== OBSIDIAN) put(L, x, row, MAGMA, rock);
+      }
+      // An underground lake to swim
+      if (r() < 0.5) {
+        const lw = 8 + int(r, 6);
+        const x0 = cs + 20 + int(r, Math.max(1, cw - 40));
+        const f = L.ground[x0 & MASK];
+        for (let x = x0; x < x0 + lw; x++) {
+          const own = L.ground[x & MASK];
+          for (let row = Math.min(own, f); row < f; row++) {
+            const i = cell(x, row);
+            L.fg[i] = L.hp[i] = 0;
+            L.bg[i] = rock;
+          }
+          for (let row = f; row < f + 3; row++) put(L, x, row, WATER);
+          put(L, x, f + 3, rock, rock);
+          L.ground[x & MASK] = f + 3;
+        }
+      }
+      // Old mine workings: timbers propping the roof, rails, a minecart, ore
+      const m0 = cs + 6 + int(r, Math.max(1, cw - 30));
+      for (let x = m0; x < m0 + 20; x += 6) {
+        const roof = roofOf(x);
+        L.props.push({ kind: "support", x: px(x), y: (roof + 1) * TILE, h: (L.ground[x & MASK] - roof - 1) * TILE });
+      }
+      for (let x = m0; x < m0 + 20; x++) if (!L.fg[cell(x, L.ground[x & MASK] - 1)]) put(L, x, L.ground[x & MASK] - 1, RAIL);
+      // (carts that roll up and down the line, and one tipped over off the end of it)
+      spawn("minecart", m0 + 4);
+      if (r() < 0.6) spawn("minecart", m0 + 14);
+      prop(r() < 0.5 ? "carttipped" : "minecart", m0 + 21);
+      prop("orepile", m0 + 15);
+      prop(r() < 0.5 ? "railbuffer" : "dynamite", m0 - 2);
+      // Its garrison
+      enemies(cs, cw, -1, 1.1);
+      spawn("mg", cs + (cw >> 1));
+      c += cw;
+      // The way out: a chimney up to the daylight, a ladder up its far wall, footholds on the near one
+      const chw = 7;
+      for (let k = 0; k < chw; k++) hollow(c + k, g, deep, true);
+      climb(c + chw - 1, g, deep);
+      // (rough rock down its near wall, clear of the bottom: the far one, with the ladder up it, is the climb)
+      rough(c, 1, g + 3, deep - 14, 149);
+      c += chw;
+      // (the face it climbs out up: solid granite, no holes for a climber to duck into)
+      for (let x = c; x < c + 4; x++) column(L, x, g, true);
+      c += 4;
+      w = c - c0;
+      L.h = g;
+      break;
+    }
+    case "mineshaft": {
+      // A working mine for the squad to go through: the pithead on the surface (a headframe over
+      // the shaft, the winding house beside it), down the shaft twenty to thirty blocks to the main
+      // gallery, along it under its timbers past carts rolling on the rails, ore heaps, drills,
+      // dynamite and lanterns (and the mine's guards), sealed-off drifts above and below it with
+      // more carts in them, and up the far shaft past the ore bin back to daylight.
+      const g = L.h;
+      const floor = Math.min(ROWS - 14, g + 20 + int(r, 12));
+      const rock = t.deep;
+      const gh = 6;
+      /** A column of the land with its rock cut out from `top` to `floor` (walked on); `open`: the top of a shaft, sky behind it. */
+      const dig = (x: number, top: number, open: boolean) => {
+        column(L, x, g, false, false);
+        for (let row = top; row < floor; row++) {
+          const i = cell(x, row);
+          L.fg[i] = L.hp[i] = L.burn[i] = 0;
+          L.bg[i] = open && row < g + 3 ? 0 : row >= floor - gh ? WOOD : rock;
+        }
+        L.ground[x & MASK] = floor;
+      };
+      let c = c0;
+      ground(c, 4);
+      prop("winch", c0);
+      c += 4;
+      // Down: the shaft, a ladder down its far side, the cage waiting at the bottom
+      const sw = 7;
+      const s0 = c;
+      for (let k = 0; k < sw; k++) dig(s0 + k, g, true);
+      climb(s0 + sw - 1, g, floor);
+      placeProp(L, "headframe", s0 + 2, true);
+      placeAt(L, "minecage", s0 + 1, floor);
+      c += sw;
+      // The main gallery: timber sets every few blocks, rails all along it
+      const gw = 40 + int(r, 34);
+      const gs = c;
+      for (let k = 0; k < gw; k++) dig(gs + k, floor - gh, false);
+      for (let k = 0; k < gw; k++) put(L, gs + k, floor - 1, RAIL, WOOD);
+      for (let k = 2; k < gw - 1; k += 5) {
+        L.props.push({ kind: "support", x: px(gs + k), y: (floor - gh) * TILE, h: (gh - 1) * TILE });
+        for (let dx = -1; dx <= 1; dx++) put(L, gs + k + dx, floor - gh - 1, WOOD, rock);
+      }
+      for (let k = 6; k < gw - 2; k += 9) L.props.push({ kind: "lamp", x: px(gs + k), y: (floor - gh) * TILE + 1 });
+      // Veins of ore showing in its walls and roof
+      for (let n = 3 + int(r, 4); n > 0; n--) {
+        const x = gs + int(r, gw);
+        const row = r() < 0.5 ? floor - gh - 2 - int(r, 3) : floor + 1 + int(r, 2);
+        const ore = r() < 0.4 ? COAL : r() < 0.6 ? COPPER : r() < 0.8 ? IRON : GOLD;
+        for (let dx = 0; dx < 2 + int(r, 2); dx++) for (let dy = 0; dy < 2; dy++) if (L.fg[cell(x + dx, row + dy)]) put(L, x + dx, row + dy, ore, rock);
+      }
+      // What's down there
+      for (let k = 0, n = 2 + int(r, 2); k < n; k++) spawn("minecart", gs + 3 + int(r, gw - 6), floor);
+      const kit = ["cartcoal", "orepile", "toolsrack", "drillrig", "timbers", "dynamite", "carttipped", "orepile", "cartcoal"];
+      for (let k = 0, n = 4 + int(r, 4); k < n; k++) placeAt(L, kit[int(r, kit.length)], gs + 2 + int(r, gw - 4), floor);
+      placeAt(L, "railbuffer", gs + gw - 2, floor);
+      enemies(gs + 4, gw - 8, floor, 1);
+      if (t.enemies > 0 && r() < 0.6) spawn("mg", gs + (gw >> 1), floor);
+      barrels(gs + 8, gw - 16);
+      // Sealed-off drifts above and below the gallery, worked out long ago: rails, carts, timbers
+      const drift = (x0: number, dw: number, top: number) => {
+        for (let x = x0; x < x0 + dw; x++)
+          for (let row = top; row < top + 4; row++) {
+            const i = cell(x, row);
+            L.fg[i] = L.hp[i] = 0;
+            L.bg[i] = WOOD;
+          }
+        for (let x = x0; x < x0 + dw; x++) put(L, x, top + 3, RAIL, WOOD);
+        for (let x = x0 + 1; x < x0 + dw - 1; x += 5) L.props.push({ kind: "support", x: px(x), y: top * TILE, h: 3 * TILE });
+        placeAt(L, r() < 0.5 ? "cartcoal" : "minecart", x0 + 2 + int(r, Math.max(1, dw - 6)), top + 4);
+        L.props.push({ kind: "lamp", x: px(x0 + (dw >> 1)), y: top * TILE + 1 });
+      };
+      if (floor + 9 < ROWS - 3) drift(gs + 4 + int(r, 10), 10 + int(r, 8), floor + 4);
+      if (floor - gh - 12 > g + 4) drift(gs + gw - 26 + int(r, 8), 10 + int(r, 8), floor - gh - 9);
+      c += gw;
+      // Up: the far shaft, the ladder up its far wall, the ore bin at the top
+      const ew = 7;
+      for (let k = 0; k < ew; k++) dig(c + k, g, true);
+      climb(c + ew - 1, g, floor);
+      placeProp(L, "headframe", c + 2, true);
+      c += ew;
+      // (the face it climbs out up: solid, no holes for a climber to duck into)
+      for (let x = c; x < c + 5; x++) column(L, x, g, true);
+      prop("orebin", c + 1);
+      c += 5;
+      w = c - c0;
+      L.h = g;
+      break;
+    }
     case "forest": {
       // Deep woods: big trees close together, undergrowth, a few troops among them
       w = 18 + int(r, 14);
@@ -1401,11 +2078,12 @@ function feature(L: Level, out: Spawn[]) {
     }
     case "railway": {
       // A rail yard: track along the ground, freight cars on the sidings behind, a signal, a
-      // water tower, and an armoured train coming down the line
+      // water tower, freight trains running through, and an armoured train coming down the line
       w = 44 + int(r, 20);
       ground(c0, w);
       const g = L.h;
       for (let c = c0; c < c0 + w; c++) put(L, c, g - 1, RAIL);
+      out.push({ kind: "freight", x: px(c0), y: g * TILE, extra: [c0 * TILE, (c0 + w) * TILE] });
       for (let c = c0 + 3; c < c0 + w - 8; c += 7 + int(r, 6)) prop((["boxcar", "tankcar", "flatcar", "boxcar"] as const)[int(r, 4)], c, true);
       prop("railsignal", c0 + 1);
       prop(r() < 0.5 ? "watertower" : "crane", c0 + (w >> 1), true);
@@ -1414,19 +2092,183 @@ function feature(L: Level, out: Spawn[]) {
       break;
     }
     case "nuclear": {
-      // A nuclear plant: cooling towers steaming behind, the reactor hall, waste drums, fences, guns
-      w = 30 + int(r, 10);
+      // A nuclear power station: its cooling towers steaming behind, the containment dome, the
+      // reactor hall and the turbine hall (both hardened), the switchyard with its transformers and
+      // pylons, waste drums and hazard signs, the fence round it all, and its air defence
+      w = 48 + int(r, 18);
       ground(c0, w);
       const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g, CONCRETE, t.fill);
       prop("coolingtower", c0 + 1, true);
       prop("coolingtower", c0 + 9, true);
-      const spec = SPEC_BY_KEY.get("reactor");
+      if (r() < 0.6) prop("coolingtower", c0 + w - 14, true);
+      prop("reactordome", c0 + 18, true);
       let c = c0 + 2;
-      if (spec && g - spec.fh * spec.floors[0] > 12) c += building(L, c, spec, out, troop);
+      for (const key of ["reactor", "powerstation"]) {
+        const spec = SPEC_BY_KEY.get(key);
+        if (spec && g - spec.fh * spec.floors[0] > 12 && c + spec.width[1] + 2 < c0 + w - 10) c += building(L, c, spec, out, troop) + 1;
+      }
+      // The switchyard
+      for (let k = c; k < c0 + w - 4; k += 5) prop(r() < 0.6 ? "transformer" : "hazardsign", k);
+      for (let k = c + 2; k < c0 + w - 2; k += 12) prop("pylon", k, true);
+      for (let k = c; k < c0 + w - 2; k += 6) L.props.push({ kind: "streetlight", x: px(k), y: g * TILE });
       for (const fx of [c0, c0 + w - 1]) fill(L, fx, g - 2, 1, 2, FENCE);
       for (let k = 2 + int(r, 3); k > 0; k--) prop(r() < 0.7 ? "toxicdrum" : "hazardsign", c + int(r, Math.max(1, c0 + w - c - 2)));
       spawn(r() < 0.5 ? "samsite" : "flakgun", c0 + w - 4);
       enemies(c0, w, -1, 1);
+      break;
+    }
+    case "boulevard": {
+      // A boulevard: a long open avenue with the traffic going both ways along it (cars, taxis,
+      // vans, buses calling at their stops, fire engines, police and ambulances with their lights
+      // going), traffic lights at its crossings, street lights, trees in planters, kiosks, benches;
+      // its buildings set back behind it, a tall one or two right on it
+      w = 64 + int(r, 56);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g, (c - c0) % 18 < 2 ? PAVEMENT : ASPHALT, t.fill);
+      const lights: number[] = [];
+      const stops: number[] = [];
+      for (let c = c0 + 9; c < c0 + w - 6; c += 17 + int(r, 10)) {
+        L.props.push({ kind: "stoplight", x: px(c), y: g * TILE });
+        lights.push(px(c));
+      }
+      for (let c = c0 + 14; c < c0 + w - 8; c += 26 + int(r, 14)) if (placeProp(L, "busstop", c)) stops.push(px(c) + 4);
+      for (let c = c0 + 3; c < c0 + w; c += 9) L.props.push({ kind: "streetlight", x: px(c), y: g * TILE });
+      for (let c = c0 + 5; c < c0 + w - 3; c += 4 + int(r, 6)) prop(STREET_KIT[int(r, STREET_KIT.length)], c);
+      // One or two buildings right on it, the rest set back behind
+      const specs = buildingsFor(t.backdrop);
+      if (r() < 0.6) {
+        const spec = r() < 0.6 ? SPEC_BY_KEY.get(CITY_ESSENTIAL[int(r, CITY_ESSENTIAL.length)]) : specs[int(r, specs.length)];
+        const at = c0 + (w >> 1) + int(r, 8);
+        if (spec && g - spec.fh * spec.floors[0] > 12 && at + spec.width[1] + 3 < c0 + w) building(L, at, spec, out, troop);
+      }
+      towers(c0, w);
+      out.push({ kind: "road", x: px(c0), y: g * TILE, extra: [c0 * TILE, (c0 + w) * TILE, lights.length, ...lights, ...stops] });
+      enemies(c0, w, -1, 0.6);
+      if (t.enemies > 0 && r() < 0.5) spawn(r() < 0.5 ? "apc" : "armoredcar", c0 + w - 8);
+      break;
+    }
+    case "park": {
+      // A city park: lawns under big trees, hedges and flower beds, a duck pond, a fountain, a
+      // statue, a bandstand, a playground, benches and picnic tables, an ice-cream cart, its lamps
+      w = 40 + int(r, 34);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g, GRASS, t.fill);
+      // The pond
+      const pw = 7 + int(r, 6);
+      const p0 = c0 + 6 + int(r, Math.max(1, w - pw - 12));
+      for (let x = p0; x < p0 + pw; x++) {
+        column(L, x, g + 2);
+        put(L, x, g + 2, MUD);
+        put(L, x, g, WATER, 0);
+        put(L, x, g + 1, WATER, 0);
+        L.ground[x & MASK] = g + 2;
+        L.crust[x & MASK] = g;
+      }
+      placeAt(L, "reeds", p0, g + 2);
+      for (let c = c0 + 2; c < c0 + w - 2; c += 6 + int(r, 5)) if (c < p0 - 2 || c > p0 + pw + 1) bigTree(c, g, c0, c0 + w);
+      for (let c = c0 + 1; c < c0 + w - 1; c += 7) L.props.push({ kind: "streetlight", x: px(c), y: g * TILE });
+      const kit = ["fountain", "statue", "gazebo", "playground", "bench", "bench", "flowerbed", "flowerbed", "picnictable", "icecreamcart", "hedge", "flowers"];
+      for (let k = 6 + int(r, 5); k > 0; k--) prop(kit[int(r, kit.length)], c0 + 1 + int(r, w - 3));
+      towers(c0, w);
+      enemies(c0, w, -1, 0.5);
+      break;
+    }
+    case "citybridge": {
+      // A river through the city, and the bridge across it: a reinforced deck the street runs on,
+      // its towers and the cables slung between them, piers down into the water, traffic over it,
+      // lamps along it, boats on the river under it
+      const rw = 24 + int(r, 22);
+      w = rw + 12;
+      ground(c0, 6);
+      const g = L.h;
+      for (let c = c0; c < c0 + 6; c++) put(L, c, g, ASPHALT, t.fill);
+      for (let c = c0 + 6; c < c0 + 6 + rw; c++) {
+        column(L, c, g + 11);
+        put(L, c, g + 11, MUD);
+        for (let row = g + 1; row <= g + 10; row++) put(L, c, row, WATER, 0);
+        put(L, c, g, REINFORCED, 0);
+        L.ground[c & MASK] = g;
+        L.crust[c & MASK] = g;
+      }
+      for (let c = c0 + 10; c < c0 + 6 + rw - 2; c += 11) for (let row = g + 1; row <= g + 10; row++) put(L, c, row, CONCRETE, 0);
+      ground(c0 + 6 + rw, 6, g);
+      for (let c = c0 + 6 + rw; c < c0 + w; c++) put(L, c, g, ASPHALT, t.fill);
+      // The towers and the cables
+      const ta = c0 + 9;
+      const tb = c0 + 6 + rw - 4;
+      for (const tx of [ta, tb]) backWall(L, tx, g - 22, 2, 22, STEEL);
+      const top = (g - 21) * TILE;
+      L.props.push({ kind: "cable", x: ta * TILE + 8, y: top, x2: tb * TILE + 8, y2: top, sag: 17 * TILE, deck: g * TILE });
+      L.props.push({ kind: "cable", x: (c0 + 1) * TILE, y: g * TILE - 6, x2: ta * TILE + 8, y2: top, sag: 3 * TILE, deck: g * TILE });
+      L.props.push({ kind: "cable", x: tb * TILE + 8, y: top, x2: (c0 + w - 1) * TILE, y2: g * TILE - 6, sag: 3 * TILE, deck: g * TILE });
+      for (let c = c0 + 2; c < c0 + w; c += 8) L.props.push({ kind: "streetlight", x: px(c), y: g * TILE });
+      out.push({ kind: "road", x: px(c0), y: g * TILE, extra: [c0 * TILE, (c0 + w) * TILE, 0] });
+      for (let k = 1 + int(r, 2); k > 0; k--) out.push({ kind: "boat", x: (c0 + 8 + int(r, rw - 4)) * TILE, y: (g + 1) * TILE });
+      enemies(c0, w, g, 0.5);
+      break;
+    }
+    case "waterplant": {
+      // A waterworks: the pumping station, settling basins full of water, the round clarifier tanks,
+      // chemical tanks, a water tower, pipe runs on their stilts; guarded
+      w = 42 + int(r, 24);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) put(L, c, g, CONCRETE, t.fill);
+      let c = c0 + 1;
+      const spec = SPEC_BY_KEY.get("waterworks");
+      if (spec && g - spec.fh * spec.floors[0] > 12) c += building(L, c, spec, out, troop) + 1;
+      // Its basins, sunk into the ground, a wall round each
+      for (let n = 2 + int(r, 2); n > 0 && c + 8 < c0 + w - 4; n--) {
+        put(L, c, g - 1, CONCRETE);
+        for (let x = c + 1; x < c + 7; x++) {
+          column(L, x, g + 3);
+          for (let row = g; row < g + 3; row++) put(L, x, row, WATER, CONCRETE);
+          put(L, x, g + 3, CONCRETE);
+          L.ground[x & MASK] = g + 3;
+          L.crust[x & MASK] = g;
+        }
+        put(L, c + 7, g - 1, CONCRETE);
+        c += 9;
+      }
+      prop("watertower", c0 + 2, true);
+      for (let k = c0 + 4; k < c0 + w - 6; k += 10 + int(r, 8)) prop(r() < 0.5 ? "storagetank" : "clarifier", k, true);
+      for (let k = 2 + int(r, 2); k > 0; k--) prop((["clarifier", "valve", "generator", "toxicdrum", "pallets"] as const)[int(r, 5)], c + int(r, Math.max(1, c0 + w - c - 4)));
+      const py = g - 6;
+      for (let x = c0 + 2; x < c0 + w - 2; x++) if (!L.fg[cell(x, py)]) put(L, x, py, PIPE);
+      for (let x = c0 + 3; x < c0 + w - 2; x += 8) L.props.push({ kind: "support", x: px(x), y: (py + 1) * TILE, h: 5 * TILE });
+      for (let k = c0 + 1; k < c0 + w; k += 9) L.props.push({ kind: "streetlight", x: px(k), y: g * TILE });
+      enemies(c0, w, -1, 0.8);
+      break;
+    }
+    case "station": {
+      // A railway station: the station building, its platform under a long canopy on iron
+      // columns, benches, the departures board, a clock, ticket machines, and the passenger trains
+      // calling at it (they stop with their doors open, then pull out), freight running through
+      w = 56 + int(r, 30);
+      ground(c0, w);
+      const g = L.h;
+      for (let c = c0; c < c0 + w; c++) {
+        put(L, c, g, PAVEMENT, t.fill);
+        put(L, c, g - 1, RAIL);
+      }
+      let c = c0 + 1;
+      const spec = SPEC_BY_KEY.get(r() < 0.5 ? "trainstation" : "grandstation");
+      if (spec && g - spec.fh * spec.floors[0] > 12) c += building(L, c, spec, out, troop) + 1;
+      const s0 = c;
+      const s1 = c0 + w - 2;
+      for (let x = s0; x < s1; x++) put(L, x, g - 9, x % 2 ? GLASS : TIN);
+      for (let x = s0 + 1; x < s1; x += 6) L.props.push({ kind: "support", x: px(x), y: (g - 8) * TILE, h: 8 * TILE });
+      for (let x = s0 + 3; x < s1 - 3; x += 7 + int(r, 5)) placeAt(L, (["platformbench", "ticketmachine", "vending", "bench", "newsstand"] as const)[int(r, 5)], x, g);
+      placeAt(L, "arrivalboard", s0 + 4, g, 8 * TILE - 9);
+      placeAt(L, "arrivalboard", s1 - 10, g, 8 * TILE - 9);
+      L.props.push({ kind: "sign", x: px(s0 + ((s1 - s0) >> 1)), y: (g - 6) * TILE, text: STATIONS[int(r, STATIONS.length)], ink: "#ffffff", board: "#1e2a3a", neon: false });
+      for (let x = s0; x < s1; x += 8) L.props.push({ kind: "lamp", x: px(x), y: (g - 8) * TILE + 1 });
+      // (the passenger trains stop here; the line runs on through)
+      out.push({ kind: "freight", x: px(c0), y: g * TILE, extra: [c0 * TILE, (c0 + w) * TILE, (s0 + s1) * 4, 1] });
+      enemies(c0, w, -1, 0.6);
       break;
     }
     case "harbour": {
@@ -1462,7 +2304,7 @@ function feature(L: Level, out: Spawn[]) {
       deco(c0, w);
       scatter(c0, w, 1 + int(r, 3));
       standing(c0, w);
-      if (r() < 0.3) underground(c0, w);
+      if (r() < 0.4) underground(c0, w);
       if (t.enemies > 0 && c0 > 70 && r() < 0.25) for (let k = 1 + int(r, 2); k > 0; k--) spawn("mine", c0 + 1 + int(r, w - 2));
       enemies(c0, w);
       barrels(c0, w);

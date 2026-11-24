@@ -29,6 +29,15 @@ const place = (g: Game, kind: EnemyKind, x: number, y = BASE_ROW * TILE): Enemy 
   return e;
 };
 const tough = (e: Enemy) => Object.assign(e, { hp: 1e6, maxHp: 1e6 });
+/** A theme without its great mountains and descents into the depths (the jungle checks are about the jungle). */
+/** A country without its great descents (mountains, the depths, mineshafts): those are climbed down and up, not jumped. */
+const plain = (t: Theme): Theme => ({ ...t, features: Object.fromEntries(Object.entries(t.features).filter(([k]) => k !== "massif" && k !== "abyss" && k !== "mineshaft")) });
+
+/** The first column of open water in a level, and its surface row. */
+function seaStart(L: ReturnType<typeof createLevel>) {
+  for (let c = L.start; c < L.next; c++) for (let r = 0; r < ROWS; r++) if (kindAt(L, c, r) === WATER) return { first: c, surface: r };
+  return { first: -1, surface: -1 };
+}
 
 /** How many blocks of each kind a level has stored. */
 function census(theme: Theme, seed: number) {
@@ -53,7 +62,7 @@ describe("jungle levels", () => {
   });
 
   it("grow rainforest, bamboo, rivers and waterfalls; temples and ruins of mossy stone", () => {
-    const deep = census(THEMES.deepjungle, 4);
+    const deep = census(plain(THEMES.deepjungle), 4);
     for (const k of [LEAF, VINE, BAMBOO, WATER]) expect(deep.count(k), `block ${k}`).toBeGreaterThan(0);
     // (over a few levels: any one stretch may or may not roll a camp or a cliff)
     const deeps = [4, 5, 6].map((seed) => census(THEMES.deepjungle, seed).L);
@@ -67,7 +76,7 @@ describe("jungle levels", () => {
 
   it("gives all water a bottom (lakes and the sea are deep enough to swim), and keeps every pit jumpable", () => {
     for (const key of ["deepjungle", "temple", "monsoon", "nightraid"]) {
-      const { L } = census(THEMES[key], 9);
+      const { L } = census(plain(THEMES[key]), 9);
       let run = 0;
       let lip = L.ground[L.start % RING];
       for (let c = L.start; c < L.next; c++) {
@@ -157,16 +166,27 @@ describe("new enemies", () => {
     expect(flying).toBeGreaterThanOrEqual(2);
   });
 
-  it("patrol boats keep to their stretch of river, at the water line", () => {
-    const g = new Game(quiet, { seed: 1, level: { boss: null, length: 600 } });
-    const x = g.advance + 140;
-    const y = (BASE_ROW + 1) * TILE;
-    const boat = tough(place(g, "boat", x, y));
-    let far = 0;
-    play(g, 6, () => (far = Math.max(far, Math.abs(boat.x - x))));
-    expect(far).toBeGreaterThan(5);
-    expect(far).toBeLessThanOrEqual(11);
+  it("ships sail across the sea at the water line, turning about at the shore", () => {
+    const g = new Game({ ...quiet, features: { ocean: 1 } }, { seed: 3, level: { boss: null, length: 4000 } });
+    play(g, 1 / 30);
+    const { first, surface } = seaStart(g.level);
+    const y = surface * TILE;
+    // A patrol boat heading for the shore turns about and sails back out
+    const boat = tough(place(g, "boat", (first + 4) * TILE, y));
+    const x0 = boat.x;
+    // A battleship out at sea, under way
+    const ship = tough(place(g, "battleship", (first + 40) * TILE, y));
+    ship.facing = 1;
+    const s0 = ship.x;
+    let shoreward = 0;
+    play(g, 3, () => (shoreward = Math.min(shoreward, boat.x - x0)));
+    expect(shoreward).toBeLessThan(0);
+    expect(boat.x - (first * TILE + 19)).toBeGreaterThan(0);
+    expect(boat.facing).toBe(1);
+    expect(boat.x).toBeGreaterThan(x0 + 40);
     expect(boat.y).toBe(y);
+    expect(ship.x).toBeGreaterThan(s0 + 20);
+    expect(ship.y).toBe(y);
   });
 
   it("monsoon storms bring lightning, a few seconds apart", () => {
@@ -185,9 +205,10 @@ describe("new enemies", () => {
 });
 
 describe("mayhem", () => {
-  it("arms the squad with fourteen weapons: supply crates swap them in for a while, or hand out jetpacks", () => {
-    expect(WEAPONS).toHaveLength(14);
-    expect(new Set(WEAPONS).size).toBe(14);
+  it("arms the squad with seventeen weapons, lasers among them: supply crates swap them in for a while, or hand out jetpacks", () => {
+    expect(WEAPONS).toHaveLength(17);
+    expect(new Set(WEAPONS).size).toBe(17);
+    expect(WEAPONS.filter((w) => /laser|ray/i.test(w))).toEqual(["Laser", "Pulse laser", "Death ray", "Prism laser"]);
     const g = new Game(quiet, { seed: 1, level: { boss: null, length: 600 } });
     play(g, 0.5);
     const p = g.players[2];
@@ -203,6 +224,14 @@ describe("mayhem", () => {
       (g as unknown as { fire(p: unknown, t: unknown): void }).fire(p, target);
       expect(g.shots.length + g.beams.length + g.zaps.length, WEAPONS[w]).toBeGreaterThan(before);
     }
+    // The death ray is held on the target a while, burning it all the time
+    Object.assign(p, { weapon: 15, weaponT: 10, fireCd: 0, target });
+    (g as unknown as { fire(p: unknown, t: unknown): void }).fire(p, target);
+    let held = 0;
+    play(g, 0.5, () => {
+      if (g.beams.some((b) => (b.w ?? 1) >= 3)) held++;
+    });
+    expect(held).toBeGreaterThan(8);
     const q = g.players[4];
     g.drops.push({ x: q.x, y: q.y, vy: 0, weapon: -1, ground: true, t: 0 });
     const y0 = q.y;
@@ -255,6 +284,27 @@ describe("seamless levels", () => {
     });
     expect(nuke).toBe(false);
     expect(g.levelNo).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps the open sea one unbroken stretch: no islands in it, no shore between one sea and the next", () => {
+    const L = createLevel({ ...quiet, features: { ocean: 1 } }, 5, { boss: null, length: 4000 });
+    extend(L, RING - 20);
+    const { first, surface } = seaStart(L);
+    expect(first).toBeGreaterThan(0);
+    for (let c = first; c < L.next; c++) expect(kindAt(L, c, surface), `column ${c}`).toBe(WATER);
+    // (well past a single sea's length: it carried straight on)
+    expect(L.next - first).toBeGreaterThan(300);
+  });
+
+  it("comes ashore with a beach when the sea gives way to land", () => {
+    const L = createLevel({ ...quiet, features: { ocean: 1, flat: 3 } }, 8, { boss: null, length: 4000 });
+    extend(L, RING - 20);
+    const { first, surface } = seaStart(L);
+    let c = first;
+    while (c < L.next && kindAt(L, c, surface) === WATER) c++;
+    expect(c).toBeLessThan(L.next);
+    expect(solidAt(L, c * TILE + 4, surface * TILE + 4)).toBe(true);
+    expect(L.props.some((p) => p.x >= c * TILE - TILE && p.x <= (c + 4) * TILE)).toBe(true);
   });
 
   it("puts open sea in the way that the squad swims, heads above the water", () => {
