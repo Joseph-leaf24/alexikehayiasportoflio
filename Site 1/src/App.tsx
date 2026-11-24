@@ -9,6 +9,7 @@ import Cursor from "./components/chrome/Cursor";
 import Loader from "./components/chrome/Loader";
 import Shortcuts from "./components/chrome/Shortcuts";
 import { TransitionProvider } from "./components/chrome/Transition";
+import PageBoundary from "./components/chrome/PageBoundary";
 import { initSmoothScroll } from "./lib/smoothScroll";
 import { sceneState } from "./lib/store";
 
@@ -60,11 +61,13 @@ function Shell() {
       <IceScene />
       <Hud />
       <main id="main" tabIndex={-1} className="site-main">
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/project/:category/:projectIndex" element={<ProjectDetails />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <PageBoundary>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/project/:category/:projectIndex" element={<ProjectDetails />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </PageBoundary>
       </main>
       <Cursor />
       <Loader />

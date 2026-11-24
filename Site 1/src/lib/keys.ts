@@ -13,12 +13,15 @@ export const isModalOpen = () => !!document.querySelector('[role="dialog"][aria-
 export const hasModifier = (e: KeyboardEvent) => e.altKey || e.ctrlKey || e.metaKey;
 
 /**
- * For modal dialogs: keep Tab / Shift+Tab cycling through `root`'s buttons and links,
- * and pull focus back in if it has escaped. Call from a keydown handler.
+ * For modal dialogs: keep Tab / Shift+Tab cycling through `root`'s buttons and links (or
+ * through an explicit list of controls, in order), and pull focus back in if it has
+ * escaped. Call from a keydown handler.
  */
-export function trapTab(e: KeyboardEvent, root: HTMLElement | null) {
+export function trapTab(e: KeyboardEvent, root: HTMLElement | null | (HTMLElement | null)[]) {
   if (e.key !== "Tab") return;
-  const items = Array.from(root?.querySelectorAll<HTMLElement>("button, a[href]") ?? []);
+  const items = Array.isArray(root)
+    ? root.filter((el): el is HTMLElement => !!el)
+    : Array.from(root?.querySelectorAll<HTMLElement>("button, a[href]") ?? []);
   if (!items.length) return;
   const first = items[0];
   const last = items[items.length - 1];

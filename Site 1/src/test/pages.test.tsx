@@ -181,6 +181,15 @@ describe("project page", () => {
     renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: "/project/nlp/abc" });
     expect(screen.getAllByText("Project not found", { selector: ".sr-only" }).length).toBe(2);
   });
+
+  it("treats built-in object names and non-canonical indexes as unknown projects (no crash)", () => {
+    const routes = ["toString/0", "constructor/0", "__proto__/0", "hasOwnProperty/0", "nlp/01", "nlp/1.0", "nlp/0x1", "nlp/-0"];
+    for (const r of routes) {
+      const { unmount } = renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: `/project/${r}` });
+      expect(screen.getByText("Project not found", { selector: ".sr-only" })).toBeInTheDocument();
+      unmount();
+    }
+  });
 });
 
 describe("404", () => {
@@ -192,6 +201,35 @@ describe("404", () => {
     expect(screen.getByRole("link", { name: /return to home/i })).toHaveAttribute("href", "#/");
     unmount();
     expect(sceneState.override).toBeNull();
+  });
+});
+
+describe("page error boundary", () => {
+  it("shows a recoverable error page instead of blanking the site, and resets on navigation", async () => {
+    const { default: PageBoundary } = await import("@/components/chrome/PageBoundary");
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const Boom = () => {
+      throw new Error("boom");
+    };
+    render(
+      <MemoryRouter initialEntries={["/broken"]}>
+        <TransitionProvider>
+          <p>still here</p>
+          <PageBoundary>
+            <Routes>
+              <Route path="/broken" element={<Boom />} />
+              <Route path="/" element={<p>home again</p>} />
+            </Routes>
+          </PageBoundary>
+        </TransitionProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Something went wrong");
+    expect(screen.getByText("still here")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: /return to home/i }));
+    expect(await screen.findByText("home again")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    err.mockRestore();
   });
 });
 

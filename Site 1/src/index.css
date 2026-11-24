@@ -403,6 +403,10 @@ html.scroll-locked {
   display: block;
   pointer-events: none;
 }
+/* Nothing to report without the 3D scene (Telemetry also unmounts itself) */
+html.no-webgl .hud-telemetry {
+  display: none;
+}
 html.no-webgl body {
   background:
     radial-gradient(ellipse 80% 60% at 50% 35%, rgba(127, 212, 255, 0.12), transparent 70%),

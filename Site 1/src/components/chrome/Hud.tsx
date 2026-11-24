@@ -5,6 +5,7 @@ import { sceneState, ui, useStore, type LayoutKey } from "@/lib/store";
 import { scrollToTarget, setScrollLocked } from "@/lib/smoothScroll";
 import { profile } from "@/data/profile";
 import { cn } from "@/lib/utils";
+import { trapTab } from "@/lib/keys";
 import ScrambleText from "@/components/fx/ScrambleText";
 import { usePageTransition } from "./Transition";
 
@@ -57,12 +58,19 @@ const signed = (v: number) => `${v < 0 ? "−" : "+"}${Math.abs(v).toFixed(2).pa
 /** Live readout of what the 3D scene is doing (polled ~8×/s while on screen; hidden without WebGL). */
 function Telemetry() {
   const [formation, setFormation] = useState<LayoutKey>(sceneState.formation);
+  // The scene only finds out WebGL is missing after this first renders, so keep checking
+  const [webgl, setWebgl] = useState(sceneState.webgl);
   const rootRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<HTMLSpanElement>(null);
   const blocksRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     let current = sceneState.formation;
     const id = window.setInterval(() => {
+      if (!sceneState.webgl) {
+        setWebgl(false);
+        window.clearInterval(id);
+        return;
+      }
       // Hidden by CSS below 1280 px wide: nothing to update
       const root = rootRef.current;
       if (!root || getComputedStyle(root).display === "none") return;
@@ -76,7 +84,7 @@ function Telemetry() {
     }, 120);
     return () => window.clearInterval(id);
   }, []);
-  if (!sceneState.webgl) return null;
+  if (!webgl) return null;
   return (
     <div ref={rootRef} className="hud-telemetry">
       <span>Formation</span>
@@ -176,7 +184,11 @@ export default function Hud() {
       if (document.getElementById("mobile-menu")?.contains(document.activeElement)) burgerRef.current?.focus();
       return;
     }
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && ui.set({ menuOpen: false });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") ui.set({ menuOpen: false });
+      // The menu covers the page: Tab cycles between its links and the close (burger) button
+      else trapTab(e, [burgerRef.current, ...Array.from(document.querySelectorAll<HTMLElement>("#mobile-menu a[href]"))]);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [menuOpen]);

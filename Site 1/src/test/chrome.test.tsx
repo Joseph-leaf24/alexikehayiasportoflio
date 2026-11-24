@@ -78,6 +78,41 @@ describe("HUD", () => {
     renderRoute(<Hud />);
     expect(document.querySelector(".hud-telemetry")).toBeNull();
   });
+
+  it("hides telemetry when the scene finds out about missing WebGL after the HUD rendered", () => {
+    useAnimationTimers();
+    renderRoute(<Hud />);
+    expect(document.querySelector(".hud-telemetry")).not.toBeNull();
+    // (the scene's effect runs after the HUD's first render)
+    sceneState.webgl = false;
+    advance(300);
+    expect(document.querySelector(".hud-telemetry")).toBeNull();
+  });
+
+  it("keeps Tab inside the open mobile menu", () => {
+    renderRoute(<Hud />);
+    const burger = screen.getByRole("button", { name: "Open menu" });
+    fireEvent.click(burger);
+    const links = Array.from(document.querySelectorAll<HTMLElement>("#mobile-menu a[href]"));
+    const last = links[links.length - 1];
+    // Tab from the last menu link wraps to the close button…
+    last.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(document.activeElement).toBe(burger);
+    // …Shift+Tab from the close button wraps to the last link…
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    // …and focus that escaped to the page behind is pulled back in
+    const brand = screen.getByRole("link", { name: /home/i });
+    brand.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(document.activeElement).toBe(burger);
+    // Closed: Tab is left alone
+    fireEvent.keyDown(window, { key: "Escape" });
+    brand.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(document.activeElement).toBe(brand);
+  });
 });
 
 describe("Cursor", () => {

@@ -69,6 +69,14 @@ describe("Domains section", () => {
     expect(sceneState.highlight).toBe(-1);
   });
 
+  it("clears the highlight when the section goes away mid-hover (e.g. following a project link)", () => {
+    const { unmount } = renderRoute(<Domains onExplore={() => {}} />);
+    fireEvent.mouseEnter(screen.getByRole("article", { name: "Data Analytics" }));
+    expect(sceneState.highlight).toBe(1);
+    unmount();
+    expect(sceneState.highlight).toBe(-1);
+  });
+
   it("opens the matching specialization in the Work section", () => {
     const onExplore = vi.fn();
     const rafs: FrameRequestCallback[] = [];

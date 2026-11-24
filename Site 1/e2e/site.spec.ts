@@ -31,6 +31,9 @@ test.beforeEach(async ({ page }) => {
   });
   page.on("pageerror", (e) => problems.push(`uncaught: ${e.message}`));
   page.on("console", (m) => {
+    // Antivirus web protection (e.g. Kaspersky) injects its own CSP and scripts on local
+    // machines; that noise isn't the site's (CI runners have none)
+    if (/kaspersky-labs\.com/i.test(m.text())) return;
     if (m.type() === "error") problems.push(`console: ${m.text()}`);
     // GSAP's warning for an animation scoped to an element React has already removed
     if (m.type() === "warning" && /Invalid scope/.test(m.text())) problems.push(`console warning: ${m.text()}`);

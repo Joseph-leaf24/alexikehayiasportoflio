@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useEffect } from "react";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { domainIntro, domains, projectsOf } from "@/data/domains";
 import { projectPath, specializations } from "@/data/profile";
@@ -22,6 +22,15 @@ interface DomainsProps {
  * the work" opens the matching specialization in Work and scrolls there.
  */
 export default function Domains({ onExplore }: DomainsProps) {
+  // Following a card's project link leaves the page before mouseleave / blur fire: clear
+  // the highlight on the way out, or the cluster would still glow on coming back
+  useEffect(
+    () => () => {
+      sceneState.highlight = -1;
+    },
+    []
+  );
+
   const explore = (categoryId: string) => {
     const i = specializations.findIndex((s) => s.id === categoryId);
     onExplore(Math.max(0, i));

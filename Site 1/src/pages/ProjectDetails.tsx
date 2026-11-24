@@ -26,8 +26,10 @@ const ProjectDetails = () => {
   const { category, projectIndex } = useParams();
   const [lightbox, setLightbox] = useState<number | null>(null);
 
-  const categoryData = category && category in projectData ? projectData[category] : null;
-  const idx = Number(projectIndex);
+  // Own keys only: `in` would also accept inherited names like "toString" or "__proto__"
+  const categoryData = category && Object.prototype.hasOwnProperty.call(projectData, category) ? projectData[category] : null;
+  // Canonical indexes only (no leading zeros), so "01", "1.0" or "0x1" don't open project 1 under a second URL
+  const idx = projectIndex && /^(0|[1-9]\d*)$/.test(projectIndex) ? Number(projectIndex) : NaN;
   const project = categoryData && Number.isInteger(idx) ? categoryData.projects[idx] : undefined;
   const spec = specializations.find((s) => s.id === category);
   const flatIndex = allProjects.findIndex((r) => r.category === category && r.index === idx);
