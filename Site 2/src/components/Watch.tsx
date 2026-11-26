@@ -46,13 +46,6 @@ function useWakeLock(active: boolean): Awake {
 }
 
 /**
- * The spectator space at the very bottom of the home page: open ground where the scene fills
- * the screen and you can leave it running. While it's in view the scene keeps its full frame
- * rate, the screen is kept awake, a panel follows the level in play (objective, progress, the
- * boss, the numbers, the last few levels cleared), and the end-of-level white-out takes the
- * HUD with it so the whole screen goes white.
- */
-/**
  * The spectator space at the bottom of the page: open ground to leave the battle running in,
  * nothing over it. While it's in view the scene keeps its full frame rate, the screen is kept
  * awake (where the browser can), the scene controls (pause, speed, zoom) appear, and at the end

@@ -81,23 +81,38 @@ describe("HUD", () => {
 describe("Scene controls", () => {
   it("show up only in the spectator space, and pause, resume and set the background's speed (up to 8×)", () => {
     render(<SceneControls />);
-    expect(screen.queryByRole("group", { name: "Background animation" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Background animation" })).toBeNull();
     act(() => {
       sceneState.watching = true;
       window.dispatchEvent(new Event("scenewatch"));
     });
+    expect(screen.getByRole("region", { name: "Background animation" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Pause the background" }));
     expect(sceneState.paused).toBe(true);
-    expect(screen.getByRole("button", { name: "Resume the background" })).toHaveAttribute("aria-pressed", "true");
+    // (says what it will do next, and isn't also a pressed/unpressed toggle; lit up while paused)
+    const resume = screen.getByRole("button", { name: "Resume the background" });
+    expect(resume).not.toHaveAttribute("aria-pressed");
+    expect(resume).toHaveTextContent("Resume");
+    expect(resume).toHaveClass("is-on");
     fireEvent.keyDown(window, { key: "p" });
     expect(sceneState.paused).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Background speed 2 times" }));
+    expect(screen.getByRole("button", { name: "Pause the background" })).not.toHaveClass("is-on");
+    // The speeds: a group called Speed, each button named by what it shows
+    const speeds = within(screen.getByRole("group", { name: "Speed" }));
+    expect(speeds.getAllByRole("button").map((b) => b.textContent)).toEqual(["½×", "1×", "2×", "4×", "8×"]);
+    fireEvent.click(speeds.getByRole("button", { name: "2×" }));
     expect(sceneState.speed).toBe(2);
-    expect(screen.getByRole("button", { name: "Background speed 2 times" })).toHaveAttribute("aria-pressed", "true");
+    expect(speeds.getByRole("button", { name: "2×" })).toHaveAttribute("aria-pressed", "true");
+    expect(speeds.getByRole("button", { name: "1×" })).toHaveAttribute("aria-pressed", "false");
     fireEvent.keyDown(window, { key: "[" });
     expect(sceneState.speed).toBe(1);
-    fireEvent.click(screen.getByRole("button", { name: "Background speed 8 times" }));
+    fireEvent.click(speeds.getByRole("button", { name: "8×" }));
     expect(sceneState.speed).toBe(8);
+    // Endless keeps its name and is pressed or not
+    const endless = screen.getByRole("button", { name: "Endless levels: no finale every 20" });
+    const was = endless.getAttribute("aria-pressed");
+    fireEvent.click(endless);
+    expect(endless.getAttribute("aria-pressed")).not.toBe(was);
   });
 });
 
@@ -165,6 +180,33 @@ describe("Loader", () => {
     advance(2000);
     expect(ui.get().ready).toBe(true);
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("keeps the scene drawing behind it, and lifts soon after the scene's first frame (not at its timeout)", async () => {
+    useAnimationTimers();
+    // (jsdom never loads images: this portrait loads straight away, as a cached one would)
+    class LoadingImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_: string) {
+        window.setTimeout(() => this.onload?.(), 50);
+      }
+    }
+    vi.stubGlobal("Image", LoadingImage);
+    render(<Loader />);
+    // Scrolling's locked, but the scene isn't paused: "ready" is its first frame, drawn behind the loader
+    expect(document.documentElement).toHaveClass("scroll-locked");
+    expect(sceneState.covered).toBe(false);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    advance(500);
+    sceneState.ready = true;
+    // (the 2 s minimum, the count's last stretch and the 380 ms hand-over: well inside the 7 s timeout)
+    advance(3000);
+    expect(ui.get().ready).toBe(true);
+    expect(document.documentElement).not.toHaveClass("scroll-locked");
+    vi.unstubAllGlobals();
   });
 
   it("is quick with reduced motion", () => {

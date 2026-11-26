@@ -1176,7 +1176,12 @@ html.no-canvas body {
   color: var(--ink);
   background: var(--cyan);
 }
-.scene-controls__play[aria-pressed="true"],
+.scene-controls__speeds {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.scene-controls__play.is-on,
 .scene-controls__endless[aria-pressed="true"] {
   color: var(--ink);
   background: var(--gold);

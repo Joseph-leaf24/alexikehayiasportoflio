@@ -2,12 +2,12 @@
   "name": "pixel-battle-wallpaper",
   "private": true,
   "license": "UNLICENSED",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "The pixel battle from Site 2 as a standalone live wallpaper for Windows: run PixelBattle.exe and it plays on the desktop.",
+  "description": "Builds ../PixelBattle.exe: the pixel battle from Site 2 as a live wallpaper for Windows, in one file that needs nothing installed.",
   "scripts": {
-    "dev": "vite --open",
     "build": "vite build && node scripts/pack.mjs && node scripts/build-exe.mjs",
+    "dev": "vite --open",
     "measure": "node scripts/measure.mjs",
     "typecheck": "tsc --noEmit"
   },

@@ -6,12 +6,11 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const slash = (p: string) => p.replace(/\\/g, "/");
 /** The battle itself lives in Site 2: the wallpaper is built from it, so the two are always the same battle. */
-const site = slash(path.resolve(here, "../Site 2/src"));
+const site = slash(path.resolve(here, "../../Site 2/src"));
 
 /**
- * The wallpaper: the pixel scene on its own, full screen, built to one page that opens straight
- * off the disk (scripts/pack.mjs inlines the code into it and adds what Lively Wallpaper and
- * Wallpaper Engine need).
+ * The wallpaper's page: the pixel scene on its own, full screen. scripts/pack.mjs then inlines
+ * it into one file, and scripts/build-exe.mjs packs that into PixelBattle.exe.
  */
 export default defineConfig({
   base: "./",
@@ -27,7 +26,7 @@ export default defineConfig({
     // (one React for the wallpaper and the site's code it pulls in)
     dedupe: ["react", "react-dom"],
   },
-  server: { fs: { allow: [slash(path.resolve(here, ".."))] } },
+  server: { fs: { allow: [slash(path.resolve(here, "../.."))] } },
   build: {
     outDir: "dist",
     emptyOutDir: true,

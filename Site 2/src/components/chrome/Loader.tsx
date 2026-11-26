@@ -32,7 +32,8 @@ export default function Loader() {
     let raf = 0;
     let finished = false;
     const timers: number[] = [];
-    setScrollLocked(true);
+    // (no scrolling under it, but the scene keeps drawing: its first frame is what "ready" waits for)
+    setScrollLocked(true, { pauseScene: false });
 
     (document.fonts?.ready ?? Promise.resolve()).then(() => (fonts = true)).catch(() => (fonts = true));
     const im = new Image();

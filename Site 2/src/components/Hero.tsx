@@ -2,7 +2,7 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import { ArrowDown } from "lucide-react";
 import { profile } from "@/data/profile";
 import { sceneState } from "@/lib/store";
-import { gsap, scrollToTarget } from "@/lib/smoothScroll";
+import { gsap, prefersReducedMotion, scrollToTarget } from "@/lib/smoothScroll";
 import ScrambleText from "@/components/fx/ScrambleText";
 import Reveal from "@/components/fx/Reveal";
 import PlayerPortrait from "@/components/fx/PlayerPortrait";
@@ -48,12 +48,14 @@ const Hero = () => {
     };
   }, []);
 
-  // Hero copy drifts up and fades as you leave it. (The scope is the element itself, not the
-  // ref: React nulls the ref before this cleanup runs, and ScrollTrigger re-reads the scope
-  // while tearing down, which made GSAP warn "Invalid scope" every time the page was left.)
+  // Hero copy drifts up and fades as you leave it — not with reduced motion, like the other
+  // scroll-linked effects (a drift tied to scrolling is just what that setting is there to stop).
+  // (The scope is the element itself, not the ref: React nulls the ref before this cleanup runs,
+  // and ScrollTrigger re-reads the scope while tearing down, which made GSAP warn "Invalid
+  // scope" every time the page was left.)
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
       gsap.to(".hero__inner", {
         yPercent: -14,

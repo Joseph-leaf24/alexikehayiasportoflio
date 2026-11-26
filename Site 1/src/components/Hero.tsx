@@ -101,12 +101,14 @@ const Hero = () => {
     };
   }, [coarse]);
 
-  // Hero copy drifts up and fades as you leave it. (The scope is the element itself, not the
-  // ref: React nulls the ref before this cleanup runs, and ScrollTrigger re-reads the scope
-  // while tearing down, which made GSAP warn "Invalid scope" every time the page was left.)
+  // Hero copy drifts up and fades as you leave it — not with reduced motion, like the other
+  // scroll-linked effects (a drift tied to scrolling is just what that setting is there to stop).
+  // (The scope is the element itself, not the ref: React nulls the ref before this cleanup runs,
+  // and ScrollTrigger re-reads the scope while tearing down, which made GSAP warn "Invalid
+  // scope" every time the page was left.)
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
       gsap.to(".hero__inner", {
         yPercent: -14,

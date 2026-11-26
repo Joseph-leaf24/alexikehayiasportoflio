@@ -60,9 +60,17 @@ export default function SceneControls() {
   }, []);
 
   if (!sceneState.canvas || !watching) return null;
+  // (a landmark of its own: it sits outside <main>, fixed over the spectator space. A toggle
+  // either says what it will do (Pause / Resume) or keeps its name and is pressed or not
+  // (Endless, the speeds), never both: "Resume, pressed" would read as resuming being on.)
   return (
-    <div className="scene-controls" role="group" aria-label="Background animation">
-      <button type="button" className="scene-controls__play" onClick={toggle} aria-pressed={paused} aria-label={paused ? "Resume the background" : "Pause the background"}>
+    <div className="scene-controls" role="region" aria-label="Background animation">
+      <button
+        type="button"
+        className={cn("scene-controls__play", paused && "is-on")}
+        onClick={toggle}
+        aria-label={paused ? "Resume the background" : "Pause the background"}
+      >
         {paused ? <Play className="h-3.5 w-3.5" aria-hidden="true" /> : <Pause className="h-3.5 w-3.5" aria-hidden="true" />}
         <span>{paused ? "Resume" : "Pause"}</span>
       </button>
@@ -70,7 +78,7 @@ export default function SceneControls() {
         type="button"
         className="scene-controls__endless"
         aria-pressed={endless}
-        aria-label={endless ? "Endless on: levels run on for ever" : "Endless off: a finale every 20 levels"}
+        aria-label="Endless levels: no finale every 20"
         onClick={() => {
           sceneState.endless = !sceneState.endless;
           setEndless(sceneState.endless);
@@ -80,21 +88,17 @@ export default function SceneControls() {
         <span>Endless</span>
       </button>
       <span className="scene-controls__rule" aria-hidden="true" />
-      <span className="scene-controls__label" aria-hidden="true">
-        Speed
+      {/* (the speeds: each named by what it shows, in a group called Speed) */}
+      <span className="scene-controls__speeds" role="group" aria-label="Speed">
+        <span className="scene-controls__label" aria-hidden="true">
+          Speed
+        </span>
+        {SPEEDS.map((s) => (
+          <button key={s} type="button" className={cn("scene-controls__speed", speed === s && "is-on")} onClick={() => pick(s)} aria-pressed={speed === s}>
+            {s === 0.5 ? "½×" : `${s}×`}
+          </button>
+        ))}
       </span>
-      {SPEEDS.map((s) => (
-        <button
-          key={s}
-          type="button"
-          className={cn("scene-controls__speed", speed === s && "is-on")}
-          onClick={() => pick(s)}
-          aria-pressed={speed === s}
-          aria-label={`Background speed ${s} times`}
-        >
-          {s === 0.5 ? "½×" : `${s}×`}
-        </button>
-      ))}
       <span className="scene-controls__rule" aria-hidden="true" />
       <button type="button" onClick={() => zoomBy(1)} disabled={!zoom.canOut} aria-label="Zoom out: see more of the battlefield">
         <Minus className="h-3.5 w-3.5" aria-hidden="true" />

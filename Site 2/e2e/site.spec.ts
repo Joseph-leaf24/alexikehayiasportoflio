@@ -177,58 +177,63 @@ test("unknown routes show the 404 page with a way home, and it passes axe", asyn
   await expectAccessible(page);
 });
 
-test("the HUD names the level, ?level= picks the first one, and opening a project starts a new one", async ({ page, isMobile }) => {
-  test.skip(isMobile, "the level readout is in the desktop HUD");
-  await open(page, "?level=snow");
-  const telemetry = page.locator(".hud-telemetry");
-  // ScrambleText keeps the real text in an .sr-only span
-  const stage = () => page.locator(".hud-telemetry__val .sr-only").textContent();
-  await expect(telemetry).toContainText("Level 01");
-  await expect.poll(stage).toBe("Frozen peaks");
-  // A page change drops the squad into a new, different level
-  await page.locator("#projects").scrollIntoViewIfNeeded();
-  await page.locator(".project-card__link").first().click();
-  await expect(page).toHaveURL(/#\/project\//);
-  await expect(telemetry).toContainText("Level 02");
-  await expect.poll(stage).not.toBe("Frozen peaks");
-});
+/** A fingerprint of what the battle's canvas shows right now (it changes whenever the picture does). */
+const frame = (page: Page) =>
+  page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>("canvas.pixel-canvas");
+    if (!canvas) return "no canvas";
+    const url = canvas.toDataURL("image/png");
+    let h = 0;
+    for (let i = 0; i < url.length; i += 3) h = (h * 31 + url.charCodeAt(i)) | 0;
+    return `${url.length}:${h}`;
+  });
 
-test("the squad fights through the level behind the page, and a click calls in a blast", async ({ page, isMobile }) => {
-  test.skip(isMobile, "the HUD's player cards and the click blasts are for desktop");
+test("the battle plays behind the page by itself, and a click on the scenery doesn't break it", async ({ page, isMobile }) => {
   await open(page);
-  const readout = (label: string) =>
-    page.evaluate((l) => Number(new RegExp(l + " ([0-9]+)").exec(document.querySelector(".hud-telemetry")?.textContent ?? "")?.[1] ?? NaN), label);
-  await expect(page.locator(".pcard")).toHaveCount(8);
-  // The fight goes on by itself: enemies go down and the players score
-  await expect.poll(() => readout("Kills"), { timeout: 30_000 }).toBeGreaterThan(0);
-  await expect
-    .poll(() => page.evaluate(() => Array.from(document.querySelectorAll(".pcard__score")).reduce((s, el) => s + Number(el.textContent), 0)), { timeout: 30_000 })
-    .toBeGreaterThan(0);
-  // A click on the scenery (right of the name, in the open strip) sets off a blast
-  const before = await readout("Booms");
-  const { width, height } = page.viewportSize()!;
-  await page.mouse.click(width * 0.6, height * 0.62);
-  await expect.poll(() => readout("Booms")).toBeGreaterThan(before);
+  // (the HUD keeps the game's stats out of the way: the picture itself is what moves)
+  const first = await frame(page);
+  expect(first).not.toBe("no canvas");
+  await expect.poll(() => frame(page), { timeout: 10_000 }).not.toBe(first);
+  if (!isMobile) {
+    // A click in the open strip calls in a blast; the fight goes on after it
+    const { width, height } = page.viewportSize()!;
+    await page.mouse.click(width * 0.6, height * 0.62);
+    const after = await frame(page);
+    await expect.poll(() => frame(page), { timeout: 10_000 }).not.toBe(after);
+  }
 });
 
-test("the spectator space at the bottom follows the level in play, and folds away", async ({ page, isMobile }) => {
+test("the spectator space at the bottom brings up the scene controls (pause, speed, zoom), and they go with it", async ({ page }) => {
   await open(page, "?level=temple");
+  const controls = page.getByRole("region", { name: "Background animation" });
+  await expect(controls).toHaveCount(0);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  // (scrolled right down into the open ground: the heading is above, the battle fills the screen)
+  // (scrolled right down into the open ground: nothing over the battle but the controls)
   await expect(page.locator("section#watch")).toBeInViewport();
-  if (isMobile) {
-    // Folded away on a phone, so the battle has the whole screen
-    await page.getByRole("button", { name: "Show level intel" }).click();
-  }
-  const intel = page.getByRole("complementary", { name: "Level intel" });
-  await expect(intel).toBeVisible();
-  await expect(intel).toContainText("Level 01");
-  await expect(intel).toContainText("Lost temple");
-  await expect(intel).toContainText(/to the stronghold/);
-  await expect(intel).toContainText(/Battle time\s*00:00:[0-9]+/);
-  await page.getByRole("button", { name: "Hide intel" }).click();
-  await expect(intel).toHaveCount(0);
+  await expect(controls).toBeVisible();
+  // Pause holds the picture still; Resume sets it going again
+  await controls.getByRole("button", { name: "Pause the background" }).click();
+  await page.waitForTimeout(400);
+  const still = await frame(page);
+  await page.waitForTimeout(1000);
+  expect(await frame(page), "the picture while paused").toBe(still);
+  await controls.getByRole("button", { name: "Resume the background" }).click();
+  await expect.poll(() => frame(page), { timeout: 10_000 }).not.toBe(still);
+  // One speed at a time (each named by what it shows)
+  const speeds = controls.getByRole("group", { name: "Speed" });
+  await speeds.getByRole("button", { name: "4×", exact: true }).click();
+  await expect(speeds.getByRole("button", { name: "4×", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(speeds.getByRole("button", { name: "1×", exact: true })).toHaveAttribute("aria-pressed", "false");
+  // Zooming out shows more of the battlefield, at a smaller percentage
+  const zoom = controls.locator(".scene-controls__zoom");
+  const before = (await zoom.textContent())!;
+  await controls.getByRole("button", { name: /^Zoom out/ }).click();
+  await expect(zoom).not.toHaveText(before);
   await expectNoHorizontalScroll(page);
+  await expectAccessible(page);
+  // Leaving the spectator space puts them away
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(controls).toHaveCount(0);
 });
 
 test("keyboard: ←/→ step through projects and ? opens the shortcuts help", async ({ page, isMobile }) => {

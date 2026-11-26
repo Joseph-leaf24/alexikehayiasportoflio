@@ -181,6 +181,33 @@ describe("Loader", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  it("keeps the scene drawing behind it, and lifts soon after the scene's first frame (not at its timeout)", async () => {
+    useAnimationTimers();
+    // (jsdom never loads images: this portrait loads straight away, as a cached one would)
+    class LoadingImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_: string) {
+        window.setTimeout(() => this.onload?.(), 50);
+      }
+    }
+    vi.stubGlobal("Image", LoadingImage);
+    render(<Loader />);
+    // Scrolling's locked, but the scene isn't paused: "ready" is its first frame, drawn behind the loader
+    expect(document.documentElement).toHaveClass("scroll-locked");
+    expect(sceneState.covered).toBe(false);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    advance(500);
+    sceneState.ready = true;
+    // (the 2 s minimum, the count's last stretch and the 380 ms hand-over: well inside the 7 s timeout)
+    advance(3000);
+    expect(ui.get().ready).toBe(true);
+    expect(document.documentElement).not.toHaveClass("scroll-locked");
+    vi.unstubAllGlobals();
+  });
+
   it("is quick with reduced motion", () => {
     media["(prefers-reduced-motion: reduce)"] = true;
     useAnimationTimers();

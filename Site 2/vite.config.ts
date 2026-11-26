@@ -64,6 +64,8 @@ export default defineConfig(() => ({
       output: {
         // Keep the motion libraries and React in their own cacheable chunks
         manualChunks: {
+          // (the battle engine on its own, as the live site keeps three.js: it was most of one 600 kB chunk)
+          pixel: [path.resolve(__dirname, "./src/components/pixel/PixelScene.tsx")],
           motion: ["gsap", "lenis"],
           react: ["react", "react-dom", "react-router-dom"],
         },

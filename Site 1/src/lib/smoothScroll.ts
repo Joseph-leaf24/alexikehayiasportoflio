@@ -90,14 +90,19 @@ export function scrollToTarget(target: Target, opts: { offset?: number; immediat
   window.scrollTo({ top: top + offset, behavior: immediate || prefersReducedMotion() ? "auto" : "smooth" });
 }
 
-/** Freeze page scrolling (image viewer, phone menu, shortcuts help); the 3D scene pauses behind them. */
-export function setScrollLocked(locked: boolean) {
+/**
+ * Freeze page scrolling (image viewer, phone menu, shortcuts help); the 3D scene pauses behind
+ * them. The intro loader locks scrolling but keeps the scene going (`pauseScene: false`): it's
+ * waiting for the scene's first frame, drawn behind it — paused, the scene would never draw it
+ * and the loader would sit there until its timeout.
+ */
+export function setScrollLocked(locked: boolean, { pauseScene = true }: { pauseScene?: boolean } = {}) {
   if (lenis) {
     if (locked) lenis.stop();
     else lenis.start();
   }
   document.documentElement.classList.toggle("scroll-locked", locked);
-  sceneState.covered = locked;
+  sceneState.covered = locked && pauseScene;
 }
 
 /** Re-measure page height and ScrollTrigger positions after the layout changes. */

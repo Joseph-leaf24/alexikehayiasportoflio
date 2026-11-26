@@ -11,12 +11,26 @@ import ProjectCard from "@/components/ProjectCard";
 import { projectData } from "@/data/projects";
 import { profile, specializations } from "@/data/profile";
 import { sceneState } from "@/lib/store";
+import { gsap } from "@/lib/smoothScroll";
 import { advance, flush, renderRoute, resetState, useAnimationTimers } from "./utils";
 import { io, media } from "./setup";
 
 beforeEach(resetState);
 
 describe("Hero", () => {
+  it("lets its copy drift and fade on scroll, but not with reduced motion", () => {
+    const to = vi.spyOn(gsap, "to");
+    const drifts = () => to.mock.calls.some(([target]) => target === ".hero__inner");
+    const { unmount } = renderRoute(<Hero />);
+    expect(drifts()).toBe(true);
+    unmount();
+    to.mockClear();
+    media["(prefers-reduced-motion: reduce)"] = true;
+    renderRoute(<Hero />);
+    expect(drifts()).toBe(false);
+    to.mockRestore();
+  });
+
   it("shows the name, focus areas and the call to action", () => {
     const projects = document.createElement("section");
     projects.id = "projects";

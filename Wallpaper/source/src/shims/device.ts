@@ -1,4 +1,4 @@
-import { qualityFor, type Quality } from "../../../Site 2/src/lib/device";
+import { qualityFor, type Quality } from "../../../../Site 2/src/lib/device";
 
 /**
  * The wallpaper's budget: lighter than the site's (it runs all day, behind everything else).

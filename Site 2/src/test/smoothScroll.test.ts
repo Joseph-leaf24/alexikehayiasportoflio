@@ -53,6 +53,11 @@ describe("smooth scrolling", () => {
     mod.setScrollLocked(false);
     expect(lenis.start).toHaveBeenCalled();
     expect(sceneState.covered).toBe(false);
+    // The intro loader: no scrolling, but the scene keeps drawing behind it
+    mod.setScrollLocked(true, { pauseScene: false });
+    expect(document.documentElement).toHaveClass("scroll-locked");
+    expect(sceneState.covered).toBe(false);
+    mod.setScrollLocked(false);
     mod.refreshScroll();
 
     stop();
