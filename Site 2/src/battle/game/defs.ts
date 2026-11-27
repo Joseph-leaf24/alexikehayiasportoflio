@@ -14,6 +14,11 @@ export const TAG_FLYING = 4;
 export const TAG_SHIP = 8;
 export const TAG_BOSS = 16;
 export const TAG_STRUCTURE = 32;
+/**
+ * Not a fighter (a barrel, a supply crate): outside the enemy budget and the kill count, never a threat that holds the
+ * squad up; blasts leave it alone, for its feature to react through the `blast` event.
+ */
+export const TAG_PROP = 64;
 
 /** Locomotion tuning, copied into the unit's `motor` columns at spawn (see `physics/locomotion.ts`). */
 export interface MoveSpec {
@@ -106,6 +111,8 @@ export interface UnitDef {
   readonly blastKills?: boolean;
   /** Takes this fixed damage from any hostile blast in reach (the squad's 3), instead of the falloff. */
   readonly blastTaken?: number;
+  /** Takes this damage from a falling chunk instead of being crushed outright (the squad: the old game never was). */
+  readonly crushTaken?: number;
   /** Effect id played where it dies. */
   readonly deathFx?: string;
   /** Seconds the body tumbles before it is removed (default 1.2). */
@@ -273,6 +280,8 @@ export interface EffectDef {
   readonly flags?: number;
   /** Stops on terrain instead of passing through it. */
   readonly collide?: boolean;
+  /** Dies on terrain instead (rain, snow). */
+  readonly pop?: boolean;
   /** Spawn scatter radius, px. */
   readonly jitter?: number;
   /** A flash of light with the burst: RGB colour, radius px, intensity, seconds. */

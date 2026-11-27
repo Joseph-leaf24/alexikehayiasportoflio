@@ -2,12 +2,13 @@
  * Explosions, after the old engine's `explode`: carve the terrain (soft ground breaks at once, rock needs a big or
  * repeated blast), throw debris in the colours of what broke, kill or hurt and fling the units in reach, then the
  * look: fireball and smoke, a shockwave, a flash of light, screen shake and, for big ones, a white flash. Emits
- * `blast`. Light infantry caught in a blast is killed and flung; armour and bosses take damage.
+ * `blast`. Light infantry caught in a blast is killed and flung; armour and bosses take damage; props (barrels,
+ * crates) are left to react through the `blast` event.
  */
 import { indexOf, teamBit, TEAM_ALL } from "@/engine";
 import type { BattleGame } from "../game/BattleGame";
 import { UNIT_DEAD } from "../game/components";
-import { TAG_ARMOURED, TAG_BOSS, type BlastSpec } from "../game/defs";
+import { TAG_ARMOURED, TAG_BOSS, TAG_PROP, type BlastSpec } from "../game/defs";
 import { hostileTo, TEAM_NEUTRAL } from "../game/teams";
 import { emitDebris, emitEffect } from "../render/effects";
 import { kill, hurt } from "./damage";
@@ -67,7 +68,9 @@ export function explode(
       const f = 1 - d / reach;
       const side = cx >= x ? 1 : -1;
       const def = game.unitDef(id);
-      const tough = ((def.tags ?? 0) & (TAG_ARMOURED | TAG_BOSS)) !== 0;
+      const tags = def.tags ?? 0;
+      if (tags & TAG_PROP) continue;
+      const tough = (tags & (TAG_ARMOURED | TAG_BOSS)) !== 0;
       if ((teamBit(teams.id[i]) & mask) !== 0) {
         if (def.blastKills && !tough) {
           kill(game, id, source, side * (80 + 140 * f), -(140 + 160 * f));

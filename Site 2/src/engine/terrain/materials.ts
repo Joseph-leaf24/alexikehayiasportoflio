@@ -107,7 +107,12 @@ export const OLD_KINDS = 92;
 export const ACID = 92;
 /** Loose building debris: what masonry leaves behind and what collapsed buildings shatter into. */
 export const RUBBLE = 93;
-export const MATERIAL_COUNT = 94;
+/**
+ * A load-bearing cell with no block of its own: what holds up a structure drawn on legs, posts or back-wall pillars.
+ * Bodies and shots pass it; blasts break it, and then what it held comes down.
+ */
+export const BEAM = 94;
+export const MATERIAL_COUNT = 95;
 
 /** One material's behaviour. */
 export interface Material {
@@ -263,6 +268,7 @@ const TABLE: [string, number, Spec][] = [
   ["reinforced", 0x7a7e88, { ...build(25, 1200, 0.5), blast: 2 }],
   ["acid", 0x9aff3a, { density: 12, emissive: 140, flow: 16, viscosity: 1 }],
   ["rubble", 0x7e7670, { density: 20, strength: 40 }],
+  ["beam", 0x7a7e88, build(4, 60)],
 ];
 
 /* The old engine's own tables, copied verbatim so ids keep their behaviour. */
@@ -280,6 +286,7 @@ const OLD_LOOSE = [SAND, GRAVEL, SNOW, SCREE, ASH, SALT];
 const NEW: Record<number, { solid: boolean; liquid: boolean; loose: boolean; hp: number }> = {
   [ACID]: { solid: false, liquid: true, loose: false, hp: 255 },
   [RUBBLE]: { solid: true, liquid: false, loose: true, hp: 1 },
+  [BEAM]: { solid: false, liquid: false, loose: false, hp: 4 },
 };
 
 /** Every material, indexed by id. */

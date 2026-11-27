@@ -16,10 +16,10 @@ art, render, physics, level, squad, enemies, world, flow
 |---|---|
 | `game/` | `BattleGame`, options (budgets, `FeatureOptions`), defs, content (registries), components, events, teams, core (AI dispatch, `machine()`, timers), origin, installs |
 | `physics/` | locomotion, spawn, weapons, hitscan, projectiles, explosions, damage, terrain glue |
-| `render/` | `FrameBuilder` and passes; camera, sky, particles, effects, lights, screen, banners, layers, poses |
-| `art/` | `ArtBook` and `painters.ts`, which wraps the old painters read-only |
-| `level/` | the placeholder generator → B1; `themes.ts` (the old themes: `THEMES`, `ROTATION`, `themeDeck`, `variant`, `WEATHER`, `lightOf`), with the data in `themes/` and block ids from `materials` (the engine keeps the old ids) |
-| `squad/` | the squad, AI, arms (rifle, grenade) → B2 |
+| `render/` | `FrameBuilder` and passes; camera, sky, particles, effects, lights, screen, banners, layers, poses; `beams.ts` (beams, lightning legs and muzzle crosses added with `beam`, `zap`, `muzzle`, aged by `fx.beams`, drawn as emissive pixels) |
+| `art/` | `ArtBook` and `painters.ts`, which wraps the old painters read-only, plus `paintStrip` and `paintShape` for things drawn by hand (`registerStripArt`, `registerShapeArt`) |
+| `level/` | `generator.ts`: `LevelSource` runs the old generator (a feature at a time, 16 columns ahead of the copy) and copies cells by true column, making everything stand up to support checks: door leaves in doorways, stone-walled buildings made one structure (found from their doorway), `BEAM` cells under `legs`/`support` props and motorway pillars, corner-only joints filled. Only a ruin's slab pieces between shell holes, which touch nothing, fall when disturbed. `LEVEL` holds it, with `spawns` (what the old generator placed), `ground(tc)` and `biome` (the theme at the camera; the `level.biome` system passes borders and calls `sky.show`, which fades backdrops). The level feature registers every theme's backdrop and uniforms. `props.ts` draws the old `Level.props`: the sprite ones as `asset.<id>` art, the hand-drawn kinds through `drawn.ts` (a draw function per kind in `DRAWN`, with a `Pen`: runs of `strip.<name>` art painted at every length 1–8 px for things of any size, `shape.<name>` art painted once from the old code, poses picked by time, emissive glows, lights capped at a quarter of the budget), then each prop's night glow through `glows.ts` (the old lighting pass: emissive runs and additive emissive shapes faded by tint, plus lights). `ambient.ts` is the `level.ambient` system: flames, smoke and waterfall mist from the props in view (effects `level.flame`, `level.smoke`, `level.mist`). `weather.ts`: each biome's `SkyLook` (`skyLook(theme)`: darkness and sky colours, fixed or the day cycle's, and its tint, given to `sky.show` and faded at a border), the `level.weather` system (the theme's weather particles, `weather.*` effects; the cycle themes' changing sky setting `sky.overcast`, `sky.fog`, `sky.wet`; storm lightning) and the `weather` pass (order 50, the bolts). `sky.night` is the old scale: 0 day, 0.7 at the cycle's midnight. `LevelSource.stands` says whether a leg or post still has its beams. `themes.ts` (the old themes: `THEMES`, `ROTATION`, `themeDeck`, `variant`, `WEATHER`, `lightOf`), with the data in `themes/` and block ids from `materials` (the engine keeps the old ids) |
+| `squad/` | the squad, AI (placeholder until B2's), and the old 17 weapons: `arms.ts` (`ARSENAL` in the old order, `equip`; player n carries weapon n; the hand grenade special), `guns.ts` (the projectile guns), `rays.ts` (laser, tesla chain, prism split, and the held death ray, stepped by `squad.rays`) |
 | `enemies/` | the infantry trooper with a state machine, the spawner and cull → B3 |
 | `world/` | empty → B4 (cut from the lean plan except weather) |
 | `flow/` | `startLevel`, `endLevel`, the clock → B2 |
@@ -103,13 +103,13 @@ art, render, physics, level, squad, enemies, world, flow
 | director | flow.clock, squad.advance |
 | spawn | squad.respawn, enemies.spawn |
 | ai | ai.think |
-| weapons | weapons.fire |
+| weapons | weapons.fire, squad.rays |
 | motion | locomotion.move |
 | physics | spatial |
 | projectiles | projectiles |
 | damage | hazards |
 | death | life, clocks |
-| effects | particles, flashes, screen, fire |
+| effects | particles, flashes, beams, screen, fire, level.ambient, level.weather |
 | terrain | ensure, step, crush, settle, events |
 | camera | camera |
 | late | sky, text, cull, timers, origin |
@@ -127,9 +127,12 @@ art, render, physics, level, squad, enemies, world, flow
   | Order | Pass |
   |---|---|
   | 0 | sky and backdrop |
+  | 50 | lightning bolts (`level/weather.ts`) |
   | 100 | falling chunks |
+  | 150 | the level's props (`level/props.ts`) |
   | 200 | units |
   | 300 | projectiles |
+  | 350 | beams, lightning, muzzle crosses (`render/beams.ts`) |
   | 400 | particles |
   | 500 | lights |
   | 600 | screen effects |
@@ -165,14 +168,14 @@ art, render, physics, level, squad, enemies, world, flow
 ## Left for the next phases (from B0)
 
 - **B1:**
-  - the real generator (use the true column `col + game.origin.cols`), themes (`sky.backdrop`, `registerTroopArt`,
-    `registerBackdropArt`) and props;
-  - buildings need door frames down to the ground;
+  - done (the props, their glows, flames and mist, weather and day/night); not ported: the cycle themes' sun and
+    moon;
+  - enemies still wear the jungle uniform: set `unit.art` from the biome's `look` at spawn (B3);
   - known visual gaps: no depth-shaded sea; trees float when the ground goes; the renderer darkens cells under trees
     and roofs (an engine follow-up: a ground row, `crust` on `TerrainView`).
 - **B2:**
-  - the 17 weapons, the full squad AI (jetpack, crates, barrels), weapon sprites (`unit.art`), the respawn
-    transport jet;
+  - the full squad AI (jetpack, crates, barrels), weapon sprites (`unit.art`), the respawn transport jet (the 17
+    weapons are done);
   - tune lethality (players went down about 40 times in 2 minutes).
 - **B3:** the Regime roster as `UnitDef`s, the view-based cap, allies.
 - **Origin shift:**

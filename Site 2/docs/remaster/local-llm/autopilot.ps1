@@ -103,7 +103,11 @@ Every run works in this order, so bugs never pile up:
    a short "Left:" note you keep current): if your run is cut off, the local model continues them one at a time. Work
    only on the checkpoint's tasks, within PLAN.md's scope. A bug you find but don't fix straight away goes under
    "Known bugs".
-4. Keep scope lean (tokens are limited). When every phase in PLAN.md is done and verified, add the line
+4. Keep scope lean (tokens are limited). Good enough, not perfect: keep to the tasks as written, with no extra
+   detail, no splitting tasks further and no new tasks beyond PLAN.md; port each feature only as far as it shows in
+   the scene (a close match to the old look is fine), and leave polish for later. Features first, tests last: write no new tests until phase T,
+   which is yours alone (about 80% coverage is enough); until then keep the existing checks passing, and mark any
+   "In progress" line for test work (Claude only). When every phase in PLAN.md is done and verified, add the line
    "REMASTER COMPLETE" to CHECKPOINT.md.
 
 This run is unattended: do the work yourself or with foreground subagents, and don't leave background agents running
@@ -129,7 +133,9 @@ Site 2/src/components/pixel/, and don't delete files.
 Study the existing code it builds on first and follow its patterns exactly: no hacks, no TODOs, no duplicated code,
 small files. You are slow, so keep each reply short: to move existing code or data, copy the file with a node command
 and then edit the copy, rather than retyping it; write a new big file in parts of about 150 lines. Then run npm run
-typecheck, npm run lint, npm run format:check and npx vitest run in Site 2/, and fix what fails.
+typecheck, npm run lint, npm run format:check and npx vitest run in Site 2/, and fix what fails in your own code.
+You build features only: never write or change tests (Claude writes them at the end). If an existing test fails
+because of your change and you can't fix it in your own code, add one line about it under "Known bugs".
 
 When done, tick the task in "Next tasks" if it's finished, remove your line, and add a dated line under "Local model
 log" in CHECKPOINT.md: what you changed, the files, and whether every check passed. If you notice a bug outside your
@@ -335,12 +341,12 @@ function Start-Local {
 
 # The local model's task, chosen here so it can't pick the wrong one, and only one at a time: its own cut-off task
 # first, then Claude's unfinished tasks in order (one line each, so one per subagent), then the first unticked (small)
-# task. Anything marked (blocked) is skipped. $null when none is ready.
+# task. Anything marked (blocked) or (Claude only), like test work, is skipped. $null when none is ready.
 function Get-LocalTask {
   $text = Get-Content $checkpoint -Raw
   foreach ($who in "Local model", "Claude") {
     foreach ($m in [regex]::Matches($text, "(?m)^\*\*$($who):\*\* (.+?)\r?$")) {
-      if ($m.Groups[1].Value -notmatch "\(blocked") { return "**$($who):** " + $m.Groups[1].Value }
+      if ($m.Groups[1].Value -notmatch "\(blocked|\(Claude only") { return "**$($who):** " + $m.Groups[1].Value }
     }
   }
   foreach ($m in [regex]::Matches($text, '(?ms)^- \[ \] (\*\(small\)\*.*?)\r?\n(?=- \[|#|\r?\n|\z)')) {

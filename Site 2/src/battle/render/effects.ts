@@ -6,7 +6,7 @@
 import type { CarveResult } from "@/engine";
 import type { BattleGame } from "../game/BattleGame";
 import type { EffectDef } from "../game/defs";
-import { P_COLLIDE, P_FADE, P_RAMP } from "./particles";
+import { P_COLLIDE, P_FADE, P_POP, P_RAMP } from "./particles";
 
 export interface EffectOptions {
   /** Multiplies the def's particle count. */
@@ -47,7 +47,7 @@ export function emitDef(game: BattleGame, d: EffectDef, x: number, y: number, o?
   const sm = o?.speed ?? 1;
   const vx0 = o?.vx ?? 0;
   const vy0 = o?.vy ?? 0;
-  const bits = (d.ramp ? P_RAMP : 0) | (d.fade ? P_FADE : 0) | (d.collide ? P_COLLIDE : 0);
+  const bits = (d.ramp ? P_RAMP : 0) | (d.fade ? P_FADE : 0) | (d.collide ? P_COLLIDE : 0) | (d.pop ? P_POP : 0);
   const s0 = d.size?.[0] ?? 1;
   const s1 = d.size?.[1] ?? s0;
   const jitter = d.jitter ?? 0;

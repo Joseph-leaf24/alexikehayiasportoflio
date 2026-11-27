@@ -6,7 +6,7 @@
  */
 import { TILE } from "@/engine";
 import type { BattleGame } from "../game/BattleGame";
-import { UNIT_DEAD } from "../game/components";
+import { UNIT_COUNTED } from "../game/components";
 import { TEAM_SQUAD } from "../game/teams";
 import { REGIME_BULLET, REGIME_GRENADE, REGIME_RIFLE, TROOPER } from "./infantry";
 
@@ -52,7 +52,7 @@ export function install(game: BattleGame): void {
         let ahead = 0;
         for (let k = 0; k < n; k++) {
           const i = idx[k];
-          if (team.id[i] !== TEAM_SQUAD && !(unit.flags[i] & UNIT_DEAD) && pos.x[i] > cam.left - 60) ahead++;
+          if (unit.flags[i] & UNIT_COUNTED && pos.x[i] > cam.left - 60) ahead++;
         }
         const want = Math.min(
           game.budgets.maxEnemies,

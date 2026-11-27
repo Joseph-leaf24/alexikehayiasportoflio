@@ -304,7 +304,7 @@ const WORKS = [
   "sawmill",
 ];
 /** Metro and railway station names. */
-const STATIONS = [
+export const STATIONS = [
   "CENTRAL",
   "MARKET",
   "HARBOUR",
@@ -1993,7 +1993,9 @@ function feature(L: Level, out: Spawn[]) {
       prop("cargoplane", c + 10 + int(r, 20), true);
       prop("windsock", c0 + w - 20);
       const hangar = SPEC_BY_KEY.get("hangar");
-      if (hangar && g - hangar.fh * hangar.floors[0] > 12) building(L, c0 + w - 18, hangar, out, troop);
+      // The hangar is wider than the 18 columns left: the airfield takes in the rest, or the next feature clears it
+      if (hangar && g - hangar.fh * hangar.floors[0] > 12)
+        w = Math.max(w, w - 18 + building(L, c0 + w - 18, hangar, out, troop));
       spawn(r() < 0.5 ? "flakgun" : "samsite", c0 + (w >> 1));
       spawn("aatank", c0 + w - 24);
       enemies(c0, w, -1, 0.9);

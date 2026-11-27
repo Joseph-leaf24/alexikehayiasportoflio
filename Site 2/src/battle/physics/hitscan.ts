@@ -25,15 +25,16 @@ export interface HitscanOptions {
 export interface HitscanResult {
   x: number;
   y: number;
-  /** Bodies hit. */
+  /** Bodies hit, and the nearest of them (0 when none): where a prism beam splits. */
   hits: number;
+  first: number;
   /** It stopped at a wall (rather than at its range or at its last body). */
   wall: boolean;
 }
 
 const ray: RayHit = createRayHit();
 const bodies: number[] = [];
-const result: HitscanResult = { x: 0, y: 0, hits: 0, wall: false };
+const result: HitscanResult = { x: 0, y: 0, hits: 0, first: 0, wall: false };
 
 export function hitscan(
   game: BattleGame,
@@ -53,6 +54,7 @@ export function hitscan(
   result.x = x1;
   result.y = y1;
   result.hits = 0;
+  result.first = 0;
   result.wall = false;
   if (!(len > 0)) return result;
   let tEnd = 1;
@@ -68,7 +70,7 @@ export function hitscan(
     const i = indexOf(id);
     if (id === owner || unit.$.sparse[i] < 0 || unit.flags[i] & UNIT_DEAD) continue;
     hurt(game, id, o.damage, owner);
-    result.hits++;
+    if (result.hits++ === 0) result.first = id;
     if (--left === 0) {
       // Stopped by the last body it could take
       const t = w.spatial.hitT[k] * tEnd;
@@ -81,7 +83,8 @@ export function hitscan(
   if (result.wall) {
     result.x = ray.x;
     result.y = ray.y;
-    if (o.chip) game.terrain.damage(ray.col, ray.row, o.chip);
+    if (o.chip && game.terrain.damage(ray.col, ray.row, o.chip))
+      game.effect("death.trooper", ray.col * 8 + 4, ray.row * 8 + 4, { count: 0.5 });
   }
   return result;
 }

@@ -333,7 +333,14 @@ export class Structure {
         const ni = (nc & MASK) * ROWS + nr;
         if (mark[ni] === cur) continue;
         const nm = fg[ni];
-        if (nm === 0 || !SOLID[nm] || flags[ni] & (F_STRUCTURAL | F_LOOSE | F_MOVING)) continue;
+        if (nm === 0 || !SOLID[nm]) continue;
+        const nfl = flags[ni];
+        // Resting on a settled loose pile, which stands on something (as runVerify counts it)
+        if (n === 0 && (nfl & (F_LOOSE | F_MOVING)) === F_LOOSE) {
+          this.anchored = true;
+          break search;
+        }
+        if (nfl & (F_STRUCTURAL | F_LOOSE | F_MOVING)) continue;
         if (proof[ni] > lastCut) {
           this.anchored = true;
           break search;

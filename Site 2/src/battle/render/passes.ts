@@ -21,6 +21,7 @@ import type { RenderPass } from "./extract";
 import { LAYER, TEXT_LAYER } from "./layers";
 import { drawBurning } from "./lights";
 import { humanoidPose } from "./poses";
+import type { BackdropLayer } from "./sky";
 
 const hash01 = (a: number, b: number) => {
   let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263);
@@ -30,7 +31,7 @@ const hash01 = (a: number, b: number) => {
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 
 /** Art ids resolved once per game (the art book is per game; ids are fixed after boot). */
-function artLookup(game: BattleGame) {
+export function artLookup(game: BattleGame) {
   const cache = new Map<string, number>();
   return (id: string) => {
     let k = cache.get(id);
@@ -51,37 +52,45 @@ export function skyPass(game: BattleGame): RenderPass {
       const night = sky.night;
       sky.colors(f.sky);
       f.ambient = sky.ambient;
+      // The old scene's fog and rain overlays, as a paler, flatter, or darker grade; the biome's colour cast on top
       const grade = f.effects.grade;
-      grade.saturation = 1.1 - night * 0.25;
-      grade.contrast = 1.05;
-      grade.tint = mixRgb(0xfff4e8, 0xd8e4ff, night);
+      grade.saturation = (1.1 - night * 0.25) * (1 - 0.3 * sky.fog);
+      grade.contrast = 1.05 * (1 - 0.35 * sky.fog);
+      grade.exposure = (1 + 0.2 * sky.fog) * (1 - 0.16 * sky.wet);
+      grade.tint = sky.tinted(mixRgb(0xfff4e8, 0xd8e4ff, night));
       // The backdrop stands on the horizon as the old scene placed it (`parallaxBase`), for this view height
       const H = v.h / v.zoom;
       const hz = sky.horizon;
       const B = sky.horizonY;
+      const rgb = night > 0.5 ? 0xc0c8e8 : 0xffffff;
       let used = 0;
-      for (const b of sky.backdrop) {
-        const k = art(b.art);
-        const frame = k > 0 ? g.art.frame(k, 0, 1) : -1;
-        if (frame < 0) continue;
-        const l = (layers[used] ??= { frame: 0, factor: 0, y: 0, tint: 0xffffffff, repeatX: true });
+      const push = (b: BackdropLayer | undefined, alpha: number) => {
+        const k = b && alpha > 0 ? art(b.art) : 0;
+        const frame = b && k > 0 ? g.art.frame(k, 0, 1) : -1;
+        if (!b || frame < 0) return;
+        const l = (layers[used++] ??= { frame: 0, factor: 0, y: 0, tint: 0xffffffff, repeatX: true });
         l.frame = frame;
         l.factor = b.factor;
-        l.y = H * hz - H / 2 + (H / 2 + B - H * hz) * b.factor + b.lift;
-        l.tint = night > 0.5 ? 0xc0c8e8ff : 0xffffffff;
-        used++;
+        l.y = b.top ? f.camera.y * b.factor - H / 2 : H * hz - H / 2 + (H / 2 + B - H * hz) * b.factor + b.lift;
+        l.tint = (rgb * 256 + Math.round(alpha * 255)) >>> 0;
+      };
+      // At a biome border, each depth's old layer fades out under the new one
+      const fade = sky.fade;
+      for (let i = 0; i < Math.max(sky.backdrop.length, sky.previous.length); i++) {
+        if (fade < 1) push(sky.previous[i], 1 - fade);
+        push(sky.backdrop[i], fade);
       }
       layers.length = used;
       f.parallax = layers;
       // Clouds: drifting sprites behind the terrain, faded out at night
-      const cloud = art("sky.cloud");
+      const cloud = sky.clouds ? art("sky.cloud") : 0;
       const poses = cloud > 0 ? g.art.poses(cloud) : 0;
-      const fade = 1 - Math.min(1, night * 2);
-      if (poses === 0 || fade < 0.05) return;
+      const day = 1 - Math.min(1, night * 2);
+      if (poses === 0 || day < 0.05) return;
       const W = v.w / v.zoom;
       const span = Math.max(W + 160, 1000);
       const base = H * hz - (v.top - (B - H * hz)) * 0.03;
-      const tint = (0xffffff00 | Math.round(fade * 255)) >>> 0;
+      const tint = (0xffffff00 | Math.round(day * 255)) >>> 0;
       for (let c = 0; c < g.budgets.clouds; c++) {
         const sx = mod(hash01(c, 1) * 1600 + v.time * (sky.cloudSpeed + hash01(c, 3) * 5) - v.left * 0.05, span) - 80;
         const sy = base - 60 - (40 + hash01(c, 2) * 110);

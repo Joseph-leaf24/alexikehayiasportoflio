@@ -36,6 +36,10 @@ Update `CHECKPOINT.md` after every phase.
 2. review the local model's unreviewed entries in its "Local model log", fix what's wrong, and mark them reviewed;
 3. only then continue with the next task.
 
+**Features first, tests last:** no new tests until phase T, which Claude writes alone at the end (about 80% coverage
+is enough). The local model only builds features. **Good enough, not perfect:** keep to the tasks as written, with no
+extra detail and no new or further-split tasks; port each feature only as far as it shows in the scene.
+
 **An autopilot may be doing the work unattended**: `Site 2/docs/remaster/local-llm/autopilot.ps1`. It hands over
 between Claude and a local LM Studio model (see `LOCAL-MODEL.md` there).
 

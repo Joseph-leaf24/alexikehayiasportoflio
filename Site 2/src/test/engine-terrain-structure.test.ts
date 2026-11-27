@@ -40,6 +40,20 @@ describe("cut-off ground", () => {
     expect(count(t, (m, f) => m === STONE && (f & F_LOOSE) !== 0)).toBe(0);
   });
 
+  it("ground resting on a settled loose layer stays put", () => {
+    const t = flatWorld();
+    // Topsoil on sand between two concrete foundations, touching no other ground; then a cell of it is shot away
+    fill(t, 59, GROUND - 4, 1, 4, CONCRETE);
+    fill(t, 70, GROUND - 4, 1, 4, CONCRETE);
+    fill(t, 60, GROUND - 3, 10, 3, SAND);
+    fill(t, 60, GROUND - 4, 10, 1, DIRT);
+    settle(t);
+    t.damage(65, GROUND - 4, 255);
+    const { seen } = collapse(t);
+    expect(seen.get(EV_DETACH) ?? 0).toBe(0);
+    expect(count(t, (m, f) => m === DIRT && (f & F_LOOSE) !== 0)).toBe(0);
+  });
+
   it("a big overhang stays up", () => {
     const t = flatWorld();
     fill(t, 60, GROUND - 30, 10, 30, STONE);

@@ -2,10 +2,12 @@
  * The render feature: the camera, day–night clock, particles, lights, screen effects, banners and popups (all
  * simulated in ticks), the shared effect library, and the draw passes that turn a tick into a `RenderFrame`.
  *
- * Systems: camera.follow (camera); fx.particles, fx.flashes, fx.screen, fx.fire (effects); sky.clock, fx.text (late).
- * Passes: sky 0, chunks 100, units 200, projectiles 300, particles 400, lights 500, screen 600, text 700.
+ * Systems: camera.follow (camera); fx.particles, fx.flashes, fx.beams, fx.screen, fx.fire (effects); sky.clock,
+ * fx.text (late).
+ * Passes: sky 0, chunks 100, units 200, projectiles 300, beams 350, particles 400, lights 500, screen 600, text 700.
  */
 import type { BattleGame } from "../game/BattleGame";
+import { Beams, BEAMS, beamsPass } from "./beams";
 import { cameraSystem } from "./camera";
 import { registerEffects } from "./library";
 import {
@@ -23,10 +25,12 @@ import { emitEffect } from "./effects";
 export { Camera, type CameraTarget } from "./camera";
 export { FrameBuilder, type RenderPass, type View } from "./extract";
 export { LAYER, TEXT_LAYER } from "./layers";
+export { artLookup } from "./passes";
+export { beam, BEAMS, Beams, muzzle, PLAYER_RGB, zap } from "./beams";
 export { humanoidPose, stillPose, twoFramePose, POSE_IDLE, POSE_JUMP, POSE_RUN } from "./poses";
 export { emitDebris, emitDef, emitEffect, type EffectOptions } from "./effects";
-export { P_COLLIDE, P_FADE, P_RAMP, Particles } from "./particles";
-export type { BackdropLayer } from "./sky";
+export { P_COLLIDE, P_FADE, P_POP, P_RAMP, Particles } from "./particles";
+export type { BackdropLayer, SkyLook } from "./sky";
 
 const burning: number[] = [];
 
@@ -36,6 +40,9 @@ export function install(game: BattleGame): void {
   world.addSystem(cameraSystem(game));
   world.addSystem({ name: "fx.particles", phase: "effects", run: (_w, dt) => game.particles.step(dt, game.terrain) });
   world.addSystem({ name: "fx.flashes", phase: "effects", run: (_w, dt) => game.flashes.step(dt) });
+  const beams = world.setRes(BEAMS, new Beams());
+  world.addSystem({ name: "fx.beams", phase: "effects", run: (_w, dt) => beams.step(dt) });
+  world.events.on("originShift", (e) => beams.shiftX(e.dx));
   world.addSystem({ name: "fx.screen", phase: "effects", run: (_w, dt) => game.screen.step(dt) });
   world.addSystem({
     // Flames licking up from burning cells in view, a few a tick
@@ -68,6 +75,7 @@ export function install(game: BattleGame): void {
   f.add(chunksPass());
   f.add(unitsPass(game));
   f.add(projectilesPass(game));
+  f.add(beamsPass());
   f.add(particlesPass());
   f.add(lightsPass());
   f.add(screenPass());

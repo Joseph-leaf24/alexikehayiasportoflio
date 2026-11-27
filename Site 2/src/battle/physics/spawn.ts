@@ -5,6 +5,7 @@
 import { BODY_COLLIDES_TERRAIN, BODY_SOLID_TO_SHOTS, indexOf, place } from "@/engine";
 import type { BattleGame } from "../game/BattleGame";
 import { MODE_CHUTE, UNIT_COUNTED } from "../game/components";
+import { TAG_PROP } from "../game/defs";
 import { TEAM_SQUAD } from "../game/teams";
 import { DEFAULT_MOVE, initMotor } from "./locomotion";
 
@@ -35,7 +36,7 @@ export function spawnUnit(game: BattleGame, def: string | number, x: number, y: 
   const k = unitIndex(game, def);
   const d = game.content.units.get(k);
   const team = o?.team ?? d.team;
-  const counted = team !== TEAM_SQUAD;
+  const counted = team !== TEAM_SQUAD && !((d.tags ?? 0) & TAG_PROP);
   if (counted && !o?.force && game.stats.enemies >= game.budgets.maxEnemies) return 0;
   const w = game.world;
   const { vel, body, health, kind } = game.core;

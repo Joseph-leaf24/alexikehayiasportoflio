@@ -7,7 +7,7 @@ import { BODY_SOLID_TO_SHOTS, BODY_UNINDEXED, indexOf, LEVEL_H, place, resource,
 import { PLAYER_COLORS } from "@/data/squad";
 import type { BattleGame } from "../game/BattleGame";
 import { MODE_CHUTE, MODE_WALK, UNIT_DEAD, UNIT_HIDDEN } from "../game/components";
-import { TAG_FLYING } from "../game/defs";
+import { TAG_FLYING, TAG_PROP } from "../game/defs";
 import { hostileTo, TEAM_SQUAD } from "../game/teams";
 
 export const SQUAD_SIZE = 8;
@@ -33,6 +33,9 @@ export class Squad {
   /** Player ids waiting to drop back in, and seconds until the next drop. */
   readonly queue: number[] = [];
   dropT = 0;
+  /** Supply crates waiting to be picked up: entity → a weapon number, or -1 for a jetpack; and seconds to the next. */
+  readonly crates = new Map<number, number>();
+  crateT = 5;
   /** Player colours as RGBA, for popups and tags. */
   readonly colors = PLAYER_COLORS.map((c) => ((parseInt(c.slice(1), 16) << 8) | 0xff) >>> 0);
 }
@@ -64,16 +67,24 @@ export function release(game: BattleGame, id: number, x: number, y: number): voi
   weapon.cd[i] = 0.5;
   player.inv[i] = 1.5;
   player.queued[i] = 0;
+  player.jet[i] = 0;
   game.world.events.emit("playerRespawned", { id, player: player.id[i], x, y });
 }
 
-/** Take a player out until the next drop: hidden, off to the left of the view, queued. */
+/**
+ * Take a player out until the next drop: hidden, off to the left of the view, queued. One still up (stuck, or left
+ * behind) is benched, not killed: no "DOWN", as in the old game.
+ */
 export function queueDrop(game: BattleGame, id: number): void {
   const sq = game.world.res(SQUAD);
   const i = indexOf(id);
-  const { unit, player, motor } = game.c;
-  if (!(unit.flags[i] & UNIT_DEAD)) game.kill(id, 0, 0, 0);
-  unit.flags[i] |= UNIT_HIDDEN;
+  const { unit, player, motor, intent } = game.c;
+  const body = game.core.body;
+  // Out of every query for targets and hits until it is released
+  body.flags[i] = (body.flags[i] | BODY_UNINDEXED) & ~BODY_SOLID_TO_SHOTS;
+  intent.fire[i] = intent.move[i] = intent.target[i] = 0;
+  player.jet[i] = 0;
+  unit.flags[i] |= UNIT_DEAD | UNIT_HIDDEN;
   player.queued[i] = 1;
   motor.mode[i] = MODE_WALK;
   place(game.world, id, game.camera.left - 200, game.camera.top);
@@ -115,7 +126,7 @@ export function advanceSystem(game: BattleGame): System {
       );
       let threat = false;
       for (let k = 0; k < m && !threat; k++)
-        threat = game.fighting(near[k]) && ((game.unitDef(near[k]).tags ?? 0) & TAG_FLYING) === 0;
+        threat = game.fighting(near[k]) && ((game.unitDef(near[k]).tags ?? 0) & (TAG_FLYING | TAG_PROP)) === 0;
       sq.holdT = threat ? sq.holdT + dt : 0;
       if (!threat || sq.holdT > 4) sq.advance += sq.speed * dt;
       const mean = n > 0 ? sum / n : sq.advance;

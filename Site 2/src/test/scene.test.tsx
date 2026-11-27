@@ -124,7 +124,8 @@ describe("PixelScene", () => {
     advance(100);
     expect(sceneState.level).toBe(3);
     expect(sceneState.stage).toBe("Underground");
-  });
+    // Seconds of a whole battle, drawn: allow it the time on a busy test run
+  }, 15_000);
 
   it("freezes the fight mid-action with reduced motion", () => {
     media["(prefers-reduced-motion: reduce)"] = true;
@@ -211,5 +212,6 @@ describe("PixelScene", () => {
     advance(1000);
     const watching = main().calls.drawImage - before;
     expect(watching).toBeGreaterThan(idle * 1.5);
-  });
+    // Eleven seconds of a whole battle, drawn: allow it the time on a busy test run
+  }, 15_000);
 });

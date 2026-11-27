@@ -114,6 +114,10 @@ export function defineGameComponents(world: World) {
       /** Seconds until a downed player is queued for a drop. */
       downT: "f32",
       queued: "u8",
+      /** Seconds of jetpack flight left. */
+      jet: "f32",
+      /** Seconds left with a supply crate's weapon, before its own comes back. */
+      crateT: "f32",
     }),
     /** Generic AI scratch for the shared behaviours; bespoke AIs keep their state in their own object component. */
     ai: world.defineComponent("ai", {

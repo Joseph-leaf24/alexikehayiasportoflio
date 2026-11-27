@@ -13,6 +13,8 @@ export const P_RAMP = 1;
 export const P_FADE = 2;
 /** Stops dead on terrain. */
 export const P_COLLIDE = 4;
+/** Dies on terrain (rain, snow). */
+export const P_POP = 8;
 
 const lerpRgba = (a: number, b: number, t: number) => {
   const k = t < 0 ? 0 : t > 1 ? 1 : t;
@@ -126,7 +128,11 @@ export class Particles {
       }
       const nx = x[k] + ux * dt,
         ny = y[k] + uy * dt;
-      if (bits[k] & P_COLLIDE && terrain !== null && (ux !== 0 || uy !== 0) && terrain.solidAt(nx, ny)) {
+      if (bits[k] & (P_COLLIDE | P_POP) && terrain !== null && (ux !== 0 || uy !== 0) && terrain.solidAt(nx, ny)) {
+        if (bits[k] & P_POP) {
+          this.remove(k);
+          continue;
+        }
         // Settle where it struck: debris comes to rest on the ground instead of sinking into it
         ux = uy = 0;
       } else {

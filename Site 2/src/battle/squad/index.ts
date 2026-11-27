@@ -1,8 +1,10 @@
 /**
- * The squad feature (placeholder AI and arms until B2): P1–P8 in their own colours and loadout sprites, the
- * formation's advance, respawns by parachute, grenades, and the camera's framing.
+ * The squad feature: P1–P8 in their own colours and loadout sprites, each with the old weapon of its number, the
+ * formation's advance, respawns by parachute, grenades and the jetpack, supply crates (`supply.ts`), the level's
+ * barrels and mines (`barrels.ts`), and the camera's framing.
  *
- * Systems: squad.advance (director), squad.respawn (spawn); players think every tick through `ai.think`.
+ * Systems: squad.advance (director), squad.respawn and squad.supply (spawn), squad.rays (weapons), squad.barrels
+ * (death); players think every tick through `ai.think`.
  */
 import { indexOf, place, TILE } from "@/engine";
 import type { BattleGame } from "../game/BattleGame";
@@ -10,7 +12,9 @@ import type { UnitDef } from "../game/defs";
 import { TEAM_SQUAD } from "../game/teams";
 import { playerArt } from "../art";
 import { playerThink } from "./ai";
-import { registerArms } from "./arms";
+import { equip, installArms } from "./arms";
+import { installBarrels } from "./barrels";
+import { drawJetpack, installSupply } from "./supply";
 import {
   advanceSystem,
   OFFSETS,
@@ -25,6 +29,7 @@ import {
 } from "./squad";
 
 export { findTarget, throwGrenade } from "./ai";
+export { ARSENAL, equip } from "./arms";
 export { OFFSETS, PLAYER_HP, queueDrop, release, SQUAD, Squad, SQUAD_SIZE, START_X } from "./squad";
 
 /** One def for all eight: each player's sprite is its own (`unit.art`), by player id and weapon. */
@@ -37,14 +42,17 @@ export const PLAYER: UnitDef = {
   art: playerArt(0, 0),
   weapon: "squad.rifle",
   ai: { think: playerThink, every: 1 },
-  blastTaken: 3,
+  draw: drawJetpack,
+  // The old game's 3 a blast downed the squad too often with grenades about (B2's lethality tuning)
+  blastTaken: 2,
+  crushTaken: 2,
   corpse: 0,
 };
 
 /** Bring the eight in over the landing zone, under parachutes, staggered so they land one after another. */
 function dropIn(game: BattleGame): void {
   const sq = game.world.res(SQUAD);
-  const { player, unit } = game.c;
+  const { player } = game.c;
   sq.advance = START_X;
   sq.holdT = 0;
   sq.queue.length = 0;
@@ -59,7 +67,8 @@ function dropIn(game: BattleGame): void {
       const i = indexOf(id);
       game.world.add(id, player);
       player.id[i] = p;
-      unit.art[i] = game.art.index(playerArt(p, p));
+      // Player n starts with weapon n, as in the old game
+      equip(game, id, p);
     } else place(game.world, id, x, y);
   }
   // Frame the landing zone straight away, then snap to the squad's framing on the first tick
@@ -69,10 +78,12 @@ function dropIn(game: BattleGame): void {
 
 export function install(game: BattleGame): void {
   game.world.setRes(SQUAD, new Squad());
-  registerArms(game.content);
+  installArms(game);
   game.content.units.register("squad.player", PLAYER);
   game.world.addSystem(advanceSystem(game));
   game.world.addSystem(respawnSystem(game));
+  installSupply(game);
+  installBarrels(game);
   game.camera.follow = squadCamera;
   game.world.events.on("levelStart", () => dropIn(game));
   game.world.events.on("originShift", (e) => {

@@ -111,6 +111,9 @@ export function projectileSystem(game: BattleGame): System {
             if (ray.ny !== 0) vy = -vy * def.bounce * 0.9;
             vx *= 0.85;
             p.bounces[i]++;
+            // A ricochet throws its impact puff too (saw blades spark)
+            const bfx = links.projectileImpact[p.def[i]];
+            if (bfx) emitDef(game, game.content.effects.get(bfx), hx, hy, { vx: vx * 0.05 });
             pos.x[i] = hx;
             pos.y[i] = hy;
             vel.vx[i] = vx;

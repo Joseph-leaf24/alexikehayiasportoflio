@@ -334,9 +334,11 @@ export class Canvas2DRenderer implements Renderer {
         const bg = t.bg[i];
         if (!fg && !bg) continue;
         const v = t.variant[i] % V;
-        const m = fg || bg;
+        // A material with no tile (a beam) shows the back wall, as the GL terrain does
+        const m = fg && t.tiles[fg * V] >= 0 ? fg : bg;
+        if (!m) continue;
         x.drawImage(sheet, v * T, m * T, T, T, dc * T, dr * T, T, T);
-        if (!fg) {
+        if (m !== fg) {
           x.fillStyle = "rgba(10,8,22,0.62)";
           x.fillRect(dc * T, dr * T, T, T);
         } else if (row0 + dr > 0 && t.fg[i - 1] === 0) {

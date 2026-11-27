@@ -41,7 +41,7 @@ They never talk directly. They both work from the same files, and follow the sam
   then Claude's unfinished tasks one by one (it relabels a line `**Local model:**` when it takes it over), then new
   *(small)* tasks. Nobody touches the files on another line. Claude finishes and reviews any kind.
 - **The local model takes only tasks marked *(small)*, and does exactly what the task says:** no extra features, no
-  refactoring, no files it didn't list. It follows the existing patterns, with no hacks or TODOs. When unsure, it
+  refactoring, no files it didn't list, and no tests (Claude writes those at the end, in phase T). It follows the existing patterns, with no hacks or TODOs. When unsure, it
   writes a question for Claude in the log and marks the task *(blocked)*, so it never loops on it; Claude resolves
   blocked tasks.
 - **Claude reviews every local entry before new work**, and marks it `(reviewed)`. Avoiding technical debt comes

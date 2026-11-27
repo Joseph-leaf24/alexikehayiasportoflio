@@ -52,7 +52,7 @@ export function terrainSystems(game: BattleGame): System[] {
               if (b < 0) continue;
               const face = ch.y + (b + 1) * TILE;
               if (face > top && ch.y < pos.y[i]) {
-                hurt(game, id, CRUSH_DAMAGE);
+                hurt(game, id, game.unitDef(id).crushTaken ?? CRUSH_DAMAGE);
                 break;
               }
             }

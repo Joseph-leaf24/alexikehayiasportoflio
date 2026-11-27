@@ -7,6 +7,7 @@
 import { BODY_INVULNERABLE, BODY_SOLID_TO_SHOTS, BODY_UNINDEXED, indexOf, type System } from "@/engine";
 import type { BattleGame } from "../game/BattleGame";
 import { IN_ACID, IN_LAVA, MODE_TUMBLE, UNIT_COUNTED, UNIT_DEAD } from "../game/components";
+import { TAG_PROP } from "../game/defs";
 import { TEAM_SQUAD } from "../game/teams";
 
 /** Damage at or above this ignores spawn protection (lava, crushing, a nuke). */
@@ -80,7 +81,7 @@ export function kill(game: BattleGame, id: number, source = 0, vx = 0, vy = -120
   const victimTeam = team.id[i];
   const killer = playerOf(game, source);
   const score = def.score ?? 0;
-  if (victimTeam !== TEAM_SQUAD) {
+  if (victimTeam !== TEAM_SQUAD && !((def.tags ?? 0) & TAG_PROP)) {
     game.stats.kills++;
     if (killer >= 0) {
       const ki = indexOf(source);

@@ -8,6 +8,7 @@ import { indexOf, place, type System } from "@/engine";
 import type { BattleGame } from "../game/BattleGame";
 import { UNIT_DEAD, UNIT_HELD } from "../game/components";
 import type { WeaponDef } from "../game/defs";
+import { muzzle, PLAYER_RGB } from "../render/beams";
 import { playerOf } from "./damage";
 import { GRAVITY } from "./locomotion";
 
@@ -92,7 +93,12 @@ export function fireWeapon(game: BattleGame, shooter: number, aimX: number, aimY
   const gy = pos.y[i] + (def.muzzleY ?? -Math.min(9, body.h[i] * 0.6));
   if (def.fire) def.fire(game, shooter, gx, gy, aimX, aimY);
   else launch(game, shooter, def, wk, gx, gy, aimX, aimY);
-  if (def.flash) game.flash(gx + facing * 2, gy, def.flash.radius, def.flash.color, 1.4, 0.08);
+  if (def.flash) {
+    game.flash(gx + facing * 2, gy, def.flash.radius, def.flash.color, 1.4, 0.08);
+    // The old scene's muzzle cross, in the player's colour for the squad
+    const pid = playerOf(game, shooter);
+    muzzle(game, gx + facing * 2, gy, pid >= 0 ? PLAYER_RGB[pid] : def.flash.color);
+  }
   const fx = game.links.weaponMuzzleFx[wk];
   if (fx) game.effect(fx, gx, gy, { vx: -facing * 20 });
   const ev = game.world.events.claim("weaponFired");

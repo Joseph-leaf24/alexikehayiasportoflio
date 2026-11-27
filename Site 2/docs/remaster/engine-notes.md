@@ -60,8 +60,9 @@ documented. Use `engine-spec.md` for the original contract. Measured on the owne
 ## Terrain (`engine/terrain`)
 
 - **Layout.** `TILE` 8, `ROWS` 240, `RING` 512 (column-major), `CHUNK` 16 (`CHUNKS` 480), `VARIANTS` 4.
-  Materials 0–91 are the old engine's ids exactly; ACID is 92, RUBBLE 93. `materials.*` is a namespace on the
-  engine root.
+  Materials 0–91 are the old engine's ids exactly; ACID is 92, RUBBLE 93, BEAM 94 (a load-bearing cell that isn't
+  solid and has no tile, so the back wall or sky shows through: what holds up things drawn on legs or pillars).
+  `materials.*` is a namespace on the engine root.
 - **Construction.** `new Terrain({ seed, generate: (t, colFrom, colTo) => …, overshoot = 128, physics, structure })`.
   It implements `TerrainView`.
 - **Access and simulation:**
@@ -81,6 +82,8 @@ documented. Use `engine-spec.md` for the original contract. Measured on the owne
     and `prevY`). The game must draw them, and crush units with their bounds.
   - **Buildings need ground contact.** The old generator cut doorways through the bottom rows of both
     ground-floor walls, so the upper floors would topple at once. Keep door frames and pillars down to the ground.
+    The battle's `level/generator.ts` does this (door leaves, beams, stone frames).
+  - Ground resting on a settled loose pile (sand, gravel) counts as anchored, as a structure resting on one does.
 - **Liquids flow now.** Water, lava and acid move (old water was static), so "hanging" water from old generators
   will run once something wakes it.
 - **Tiles.** Fill `terrain.tiles` (frame index = material × 4 + variant) from atlas frames.
