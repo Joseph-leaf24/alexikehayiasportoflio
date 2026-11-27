@@ -9,16 +9,19 @@
  * view leaves the floors above on nothing, so each doorway gets a wooden door leaf in its masonry frame. The squad
  * climbs over or blasts through; blasting a door away takes that side's support, and the building comes down.
  */
-import { cell, createLevel, extend, MASK, type Level, type LevelOptions, type Spawn } from "@/components/pixel/level";
-import { materials, ROWS, SOLID, STRUCTURAL, TILE, type Terrain, type TerrainGenerator } from "@/engine";
+import { cell, createLevel, extend, groundOf, type Level, type LevelOptions, type Spawn } from "@/components/pixel/level";
+import { materials as M, ROWS, TILE, type Terrain, type TerrainGenerator } from "@/engine";
 import type { Theme } from "./themes";
-
-const M = materials;
 
 /** The old doorways are 3 rows tall. */
 const DOOR_ROWS = 3;
 /** A door leaf breaks sooner than the wall around it. */
 const DOOR_HP = 6;
+/**
+ * Columns generated past the one being copied: a feature reaches a few columns back (a palm's fronds, a pine's
+ * boughs), so a column is only final once the next ones exist. The old game kept 40 columns built past the screen.
+ */
+const LOOKAHEAD = 16;
 
 export class LevelSource {
   readonly old: Level;
@@ -33,18 +36,26 @@ export class LevelSource {
     this.old = createLevel(theme, seed, opts);
   }
 
-  /** Walkable ground row of a generated true column (a cavern's floor), as the old `groundOf`. */
+  /** Walkable ground row of a true column (a cavern's floor); the base row outside the old ring. */
   ground(tc: number): number {
-    return this.old.ground[tc & MASK];
+    return groundOf(this.old, tc);
   }
 
   /** Fill stored columns [from, to); `off` is the true column of stored column 0. */
   fill(t: Terrain, from: number, to: number, off: number): void {
     const L = this.old;
-    // One column more than asked, so a doorway's outside neighbour exists
-    for (const s of extend(L, to + off + 1)) this.spawns.push(s);
-    while (this.spawns.length && this.spawns[0].x < L.start * TILE) this.spawns.shift();
-    for (let c = from; c < to; c++) this.column(t, c, c + off);
+    for (let c = from; c < to; c++) {
+      // A feature at a time, only when needed: the old ring holds 512 columns, so generating a whole long stretch
+      // first would overwrite its start before it was copied
+      const until = c + off + LOOKAHEAD + 1;
+      if (until > L.next) for (const s of extend(L, until)) this.spawns.push(s);
+      this.column(t, c, c + off);
+    }
+    // Drop what has left the old ring (a feature lists its troops in no particular order)
+    const left = L.start * TILE;
+    let n = 0;
+    for (const s of this.spawns) if (s.x >= left) this.spawns[n++] = s;
+    this.spawns.length = n;
   }
 
   private column(t: Terrain, col: number, tc: number): void {
@@ -65,12 +76,12 @@ export class LevelSource {
    */
   private doors(t: Terrain, col: number): void {
     for (let r = DOOR_ROWS; r < ROWS - 1; r++) {
-      if (t.get(col, r) !== M.AIR || !STRUCTURAL[t.get(col, r - 1)]) continue;
+      if (t.get(col, r) !== M.AIR || !M.STRUCTURAL[t.get(col, r - 1)]) continue;
       let gap = 1;
       while (gap <= DOOR_ROWS && t.get(col, r + gap) === M.AIR) gap++;
-      if (gap > DOOR_ROWS || !SOLID[t.get(col, r + gap)]) continue;
+      if (gap > DOOR_ROWS || !M.SOLID[t.get(col, r + gap)]) continue;
       let wall = 1;
-      while (wall < DOOR_ROWS && STRUCTURAL[t.get(col, r - 1 - wall)]) wall++;
+      while (wall < DOOR_ROWS && M.STRUCTURAL[t.get(col, r - 1 - wall)]) wall++;
       if (wall < DOOR_ROWS) continue;
       for (let k = 0; k < gap; k++) t.set(col, r + k, M.WOOD, { structural: true, hp: DOOR_HP });
       r += gap;

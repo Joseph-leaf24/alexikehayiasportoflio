@@ -3,6 +3,12 @@
 **Read this first when continuing the Site 2 remaster in a new chat or on another computer.** It's kept up to
 date after every phase.
 
+**What we're building: a self-playing battle scene, not a game you play.** It runs behind the Site 2 portfolio and as
+the Wallpaper. Every unit, the 8-player squad included, is AI-driven, and visitors only watch: never add player controls
+(keyboard, gamepad or click-to-move). Their only influence stays the old `sceneState` one: the pointer, a click for a
+strike, holding for a barrage, zoom, scroll speed and the watching mode. "Playable" in B0's "playable slice" only means
+a runnable demo page; its keys are for testing.
+
 _Last updated: 2026-11-27, after B1 task 1, the themes (Claude, autopilot run)._
 
 ## Where things stand
@@ -23,13 +29,16 @@ _(none known)_
 
 ## In progress
 
-Before starting a task, each model adds one line here, `**Claude:** <task>. Files: ...` or `**Local model:** <task>.
-Files: ...`, and removes it when the task is done. A line still here when a session starts was cut off (a run can
-stop at any moment): the local model continues its own; Claude finishes either kind, reviewing the local model's part
-first. Neither model touches the files on the other's line.
+Before starting a task, each model adds one line here, `**Claude:** <task>. Files: ... Left: ...` or `**Local model:**
+<task>. Files: ...`, and removes it when the task is done; Claude gives each subagent's task its own line and keeps
+its "Left:" note current. A line still here when a session starts was cut off (a run can stop at any moment). The
+local model then works through them one at a time, one per session: its own first, then Claude's in order (relabelled
+`**Local model:**` when it takes one over). Claude finishes and reviews any kind. Nobody touches the files on another
+line, and a line marked `(blocked)` waits for Claude.
 
 **Claude:** B1 task 2, the level generator. Files: `src/battle/level/` (generator files and `index.ts`),
-`src/test/battle-level.test.ts`.
+`src/test/battle-level.test.ts`. Left: the generator and door leaves work (all checks pass); write
+`battle-level.test.ts` (cells match the old generator, doorways get door leaves, a city stands on its own).
 
 ## Next tasks, in order
 
@@ -94,7 +103,8 @@ E2E: `npm run build`, then `npx playwright test`.
 ## Running unattended
 
 The autopilot (`local-llm/autopilot.ps1`) runs Claude Code headless on these tasks. When the usage limit is hit, it
-switches to the local model for 5 hours, then hands back to Claude, which reviews the local work first. See
+switches to the local model until Claude's usage window resets, then hands back to Claude, which reviews the local
+work first. See
 [local-llm/LOCAL-MODEL.md](local-llm/LOCAL-MODEL.md).
 
 Run the VS Code task "Remaster: dashboard": it opens http://localhost:8090, which shows the progress, which model is

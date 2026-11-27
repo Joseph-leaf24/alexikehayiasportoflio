@@ -16,6 +16,8 @@ export const PLAYER_HP = 6;
 export const OFFSETS = [36, 48, 10, -16, -42, 62, -4, 22];
 /** Where the advance point starts on a new level. */
 export const START_X = 260;
+/** Seconds between drops, and the least a downed player stays out before dropping back in. */
+const DROP_GAP = 0.4;
 
 export class Squad {
   /** The formation's anchor, world px. */
@@ -77,6 +79,8 @@ export function queueDrop(game: BattleGame, id: number): void {
   place(game.world, id, game.camera.left - 200, game.camera.top);
   game.core.vel.vx[i] = game.core.vel.vy[i] = 0;
   if (!sq.queue.includes(player.id[i])) sq.queue.push(player.id[i]);
+  // Out for at least one gap, even when the queue was idle (else hidden and dropped back in on the same tick).
+  sq.dropT = Math.max(sq.dropT, DROP_GAP);
 }
 
 const near: number[] = [];
@@ -140,7 +144,7 @@ export function respawnSystem(game: BattleGame): System {
       sq.dropT -= dt;
       if (sq.queue.length === 0 || sq.dropT > 0) return;
       const p = sq.queue.shift() as number;
-      sq.dropT = 0.4;
+      sq.dropT = DROP_GAP;
       const x = Math.max(cam.left + 24, sq.advance + OFFSETS[p] * 0.5 + (game.rng.squad.next() - 0.5) * 30);
       release(game, sq.players[p], x, cam.top - 24);
     },

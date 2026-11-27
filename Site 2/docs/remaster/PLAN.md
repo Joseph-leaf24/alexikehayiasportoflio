@@ -6,6 +6,11 @@ the owner asks for it.
 
 ## Constraints
 
+- **What we're building: a self-playing battle scene, not a game you play.** It runs behind the Site 2 portfolio and
+  as the Wallpaper. Every unit, the 8-player squad included, is AI-driven, and visitors only watch: never add player
+  controls (keyboard, gamepad or click-to-move). Their only influence stays the old `sceneState` one: the pointer, a
+  click for a strike, holding for a barrage, zoom, scroll speed and the watching mode. "Playable" in B0's "playable
+  slice" only means a runnable demo page; its keys are for testing.
 - **Keep the old engine working.** It lives in `src/components/pixel/` and keeps running the site and the
   Wallpaper, with all its tests green, until the new engine reaches the scope below.
 - **Original pixel art only.** Reuse the old engine's own painters (`components/pixel/art.ts`, `catalog.ts`,

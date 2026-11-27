@@ -1,7 +1,7 @@
 # The autopilot: Claude and a local model, working in turns
 
 The remaster runs unattended. Claude does the work. When Claude's 5-hour usage reaches 95%, a local model in LM
-Studio takes over small tasks for 5 hours. Then Claude takes back over, reviews and fixes the local model's work, and
+Studio takes over until Claude's usage window resets. Then Claude takes back over, reviews and fixes the local model's work, and
 carries on. Nobody needs to be in the loop.
 
 ## How it works (`autopilot.ps1`)
@@ -11,10 +11,11 @@ carries on. Nobody needs to be in the loop.
   - **Usage meter.** Claude Code streams a meter during each run (`rate_limit_event`, with the 5-hour window's
     utilization and reset time). At **95%** the autopilot stops the run and hands over.
 - **The local model's turn.** It starts LM Studio's server and loads the model. The model then does one small task
-  per session, again and again, for **5 hours**. Each step ends with the checks and a dated line in the checkpoint's
+  per session, again and again, until **Claude's window resets** (the reset time the meter reported; 5 hours if
+  it didn't report one). Each step ends with the checks and a dated line in the checkpoint's
   "Local model log".
 - **Handing back.**
-  - After the 5 hours, the autopilot asks Claude for one word.
+  - At the reset time (after the local model's current step), the autopilot asks Claude for one word.
   - Once Claude answers, and the meter shows the window has reset (under 10%), it unloads the local model and
     Claude takes over. Until then, it asks again every hour.
 - **Claude's review.** The first thing Claude does is review everything the local model did: fix bugs, remove
@@ -33,9 +34,12 @@ They never talk directly. They both work from the same files, and follow the sam
   - `battle-notes.md`: the architecture and patterns;
   - and `git diff`.
 - **"In progress" says who is doing what.** Before touching code, each model adds one line there (`**Claude:**` or
-  `**Local model:**`, the task and its files) and removes it when the task is done. A run can be cut off at any
-  moment, so a line still there means unfinished work: the local model continues its own first, and Claude finishes
-  (and reviews) any kind. Neither touches the files on the other's line.
+  `**Local model:**`, the task and its files) and removes it when the task is done. Claude gives each subagent's task
+  its own line, with a "Left:" note it keeps current.
+- **One task at a time for the local model.** A run can be cut off at any moment, so a line still there means
+  unfinished work. The autopilot hands the local model exactly one task per session, in order: its own cut-off task,
+  then Claude's unfinished tasks one by one (it relabels a line `**Local model:**` when it takes it over), then new
+  *(small)* tasks. Nobody touches the files on another line. Claude finishes and reviews any kind.
 - **The local model takes only tasks marked *(small)*, and does exactly what the task says:** no extra features, no
   refactoring, no files it didn't list. It follows the existing patterns, with no hacks or TODOs. When unsure, it
   writes a question for Claude in the log and marks the task *(blocked)*, so it never loops on it; Claude resolves
@@ -60,7 +64,7 @@ The page refreshes every 2 seconds and shows:
 - **Hand-overs and events**, and the **live activity** of both models: files read and edited, commands run, what
   each says.
 
-The autopilot runs in its own minimised window, so closing the dashboard (or VS Code) doesn't stop it. It writes
+The autopilot runs in a hidden window (a click in a visible console window would freeze it), so closing the dashboard (or VS Code) doesn't stop it. It writes
 `logs/state.json` for the dashboard.
 
 Logs are in `logs/` (kept out of git):

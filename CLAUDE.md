@@ -20,6 +20,12 @@
 Site 2's game is being remastered onto a new engine of our own: `Site 2/src/engine/` and `Site 2/src/battle/`.
 The old engine in `Site 2/src/components/pixel/` keeps running the site until the switch-over.
 
+**What we're building: a self-playing battle scene, not a game you play.** It runs behind the Site 2 portfolio and as
+the Wallpaper. Every unit, the 8-player squad included, is AI-driven, and visitors only watch: never add player controls
+(keyboard, gamepad or click-to-move). Their only influence stays the old `sceneState` one: the pointer, a click for a
+strike, holding for a barrage, zoom, scroll speed and the watching mode. "Playable" in B0's "playable slice" only means
+a runnable demo page; its keys are for testing.
+
 **Before working on it, read `Site 2/docs/remaster/CHECKPOINT.md`.** It has the current status, next steps and
 checks. The scope is deliberately lean, because tokens are limited (see `PLAN.md` in the same folder).
 
