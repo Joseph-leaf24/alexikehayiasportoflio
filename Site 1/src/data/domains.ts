@@ -2,15 +2,16 @@ import { BarChart3, Brain, Database, Rocket, type LucideIcon } from "lucide-reac
 import { projectData } from "@/data/projects";
 import type { CategoryId } from "@/data/profile";
 
-export type DomainId = "engineering" | "analytics" | "science" | "deployment";
+type DomainId = "engineering" | "analytics" | "science" | "deployment";
 
 /** A project by its category and index in projectData. */
-export interface ProjectLink {
+interface ProjectLink {
   category: CategoryId;
   index: number;
 }
 
-export interface Domain {
+/** One discipline of the data lifecycle, shown as a card in the Domains section. */
+interface Domain {
   id: DomainId;
   /** Step in the data lifecycle */
   step: string;
@@ -19,7 +20,7 @@ export interface Domain {
   description: string;
   capabilities: string[];
   tools: string[];
-  /** Related projects, linked from the card (and tagged with this domain on cards and project pages) */
+  /** Related projects, linked from the card; cards and project pages tag them with this domain */
   projects: ProjectLink[];
   /** Specialization tab to open when exploring this domain's work */
   explore: CategoryId;
@@ -135,4 +136,5 @@ export function domainsFor(category: string, index: number): Domain[] {
 }
 
 /** Resolve a domain's project links to the actual projects. */
-export const projectsOf = (d: Domain) => d.projects.map((p) => ({ ...p, project: projectData[p.category].projects[p.index] }));
+export const projectsOf = (d: Domain) =>
+  d.projects.map((p) => ({ ...p, project: projectData[p.category].projects[p.index] }));

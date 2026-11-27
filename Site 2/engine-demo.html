@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+  Engine renderer demo: development only. `npm run dev`, then open /engine-demo.html?debug=1.
+  Vite builds only index.html (no extra rollup inputs), so this page never ships with the site.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Engine demo</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0d0b14;
+      }
+      canvas {
+        position: fixed;
+        left: 0;
+        top: 0;
+        display: block;
+        cursor: crosshair;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="view" aria-label="Engine renderer demo"></canvas>
+    <script type="module" src="/src/engine/demo/main.ts"></script>
+  </body>
+</html>

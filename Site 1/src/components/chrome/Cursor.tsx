@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-/** The element an event happened on (events can also target window or text nodes). */
+/** The element an event happened on, or null when it targets the window or a text node. */
 const elementOf = (t: EventTarget | null) => (t instanceof Element ? t : null);
 
-/** Controls that lean toward the pointer while hovered (the ring snaps to them). */
+/** Controls that lean toward the pointer while hovered; the ring snaps to them. */
 const MAGNETIC = ".btn-ice, .hud-nav a, .back-link, .site-footer__top, .hud-burger, .hud-brand, [data-magnetic]";
 
 /** Dot + lagging ring cursor with contextual labels (`data-cursor="OPEN"`) and magnetic controls. Mouse only. */
@@ -24,11 +24,10 @@ export default function Cursor() {
     const ring = { x: -100, y: -100 };
     let raf = 0;
     let visible = false;
-    // Magnetic controls: they lean toward the pointer and the ring sticks to them
     let magnet: HTMLElement | null = null;
     const stick = { x: 0, y: 0 };
-    // The pull's transform transition is added to the control's own transitions (its colour fill
-    // etc. keep animating), and taken off again once it has settled back
+    // The pull's transform transition is appended to the control's own transitions, so its colour
+    // fill keeps animating, and taken off again once the control has settled back
     const own = new WeakMap<HTMLElement, string>();
     const glide = (el: HTMLElement, seconds: number) => {
       if (!own.has(el)) own.set(el, getComputedStyle(el).transition);
@@ -102,7 +101,13 @@ export default function Cursor() {
       const ty = magnet ? stick.y + (pos.y - stick.y) * 0.3 : pos.y;
       ring.x += (tx - ring.x) * 0.18;
       ring.y += (ty - ring.y) * 0.18;
-      if (pos.x === drawn.x && pos.y === drawn.y && Math.abs(ring.x - drawn.rx) < 0.05 && Math.abs(ring.y - drawn.ry) < 0.05) return;
+      if (
+        pos.x === drawn.x &&
+        pos.y === drawn.y &&
+        Math.abs(ring.x - drawn.rx) < 0.05 &&
+        Math.abs(ring.y - drawn.ry) < 0.05
+      )
+        return;
       drawn.x = pos.x;
       drawn.y = pos.y;
       drawn.rx = ring.x;

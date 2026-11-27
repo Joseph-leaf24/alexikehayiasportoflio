@@ -1,10 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * End-to-end checks of the built site in a real browser (e2e/): pages load without
- * errors, navigation works, the layout fits phones, and axe finds no accessibility
- * violations. Runs against `vite preview` of dist/, so build first (`npm run test:e2e`
- * does both).
+ * Browser tests in e2e/, run against `vite preview` of the built dist/. Build first:
+ * `npm run test:e2e` does both.
  */
 const PORT = 4173;
 const BASE = `http://localhost:${PORT}/alexikehayiasportoflio/`;
@@ -12,14 +10,14 @@ const CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: "e2e",
-  // CI renders WebGL on a slow, shared CPU: be generous there (a slow test run only
-  // delays the deploy a little; a flaky failure blocks it)
+  // CI renders WebGL on a slow, shared CPU, so allow more time there: a slow run only delays
+  // the deploy, a flaky failure blocks it
   timeout: CI ? 180_000 : 90_000,
   expect: { timeout: CI ? 45_000 : 20_000 },
   forbidOnly: CI,
   retries: CI ? 1 : 0,
-  // Every page renders WebGL on the CPU (no GPU), so run few browsers at once: one on
-  // CI (2-vCPU runners for private repos), two locally
+  // Every page renders WebGL on the CPU, so run few browsers at once. CI runners for private
+  // repos have 2 vCPUs
   workers: CI ? 1 : 2,
   reporter: CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
   use: {

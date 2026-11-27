@@ -17,8 +17,8 @@ import { sceneState } from "./lib/store";
 const CONTROLS = "a, button, input, select, textarea, summary, label, iframe, [role='tab'], [role='dialog']";
 
 /**
- * Everything around the routed page: the pixel-art backdrop, HUD, cursor and loader. Also
- * starts smooth scrolling and feeds the pointer (and mouse clicks) to the scene.
+ * Everything around the routed page: the pixel-art backdrop, HUD, cursor and loader. Also starts
+ * smooth scrolling and feeds the pointer and mouse clicks to the scene.
  */
 function Shell() {
   useEffect(() => {
@@ -31,7 +31,7 @@ function Shell() {
     };
     const onDown = (e: PointerEvent) => {
       onPointer(e);
-      // A click on the page itself (not on a control) sets off a blast under the cursor
+      // A click on the page itself, not on a control, sets off a blast under the cursor
       const onControl = e.target instanceof Element && !!e.target.closest(CONTROLS);
       if (e.pointerType === "mouse" && e.button === 0 && !onControl) sceneState.burst++;
     };
@@ -56,11 +56,15 @@ function Shell() {
 
   return (
     <>
-      <a href="#main" className="skip-link" onClick={(e) => {
-        // HashRouter would read "#main" as a route, so move focus to the landmark by hand
-        e.preventDefault();
-        document.getElementById("main")?.focus();
-      }}>
+      <a
+        href="#main"
+        className="skip-link"
+        onClick={(e) => {
+          // HashRouter would read "#main" as a route, so move focus to the landmark by hand
+          e.preventDefault();
+          document.getElementById("main")?.focus();
+        }}
+      >
         Skip to content
       </a>
       <PixelScene />
@@ -80,7 +84,7 @@ function Shell() {
   );
 }
 
-/** Root component: hash routing (works on any static file server, no rewrites) plus the page-wipe transition. */
+/** Root component: hash routing, which needs no server rewrites, and the page-wipe transition. */
 const App = () => (
   <HashRouter>
     <TransitionProvider>

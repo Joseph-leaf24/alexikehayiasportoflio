@@ -55,7 +55,7 @@ const FORMATIONS: Record<LayoutKey, string> = {
 /** Fixed-width signed coordinate for the camera readout (typographic minus). */
 const signed = (v: number) => `${v < 0 ? "−" : "+"}${Math.abs(v).toFixed(2).padStart(5, "0")}`;
 
-/** Live readout of what the 3D scene is doing (polled ~8×/s while on screen; hidden without WebGL). */
+/** Live readout of what the 3D scene is doing, polled about 8 times a second. Hidden without WebGL. */
 function Telemetry() {
   const [formation, setFormation] = useState<LayoutKey>(sceneState.formation);
   // The scene only finds out WebGL is missing after this first renders, so keep checking
@@ -80,7 +80,8 @@ function Telemetry() {
       }
       const c = sceneState.cam;
       if (camRef.current) camRef.current.textContent = `${signed(c.x)} ${signed(c.y)} ${signed(c.z)}`;
-      if (blocksRef.current && sceneState.blocks) blocksRef.current.textContent = sceneState.blocks.toLocaleString("en-GB");
+      if (blocksRef.current && sceneState.blocks)
+        blocksRef.current.textContent = sceneState.blocks.toLocaleString("en-GB");
     }, 120);
     return () => window.clearInterval(id);
   }, []);
@@ -88,7 +89,13 @@ function Telemetry() {
   return (
     <div ref={rootRef} className="hud-telemetry">
       <span>Formation</span>
-      <ScrambleText key={formation} text={FORMATIONS[formation]} trigger="mount" duration={500} className="hud-telemetry__val" />
+      <ScrambleText
+        key={formation}
+        text={FORMATIONS[formation]}
+        trigger="mount"
+        duration={500}
+        className="hud-telemetry__val"
+      />
       <span className="hud-dot" />
       <span>
         <span ref={blocksRef}>—</span> cubes
@@ -156,9 +163,9 @@ function ScrollMeter() {
 }
 
 /**
- * Fixed chrome on every page: frame corners; a top bar with the brand, current section
- * and nav (a full-screen menu on small screens); and a bottom bar with the clock,
- * scene telemetry and scroll progress. Off the home page, nav links go home first.
+ * Fixed chrome on every page: frame corners, a top bar whose nav becomes a full-screen menu on
+ * small screens, and a bottom bar of clock, telemetry and scroll progress. Off the home page,
+ * nav links go home first.
  */
 export default function Hud() {
   const { sectionIndex, sectionLabel, menuOpen } = useStore(ui, (s) => s);
@@ -167,9 +174,8 @@ export default function Hud() {
   const onHome = location.pathname === "/";
 
   const navTo = (id: string) => {
-    // From the phone menu: unlock scrolling before scrolling. (Left to the menu-closed effect,
-    // restarting the smooth scroller would cancel the scroll that had just begun, so the
-    // menu closed but the page stayed put.)
+    // From the phone menu, unlock scrolling first: restarting the smooth scroller later, in the
+    // menu-closed effect, would cancel the scroll that had just begun
     if (ui.get().menuOpen) setScrollLocked(false);
     ui.set({ menuOpen: false });
     if (onHome) scrollToTarget(id === "top" ? 0 : `#${id}`, { offset: id === "top" ? 0 : -10 });
@@ -180,14 +186,15 @@ export default function Hud() {
   useEffect(() => {
     setScrollLocked(menuOpen);
     if (!menuOpen) {
-      // Closing with focus on one of its links (now hidden) would drop focus to the page: hand it back to the burger
+      // Closing with focus on one of its now-hidden links would drop focus to the page: hand it back to the burger
       if (document.getElementById("mobile-menu")?.contains(document.activeElement)) burgerRef.current?.focus();
       return;
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") ui.set({ menuOpen: false });
-      // The menu covers the page: Tab cycles between its links and the close (burger) button
-      else trapTab(e, [burgerRef.current, ...Array.from(document.querySelectorAll<HTMLElement>("#mobile-menu a[href]"))]);
+      // The menu covers the page: Tab cycles between its links and the burger, which closes it
+      else
+        trapTab(e, [burgerRef.current, ...Array.from(document.querySelectorAll<HTMLElement>("#mobile-menu a[href]"))]);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -218,7 +225,7 @@ export default function Hud() {
         >
           <span className="hud-brand__mark" aria-hidden="true" />
           <ScrambleText text="Alexi Kehayias" trigger="mount" hover />
-          {/* The name stays the visible text plus "home" (WCAG 2.5.3 label in name) */}
+          {/* Accessible name: the visible name plus "home" (WCAG 2.5.3, label in name) */}
           <span className="sr-only"> — home</span>
         </a>
 
@@ -233,7 +240,7 @@ export default function Hud() {
             {NAV.map((n) => (
               <a
                 key={n.id}
-                href={`#/`}
+                href="#/"
                 onClick={(e) => {
                   e.preventDefault();
                   navTo(n.id);
@@ -261,7 +268,7 @@ export default function Hud() {
       <div className="hud-bottom" aria-hidden="true">
         <div className="hud-bottom__left">
           <Clock />
-          {/* Keyboard users only (hidden on touch screens by CSS) */}
+          {/* Keyboard hint: CSS hides it on touch screens */}
           <span className="hud-keys">
             <span className="hud-dot" />
             Press <kbd>?</kbd> for shortcuts

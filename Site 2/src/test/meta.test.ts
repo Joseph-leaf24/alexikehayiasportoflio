@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-/** The page <head> as shipped (index.html), parsed like a browser would. */
+/** The page <head> as shipped in index.html, parsed like a browser would. */
 const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
 const head = new DOMParser().parseFromString(html, "text/html");
 const meta = (key: string) => head.querySelector(`meta[name="${key}"]`)?.getAttribute("content") ?? "";
@@ -15,7 +15,9 @@ describe("page head (index.html)", () => {
 
   it("is a local-only copy: no links to the deployed site, no link-preview or search-profile tags", () => {
     expect(html).not.toMatch(/github\.io|alexikehayiasportoflio/);
-    expect(head.querySelector('link[rel="canonical"], meta[property^="og:"], script[type="application/ld+json"]')).toBeNull();
+    expect(
+      head.querySelector('link[rel="canonical"], meta[property^="og:"], script[type="application/ld+json"]')
+    ).toBeNull();
   });
 
   it("loads the three pixel fonts and an inline pixel-art icon", () => {

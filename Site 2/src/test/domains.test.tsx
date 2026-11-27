@@ -8,7 +8,7 @@ import { allProjects, projectPath, specializations } from "@/data/profile";
 import { projectData } from "@/data/projects";
 import { SQUAD } from "@/data/squad";
 import { sceneState } from "@/lib/store";
-import { flush, renderRoute, resetState } from "./utils";
+import { renderRoute, resetState } from "./utils";
 import { io } from "./setup";
 
 beforeEach(resetState);
@@ -54,11 +54,14 @@ describe("Domains section", () => {
     expect(science.getByText("Data Scientist", { exact: false })).toBeInTheDocument();
     expect(science.getByText("Plasma")).toBeInTheDocument();
     const cv = projectData.computerVision.projects[0];
-    expect(science.getByRole("link", { name: new RegExp(cv.title) })).toHaveAttribute("href", `#${projectPath("computerVision", 0)}`);
+    expect(science.getByRole("link", { name: new RegExp(cv.title) })).toHaveAttribute(
+      "href",
+      `#${projectPath("computerVision", 0)}`
+    );
     expect(science.getByRole("list", { name: "Data Science & AI tools" })).toHaveTextContent("PyTorch");
   });
 
-  it("lights up the matching 3D cluster on hover or focus", () => {
+  it("points out the matching player on hover or focus", () => {
     renderRoute(<Domains onExplore={() => {}} />);
     const card = screen.getByRole("article", { name: "Data Analytics" });
     fireEvent.mouseEnter(card);
@@ -93,7 +96,7 @@ describe("Domains section", () => {
 });
 
 describe("PixelImage", () => {
-  it("keeps one real, lazy picture (for screen readers and as the fallback) under a hidden mosaic canvas", () => {
+  it("keeps one real, lazy picture for screen readers and as the fallback, under a hidden mosaic canvas", () => {
     const { container } = render(<PixelImage src="a.png" alt="Pipeline diagram" />);
     const root = container.querySelector(".pximg") as HTMLElement;
     expect(root).toHaveClass("pximg--cover");
@@ -112,7 +115,13 @@ describe("PixelImage", () => {
   it("resolves from blocks to sharp once it scrolls into view", async () => {
     // A stand-in 2D context, and a picture that has already loaded
     const draws: number[] = [];
-    const ctx = { imageSmoothingEnabled: false, clearRect() {}, drawImage() { draws.push(1); } };
+    const ctx = {
+      imageSmoothingEnabled: false,
+      clearRect() {},
+      drawImage() {
+        draws.push(1);
+      },
+    };
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
     vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(400);

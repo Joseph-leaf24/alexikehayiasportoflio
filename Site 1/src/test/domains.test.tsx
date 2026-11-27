@@ -51,7 +51,10 @@ describe("Domains section", () => {
     expect(cards).toHaveLength(4);
     const science = within(screen.getByRole("article", { name: "Data Science & AI" }));
     const cv = projectData.computerVision.projects[0];
-    expect(science.getByRole("link", { name: new RegExp(cv.title) })).toHaveAttribute("href", `#${projectPath("computerVision", 0)}`);
+    expect(science.getByRole("link", { name: new RegExp(cv.title) })).toHaveAttribute(
+      "href",
+      `#${projectPath("computerVision", 0)}`
+    );
     expect(science.getByRole("list", { name: "Data Science & AI tools" })).toHaveTextContent("PyTorch");
   });
 
@@ -133,7 +136,10 @@ describe("DepthImage", () => {
     const { container } = render(<DepthImage src="a.png" alt="" />);
     const root = container.querySelector(".depth") as HTMLElement;
     vi.spyOn(root, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 200, height: 100 } as DOMRect);
-    fireEvent(root, new PointerEvent("pointermove", { pointerType: "mouse", clientX: 150, clientY: 25, bubbles: true }));
+    fireEvent(
+      root,
+      new PointerEvent("pointermove", { pointerType: "mouse", clientX: 150, clientY: 25, bubbles: true })
+    );
     expect(root.style.getPropertyValue("--dy")).toBe("3.5deg");
     expect(root.style.getPropertyValue("--dx")).toBe("2.5deg");
     fireEvent(root, new PointerEvent("pointermove", { pointerType: "touch", clientX: 0, clientY: 0, bubbles: true }));

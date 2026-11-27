@@ -12,7 +12,7 @@ export interface Project {
   concepts: string[];
   /** Secondary facts and results, shown in a collapsed "Highlights" drop-down */
   highlights?: string[];
-  /** Tools & languages; the input layer of the project network (tags stand in when absent) */
+  /** Tools & languages; the input layer of the project network, where tags stand in when absent */
   tools?: string[];
   /** Live demo, linked from the project page */
   demoUrl?: string;
@@ -21,7 +21,7 @@ export interface Project {
 }
 
 /** A specialization (Work tab) and its projects. */
-export interface ProjectCategory {
+interface ProjectCategory {
   title: string;
   description: string;
   projects: Project[];

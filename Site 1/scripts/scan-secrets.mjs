@@ -7,10 +7,28 @@ import { extname, join, relative } from "node:path";
 const root = process.argv[2] ?? ".";
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "coverage", ".ipynb_checkpoints", "__pycache__"]);
 const TEXT = new Set([
-  ".py", ".ipynb", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".json", ".md", ".yml", ".yaml",
-  ".toml", ".cfg", ".ini", ".env", ".txt", ".html", ".css", ".sh", ".urdf",
+  ".py",
+  ".ipynb",
+  ".js",
+  ".mjs",
+  ".cjs",
+  ".ts",
+  ".tsx",
+  ".json",
+  ".md",
+  ".yml",
+  ".yaml",
+  ".toml",
+  ".cfg",
+  ".ini",
+  ".env",
+  ".txt",
+  ".html",
+  ".css",
+  ".sh",
+  ".urdf",
 ]);
-// Files whose names carry no (useful) extension: extname(".env") is "" and extname(".env.local") is ".local"
+// Files whose names carry no useful extension: extname(".env") is "" and extname(".env.local") is ".local"
 const NAMED = /^(?:\.env(?:\..+)?|\.npmrc|\.netrc|Dockerfile)$/i;
 const MAX_BYTES = 3 * 1024 * 1024;
 
@@ -37,7 +55,11 @@ function walk(dir) {
     const st = statSync(path);
     if (st.isDirectory()) {
       if (!SKIP_DIRS.has(name)) walk(path);
-    } else if ((TEXT.has(extname(name).toLowerCase()) || NAMED.test(name)) && st.size <= MAX_BYTES && !name.endsWith("package-lock.json")) {
+    } else if (
+      (TEXT.has(extname(name).toLowerCase()) || NAMED.test(name)) &&
+      st.size <= MAX_BYTES &&
+      !name.endsWith("package-lock.json")
+    ) {
       scan(path);
     }
   }
@@ -49,7 +71,12 @@ function scan(path) {
       for (const m of line.matchAll(rule.re)) {
         const secret = rule.value ? m[rule.value] : m[0];
         if (rule.value && ALLOW.test(secret)) continue;
-        findings.push({ file: relative(root, path), line: i + 1, rule: rule.name, preview: `${secret.slice(0, 4)}…(${secret.length} chars)` });
+        findings.push({
+          file: relative(root, path),
+          line: i + 1,
+          rule: rule.name,
+          preview: `${secret.slice(0, 4)}…(${secret.length} chars)`,
+        });
       }
     }
   });

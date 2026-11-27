@@ -11,13 +11,9 @@ interface Props {
 const PARTICLES = 5;
 
 /**
- * Turns a flat picture into a small 3D scene with a HUD layer (grid, glint, particles)
- * hovering above it. The stage drifts on its own and tilts toward the mouse, so the
- * layers parallax. Cover-fit pictures get a sharpened focal region floating in front;
- * contain-fit pictures float whole over a static, blurred copy that fills the frame.
- *
- * Every animation is paused while the picture is off screen (data-live), so a grid
- * of these costs nothing until you scroll to it.
+ * A picture as a small parallax 3D scene under a HUD layer of grid, glint and particles; the
+ * stage drifts and tilts toward the mouse. Cover-fit pictures get a sharpened focal region in
+ * front; contain-fit ones float whole over a blurred copy. Animations pause while off screen.
  */
 export default function DepthImage({ src, alt, fit = "cover" }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -55,11 +51,15 @@ export default function DepthImage({ src, alt, fit = "cover" }: Props) {
       onPointerMove={onMove}
       onPointerLeave={onLeave}
     >
-      {fit === "contain" ? <img className="depth__back" src={src} alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
+      {fit === "contain" ? (
+        <img className="depth__back" src={src} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+      ) : null}
       <div className="depth__stage">
         <div className="depth__drift">
           <img className="depth__mid" src={src} alt={alt} loading="lazy" decoding="async" />
-          {fit === "cover" ? <img className="depth__front" src={src} alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
+          {fit === "cover" ? (
+            <img className="depth__front" src={src} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+          ) : null}
           <span className="depth__grid" aria-hidden="true" />
           <span className="depth__glint" aria-hidden="true" />
           <span className="depth__particles" aria-hidden="true">

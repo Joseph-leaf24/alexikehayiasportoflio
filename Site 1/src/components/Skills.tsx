@@ -9,7 +9,7 @@ import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
 import { pad } from "@/lib/utils";
 
-/** One marquee row. The set is rendered twice (the copy hidden from screen readers) so the CSS loop is seamless. */
+/** One marquee row. The set is rendered twice so the CSS loop is seamless; the copy is hidden from screen readers. */
 function MarqueeRow({ reverse = false, outline = false }: { reverse?: boolean; outline?: boolean }) {
   const items = reverse ? [...SKILLS].reverse() : SKILLS;
   const set = (key: string) => (

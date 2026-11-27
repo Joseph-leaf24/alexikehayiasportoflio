@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage", "playwright-report", "test-results", ".lighthouseci", "Projects"] },
+  { ignores: ["dist", "coverage", "playwright-report", "test-results", ".lighthouseci"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -23,7 +23,10 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true, allowExportNames: ["usePageTransition"] },
       ],
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true },
+      ],
     },
   },
   {

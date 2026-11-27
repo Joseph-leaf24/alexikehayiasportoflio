@@ -40,9 +40,9 @@ const Index = () => {
 
   useEffect(() => save(SPEC, active), [active]);
 
-  // Scroll position on arrival. A fresh page load or reload always opens on the intro (React
-  // Router reports it as "POP", and the router state survives a reload). After moving within
-  // the site: an explicit target > browser back/forward (the saved position) > top.
+  // Scroll position on arrival. A fresh load or reload always opens on the intro: React Router
+  // reports it as "POP" and the router state survives a reload. After moving within the site, an
+  // explicit target wins, then the saved position on back/forward, then the top.
   useLayoutEffect(() => {
     if (!nav.inApp) {
       scrollToTarget(0, { immediate: true });
@@ -70,7 +70,7 @@ const Index = () => {
     };
   }, []);
 
-  // Feed section positions to the 3D scene and keep the HUD section label in sync
+  // Feed section positions to the scene and keep the HUD section label in sync
   useEffect(() => {
     sceneState.override = null;
     const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-scene]"));

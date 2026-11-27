@@ -10,7 +10,7 @@ const LINKS = [
   { key: "Download CV", value: "PDF", href: profile.cv, download: true, cursor: "PDF" },
 ];
 
-/** Contact section (LinkedIn, CV download) and the site footer. */
+/** Contact section with the LinkedIn and CV links, and the site footer. */
 export default function Contact() {
   return (
     <section id="contact" className="section section--contact" data-scene="villageTop" data-section="05|Contact">
@@ -33,7 +33,6 @@ export default function Contact() {
                 {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 {...(l.download ? { download: "" } : {})}
               >
-                <span className="contact-row__fill" aria-hidden="true" />
                 <span className="contact-row__idx">0{i + 1}</span>
                 <ScrambleText text={l.key} hover trigger="none" className="contact-row__key" />
                 <span className="contact-row__val">{l.value}</span>

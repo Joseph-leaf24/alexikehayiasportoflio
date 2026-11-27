@@ -1,16 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { BASE_ROW, createLevel, crustOf, extend, kindAt, LADDER, RAIL, REINFORCED, RING, TILE, TILE_HP, WINDOW, cell } from "@/components/pixel/level";
+import {
+  BASE_ROW,
+  createLevel,
+  crustOf,
+  extend,
+  kindAt,
+  LADDER,
+  RAIL,
+  REINFORCED,
+  TILE,
+  TILE_HP,
+  WINDOW,
+  cell,
+} from "@/components/pixel/level";
 import { ROTATION, THEMES, type Theme } from "@/components/pixel/themes";
 import { CAR_LEN, CAR_SIZE, Game, lightState, WAVES, type View } from "@/components/pixel/game";
 
-/** Step a game for `seconds`, the camera on the squad (or what they're riding in). `each` runs every step. */
+/** Step a game for `seconds` with the camera on the squad or whatever they're riding in. `each` runs every step. */
 function play(g: Game, seconds: number, each?: (view: View) => void) {
   const view: View = { x: 0, y: 0, w: 480, h: 300 };
   for (let i = 0; i < seconds * 30; i++) {
     view.x = Math.max(g.level.start * TILE, g.advance - view.w * 0.42);
     const ride = g.carrier;
     const up = g.players.filter((p) => !p.dead && !p.chute && !p.aboard);
-    view.y = (ride ? ride.y + (ride.air ? 58 : 0) : up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : BASE_ROW * TILE) - view.h * 0.68;
+    view.y =
+      (ride
+        ? ride.y + (ride.air ? 58 : 0)
+        : up.length
+          ? up.reduce((s, p) => s + p.y, 0) / up.length
+          : BASE_ROW * TILE) -
+      view.h * 0.68;
     g.step(1 / 30, view);
     g.fresh.length = 0;
     g.dirty.length = 0;
@@ -18,13 +37,14 @@ function play(g: Game, seconds: number, each?: (view: View) => void) {
   }
 }
 
-/** A city of nothing but metro lines (and some flat ground). */
+/** A city of nothing but metro lines and some flat ground. */
 const metroCity: Theme = { ...THEMES.city, features: { metro: 3, flat: 1 } };
 const yards: Theme = { ...THEMES.industry, features: { railyard: 3, flat: 1 } };
 
 describe("the cities and the industrial lands", () => {
   it("go on much longer than the rest, and the Industrial zone is in the rotation", () => {
-    const len = (key: string) => [1, 2, 3, 4, 5].reduce((s, seed) => s + createLevel(THEMES[key], seed).plan.length, 0) / 5;
+    const len = (key: string) =>
+      [1, 2, 3, 4, 5].reduce((s, seed) => s + createLevel(THEMES[key], seed).plan.length, 0) / 5;
     expect(len("city")).toBeGreaterThan(len("jungle") * 2.2);
     expect(len("megacity")).toBeGreaterThan(len("jungle") * 2.2);
     expect(len("industry")).toBeGreaterThan(len("jungle") * 2.4);
@@ -39,7 +59,8 @@ describe("the cities and the industrial lands", () => {
     expect(signs).toBeGreaterThan(8);
     // Windows lit in the back walls of the towers behind
     let back = 0;
-    for (let c = L.start; c < L.next; c++) for (let r = 0; r < BASE_ROW; r++) if (L.bg[cell(c, r)] === WINDOW && !L.fg[cell(c, r)]) back++;
+    for (let c = L.start; c < L.next; c++)
+      for (let r = 0; r < BASE_ROW; r++) if (L.bg[cell(c, r)] === WINDOW && !L.fg[cell(c, r)]) back++;
     expect(back).toBeGreaterThan(30);
   });
 });
@@ -47,7 +68,7 @@ describe("the cities and the industrial lands", () => {
 describe("the metro", () => {
   it("runs a tunnel under the city from station to station, a train in it, stairwells up to the street", () => {
     const L = createLevel(metroCity, 3, { boss: null, length: 6000 });
-    // (a set piece at a time, up to the first metro line: they're long, and the ring only holds so much)
+    // A set piece at a time, up to the first metro line: they're long, and the ring only holds so much
     const spawns: ReturnType<typeof extend> = [];
     while (!spawns.some((s) => s.kind === "metro") && L.next < 2000) spawns.push(...extend(L, L.next + 1));
     const trains = spawns.filter((s) => s.kind === "metro");
@@ -64,10 +85,13 @@ describe("the metro", () => {
     // Every station's stairwell has its ladder up to the street; signs with their names
     for (const s of stops) {
       let ladder = 0;
-      for (let x = s / TILE - 9; x < s / TILE + 9; x++) for (let r = tf - 12; r < tf; r++) if (kindAt(L, x, r) === LADDER) ladder++;
+      for (let x = s / TILE - 9; x < s / TILE + 9; x++)
+        for (let r = tf - 12; r < tf; r++) if (kindAt(L, x, r) === LADDER) ladder++;
       expect(ladder).toBeGreaterThan(5);
     }
-    const names = L.props.filter((p) => p.kind === "sign" && Math.abs(p.y - (tf - 4) * TILE) < 2 * TILE).map((p) => (p as { text: string }).text);
+    const names = L.props
+      .filter((p) => p.kind === "sign" && Math.abs(p.y - (tf - 4) * TILE) < 2 * TILE)
+      .map((p) => (p as { text: string }).text);
     expect(names.length).toBeGreaterThanOrEqual(stops.length);
   });
 
@@ -102,12 +126,13 @@ describe("the metro", () => {
         const up = g.players.filter((p) => !p.dead && !p.chute && !p.aboard);
         const lines = g.metros.filter((m) => up.length && up[0].x > m.lo && up[0].x < m.hi);
         if (lines.length) {
-          if (up.filter((p) => p.y > crustOf(g.level, Math.floor(p.x / TILE)) * TILE + 60).length > up.length / 2) under++;
+          if (up.filter((p) => p.y > crustOf(g.level, Math.floor(p.x / TILE)) * TILE + 60).length > up.length / 2)
+            under++;
           else street++;
         }
         if (g.ride) {
           riding++;
-          // (all hidden aboard it, and the squad's advance goes with it)
+          // All hidden aboard it, and the squad's advance goes with it
           for (const id of g.crew) expect(Math.abs(g.players[id].x - g.ride.x)).toBeLessThan(70);
         }
         if (g.ride && !was) rides++;
@@ -141,12 +166,15 @@ describe("the railways", () => {
     expect(g.freights.length).toBeGreaterThan(0);
     expect(moved).toBeGreaterThan(0);
     expect(gone).toBeGreaterThan(0);
-    // (adjoining stretches of line make one long line)
+    // Adjoining stretches of line make one long line
     for (const f of g.freights) expect(f.hi - f.lo).toBeGreaterThan(CAR_LEN * 6);
   });
 
   it("send an armoured train up and down the line, running in on the squad and backing off", () => {
-    const g = new Game({ ...yards, enemies: 3 }, { seed: 2, waves: false, gunship: false, level: { boss: null, length: 6000 } });
+    const g = new Game(
+      { ...yards, enemies: 3 },
+      { seed: 2, waves: false, gunship: false, level: { boss: null, length: 6000 } }
+    );
     let left = 0;
     let right = 0;
     play(g, 60, () => {
@@ -163,7 +191,7 @@ describe("the railways", () => {
 
 describe("the battle", () => {
   it("comes in waves: lulls, skirmishes, assaults and onslaughts with three times the enemy on screen", () => {
-    // (over a couple of long battles: how the tide turns is down to chance)
+    // Over a couple of long battles: how the tide turns is down to chance
     const seen = WAVES.map(() => ({ t: 0, n: 0 }));
     for (const seed of [1, 2]) {
       const g = new Game(THEMES.city, { seed, gunship: false, level: { boss: null, length: 6000 } });
@@ -193,7 +221,7 @@ describe("the battle", () => {
     let cloud: object | undefined;
     play(g, 4, () => {
       if (g.missiles.includes(m)) {
-        // (off the straight line between where it started and its target)
+        // Off the straight line between where it started and its target
         const u = (m.y - (ty - 500)) / 500;
         if (Math.abs(m.x - (x0 + (g.advance + 100 - x0) * u)) > 6) bent++;
         trail = Math.max(trail, (m.trail ?? []).length);
@@ -207,14 +235,14 @@ describe("the battle", () => {
     expect(landed).toBe(true);
     expect(bent).toBeGreaterThan(3);
     expect(trail).toBeGreaterThan(20);
-    // (and in a while it's drifted apart, gone)
+    // ... and in a while it has drifted apart and gone
     play(g, 10);
     expect(g.mushrooms.includes(cloud as (typeof g.mushrooms)[number])).toBe(false);
   });
 });
 
 describe("the city's streets", () => {
-  /** A city of just one set piece (and some flat ground): its stretch and its spawns. */
+  /** A city of just one set piece and some flat ground: its stretch and its spawns. */
   const cityOf = (feature: string, seed = 2) => {
     const L = createLevel({ ...THEMES.city, features: { [feature]: 3, flat: 1 } }, seed, { boss: null, length: 6000 });
     const spawns: ReturnType<typeof extend> = [];
@@ -230,7 +258,11 @@ describe("the city's streets", () => {
     expect(blv.L.props.some((p) => p.kind === "sprite" && p.id === "busstop")).toBe(true);
     const park = cityOf("park");
     const ids = new Set(park.L.props.map((p) => (p.kind === "sprite" ? p.id : p.kind)));
-    expect(["fountain", "statue", "gazebo", "playground", "bench", "flowerbed", "picnictable", "icecreamcart"].filter((id) => ids.has(id)).length).toBeGreaterThan(3);
+    expect(
+      ["fountain", "statue", "gazebo", "playground", "bench", "flowerbed", "picnictable", "icecreamcart"].filter((id) =>
+        ids.has(id)
+      ).length
+    ).toBeGreaterThan(3);
     const bridge = cityOf("citybridge");
     expect(bridge.L.props.filter((p) => p.kind === "cable").length).toBeGreaterThan(2);
     expect(bridge.spawns.some((s) => s.kind === "boat")).toBe(true);
@@ -247,14 +279,25 @@ describe("the city's streets", () => {
   it("build some of the buildings hard: reinforced concrete through and through, all but unbreakable", () => {
     const { L } = cityOf("metropolis", 3);
     let hard = 0;
-    for (let c = L.start; c < L.next; c++) for (let r = 0; r < BASE_ROW + 4; r++) if (L.fg[cell(c, r)] === REINFORCED) hard++;
+    for (let c = L.start; c < L.next; c++)
+      for (let r = 0; r < BASE_ROW + 4; r++) if (L.fg[cell(c, r)] === REINFORCED) hard++;
     expect(hard).toBeGreaterThan(20);
     expect(TILE_HP[REINFORCED]).toBeGreaterThan(25);
     expect(TILE_HP[REINFORCED]).toBeLessThan(255);
   });
 
   it("are full of traffic that stops at red lights, buses calling at their stops, fire engines putting fires out", () => {
-    const quietCity: Theme = { ...THEMES.city, features: { boulevard: 3 }, enemies: 0, barrels: 0, artillery: 0, helis: 0, paras: 0, jets: 0, drones: 0 };
+    const quietCity: Theme = {
+      ...THEMES.city,
+      features: { boulevard: 3 },
+      enemies: 0,
+      barrels: 0,
+      artillery: 0,
+      helis: 0,
+      paras: 0,
+      jets: 0,
+      drones: 0,
+    };
     const g = new Game(quietCity, { seed: 2, waves: false, gunship: false, level: { boss: null, length: 6000 } });
     let moving = 0;
     let redRunners = 0;
@@ -289,22 +332,34 @@ describe("the city's streets", () => {
     expect(redRunners).toBeLessThan(atRed / 4);
     expect(busStops).toBeGreaterThan(20);
     expect(fought).toBeGreaterThan(0);
-    // (the hoses knocked it down faster than it burns down on its own, while it was there)
+    // The hoses knocked it down faster than it burns down on its own, while it was there
     expect(fire.t).toBeLessThan(300 - burning - 1);
   });
 
   it("have their traffic wrecked where a blast catches it, the wreck left burning", () => {
-    const g = new Game({ ...THEMES.city, features: { boulevard: 3 }, enemies: 0 }, { seed: 2, waves: false, gunship: false, level: { boss: null, length: 6000 } });
+    const g = new Game(
+      { ...THEMES.city, features: { boulevard: 3 }, enemies: 0 },
+      { seed: 2, waves: false, gunship: false, level: { boss: null, length: 6000 } }
+    );
     const road = (c: object) => g.roads.find((rd) => rd.cars.includes(c as (typeof rd.cars)[number]))!;
-    // (one of the cars near the squad, blown up there and then)
+    // One of the cars near the squad, blown up there and then
     let car: { x: number } | undefined;
     let blown = false;
     let gone = false;
     let wrecks = 0;
     let fires = 0;
     play(g, 30, () => {
-      if (!car) car = g.roads.flatMap((rd) => rd.cars).find((c) => c.x > g.advance - 100 && c.x < g.advance + 300 && c.v > 0 && (c.dir > 0 ? c.x < road(c).hi - 120 : c.x > road(c).lo + 120));
-      // (blow it up the moment it's found, while it's still on its road)
+      if (!car)
+        car = g.roads
+          .flatMap((rd) => rd.cars)
+          .find(
+            (c) =>
+              c.x > g.advance - 100 &&
+              c.x < g.advance + 300 &&
+              c.v > 0 &&
+              (c.dir > 0 ? c.x < road(c).hi - 120 : c.x > road(c).lo + 120)
+          );
+      // Blow it up the moment it's found, while it's still on its road
       if (car && !blown) {
         blown = true;
         const rd = road(car);
@@ -321,7 +376,10 @@ describe("the city's streets", () => {
   });
 
   it("have their passenger trains calling at the station, standing there a while, then pulling out", () => {
-    const g = new Game({ ...THEMES.city, features: { station: 3 }, enemies: 0 }, { seed: 3, waves: false, gunship: false, level: { boss: null, length: 6000 } });
+    const g = new Game(
+      { ...THEMES.city, features: { station: 3 }, enemies: 0 },
+      { seed: 3, waves: false, gunship: false, level: { boss: null, length: 6000 } }
+    );
     let halted = 0;
     let coaches = 0;
     play(g, 90, () => {
@@ -337,7 +395,7 @@ describe("the city's streets", () => {
 
 describe("the city's sky", () => {
   it("turns from day to night and back, and its weather comes and goes", () => {
-    // (over a couple of long battles: how the weather goes is down to chance)
+    // Over a couple of long battles: how the weather goes is down to chance
     let lo = 1;
     let hi = 0;
     const skies = new Set<string>();
@@ -352,7 +410,7 @@ describe("the city's sky", () => {
     expect(lo).toBeLessThan(0.1);
     expect(hi).toBeGreaterThan(0.6);
     expect(skies.size).toBeGreaterThanOrEqual(3);
-    // (a jungle keeps its own light)
+    // A jungle keeps its own light
     expect(new Game(THEMES.jungle, { seed: 4 }).night).toBe(THEMES.jungle.night);
   }, 60_000);
 

@@ -22,7 +22,7 @@ class FakeLenis {
 vi.mock("lenis", () => ({ default: FakeLenis }));
 
 const mod = await import("@/lib/smoothScroll");
-// (after the mock: the helpers import the app, which imports Lenis)
+// Imported after the mock: the helpers import the app, which imports Lenis
 const { resetState } = await import("./utils");
 
 beforeEach(resetState);

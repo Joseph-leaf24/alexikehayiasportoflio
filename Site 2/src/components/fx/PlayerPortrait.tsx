@@ -4,8 +4,8 @@ import { SQUAD } from "@/data/squad";
 import { cn } from "@/lib/utils";
 
 /**
- * One of the four players (1–4), drawn from the same pixel art as the scene behind the page
- * and scaled up by CSS with hard edges. Decorative: the role is always written next to it.
+ * One of the eight players (1–8), drawn from the same pixel art as the scene behind the page and
+ * scaled up by CSS with hard edges. Decorative: the role is always written next to it.
  */
 export default function PlayerPortrait({ player, className }: { player: number; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);

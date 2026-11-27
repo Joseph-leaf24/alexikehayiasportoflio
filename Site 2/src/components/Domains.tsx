@@ -19,9 +19,9 @@ interface DomainsProps {
 }
 
 /**
- * Domains section ("squad select"): the data lifecycle strip and one card per domain with
- * its player and related projects. Hovering or focusing a card points that player out in
- * the scene; "Explore the work" opens the matching specialization in Work and scrolls there.
+ * Domains section, styled as a squad select: the data lifecycle strip and one card per domain with
+ * its player and related projects. Hovering or focusing a card points that player out in the scene;
+ * "Explore the work" opens the matching specialization in Work and scrolls there.
  */
 export default function Domains({ onExplore }: DomainsProps) {
   const explore = (categoryId: string) => {
@@ -114,9 +114,7 @@ export default function Domains({ onExplore }: DomainsProps) {
                 </ul>
 
                 <div className="domain__projects">
-                  <span className="chip-label">
-                    {pad(related.length)} related projects
-                  </span>
+                  <span className="chip-label">{pad(related.length)} related projects</span>
                   <ul>
                     {related.map(({ category, index, project }) => (
                       <li key={`${category}-${index}`}>

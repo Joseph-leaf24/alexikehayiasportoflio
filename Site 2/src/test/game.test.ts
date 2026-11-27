@@ -36,7 +36,7 @@ function play(g: Game, seconds: number, frozen = false, each?: () => void) {
   const view: View = { x: 0, y: 0, w: 480, h: 300 };
   for (let i = 0; i < seconds * 30; i++) {
     view.x = Math.max(g.level.start * TILE, g.advance - view.w * 0.42);
-    // (up the mountains and down the valleys with the squad's feet)
+    // Up the mountains and down the valleys with the squad's feet
     const up = g.players.filter((p) => !p.dead && !p.chute);
     const feet = up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : g.level.h * TILE;
     view.y = Math.max(-80, Math.min(LEVEL_H - view.h, feet - view.h * 0.68));
@@ -63,7 +63,7 @@ describe("level", () => {
       for (let c = L.start; c < L.next; c++) {
         expect(kindAt(L, c, ROWS - 1)).toBe(BEDROCK);
         expect(kindAt(L, c, ROWS - 2)).toBe(BEDROCK);
-        // (the great mountains go far over the ordinary hills, but always leave room over their summits)
+        // The great mountains go far over the ordinary hills, but always leave room over their summits
         expect(L.ground[c % RING]).toBeGreaterThan(8);
         expect(L.ground[c % RING]).toBeLessThanOrEqual(ROWS - 3);
       }
@@ -71,11 +71,16 @@ describe("level", () => {
   });
 
   it("raises hills and mountain ranges from seeded noise: a different world every time", () => {
-    // (the ordinary hills: without the great mountains and the descents, which have tests of their own)
-    const hills = { ...THEMES.snow, features: Object.fromEntries(Object.entries(THEMES.snow.features).filter(([k]) => k !== "massif" && k !== "abyss")) };
+    // The ordinary hills: without the great mountains and the descents, which have tests of their own
+    const hills = {
+      ...THEMES.snow,
+      features: Object.fromEntries(
+        Object.entries(THEMES.snow.features).filter(([k]) => k !== "massif" && k !== "abyss")
+      ),
+    };
     const heights = (seed: number) => {
       const L = createLevel(hills, seed, { boss: null, length: 4000 });
-      // (short of the ring's length, so a long feature at the end can't wrap round over the start)
+      // Short of the ring's length, so a long feature at the end can't wrap round over the start
       extend(L, 250);
       return Array.from({ length: 250 }, (_, c) => L.ground[c % RING]);
     };
@@ -85,9 +90,9 @@ describe("level", () => {
     expect(a.slice(0, 40).every((h) => h === BASE_ROW)).toBe(true);
     expect(Math.max(...a.slice(40)) - Math.min(...a.slice(40))).toBeGreaterThan(14);
     expect(Math.min(...a)).toBeGreaterThanOrEqual(PEAK_ROW);
-    // (valleys stay shallow; only lakes and the sea go deeper, never into the bedrock)
+    // Valleys stay shallow; only lakes and the sea go deeper, never into the bedrock
     expect(Math.max(...a)).toBeLessThanOrEqual(ROWS - 3);
-    // (taken over several worlds, as one short stretch may well be mostly a lake or the sea)
+    // Taken over several worlds, as one short stretch may well be mostly a lake or the sea
     const many = [1, 2, 3, 4, 5, 6].flatMap(heights);
     expect(many.filter((h) => h > VALLEY_ROW + 9).length).toBeLessThan(many.length / 4);
     expect(a).not.toEqual(b);
@@ -104,7 +109,7 @@ describe("level", () => {
     const L = createLevel(THEMES.jungle, 6, { boss: null, length: 4000 });
     extend(L, 480);
     let caves = 0;
-    // (only the columns still stored: a long set piece at the end may have run on past the ring's length)
+    // Only the columns still stored: a long set piece at the end may have run on past the ring's length
     for (let c = Math.max(40, L.start + 1); c < 480; c++) {
       const g = L.ground[c % RING];
       for (let r = g + 7; r < ROWS - 4; r++) if (kindAt(L, c, r) === AIR && L.bg[cell(c, r)]) caves++;
@@ -116,18 +121,29 @@ describe("level", () => {
 
   it("keeps every pit and lava pool narrow enough to jump", () => {
     for (const key of ["jungle", "village", "inferno", "canyon", "swamp"]) {
-      // (without the great descents: mountains, the depths and mineshafts are climbed down and up, not jumped)
+      // Without the great descents: mountains, the depths and mineshafts are climbed down and up, not jumped
       const t = THEMES[key];
-      const L = createLevel({ ...t, features: Object.fromEntries(Object.entries(t.features).filter(([k]) => k !== "massif" && k !== "abyss" && k !== "mineshaft")) }, 5);
+      const L = createLevel(
+        {
+          ...t,
+          features: Object.fromEntries(
+            Object.entries(t.features).filter(([k]) => k !== "massif" && k !== "abyss" && k !== "mineshaft")
+          ),
+        },
+        5
+      );
       extend(L, 400);
       let run = 0;
       let lip = L.ground[L.start % RING];
       for (let c = L.start + 1; c < L.next; c++) {
         const g = L.ground[c % RING];
-        // A pit: ground well below the edge, with no bridge across at the edge's height (or lava in it)
-        // (open water isn't a pit: it's swum)
+        // A pit: ground well below the edge, with no bridge across at the edge's height, or lava in it
+        // Open water isn't a pit: it's swum
         const wet = kindAt(L, c, lip + 1) === WATER || kindAt(L, c, lip) === WATER;
-        const pit = (g >= lip + 3 && !wet && !solidAt(L, c * TILE + 4, lip * TILE + 4)) || kindAt(L, c, g - 1) === LAVA || kindAt(L, c, g - 2) === LAVA;
+        const pit =
+          (g >= lip + 3 && !wet && !solidAt(L, c * TILE + 4, lip * TILE + 4)) ||
+          kindAt(L, c, g - 1) === LAVA ||
+          kindAt(L, c, g - 2) === LAVA;
         run = pit ? run + 1 : 0;
         if (!pit) lip = g;
         expect(run, `${key} column ${c}`).toBeLessThanOrEqual(3);
@@ -166,12 +182,30 @@ describe("level", () => {
   });
 
   it("places more enemies the more intense it gets", () => {
-    // (over several levels: one level's mix of features is too much luck of the draw)
+    // Over several levels: one level's mix of features is too much luck of the draw
     const count = (k: number) =>
       [7, 8, 9, 10, 11, 12].reduce((n, seed) => {
         const L = createLevel(THEMES.city, seed, { length: 2000, boss: null });
         L.intensity = k;
-        return n + extend(L, 400).filter((s) => ["mook", "heavy", "rocket", "sniper", "crawler", "mortar", "minigunner", "shield", "officer", "laser", "exosuit", "jetpacker"].includes(s.kind)).length;
+        return (
+          n +
+          extend(L, 400).filter((s) =>
+            [
+              "mook",
+              "heavy",
+              "rocket",
+              "sniper",
+              "crawler",
+              "mortar",
+              "minigunner",
+              "shield",
+              "officer",
+              "laser",
+              "exosuit",
+              "jetpacker",
+            ].includes(s.kind)
+          ).length
+        );
       }, 0);
     expect(count(2)).toBeGreaterThan(count(1) * 1.4);
   });
@@ -205,7 +239,11 @@ describe("themes", () => {
     expect(new Set(ROTATION.map((k) => THEMES[k].name)).size).toBe(ROTATION.length);
     for (const k of ROTATION) expect(THEMES[k].bosses.length).toBeGreaterThan(0);
     expect(ROTATION).not.toContain("cave");
-    expect(Object.values(THEMES).filter((t) => t.ceiling).map((t) => t.key)).toEqual(["cave"]);
+    expect(
+      Object.values(THEMES)
+        .filter((t) => t.ceiling)
+        .map((t) => t.key)
+    ).toEqual(["cave"]);
   });
 
   it("never picks the same level twice in a row", () => {
@@ -297,7 +335,7 @@ describe("game", () => {
         cleared = g.cleared;
         endings.push(g.log[0].finale!);
       }
-      // (keep the levels short)
+      // Keep the levels short
       if (g.reset && !g.level.forceFort) g.nextLevel(undefined, { boss: null, length: 50, stronghold: true });
     });
     expect(endings.length).toBeGreaterThanOrEqual(5);
@@ -314,7 +352,8 @@ describe("game", () => {
       extend(L, RING - 20);
       counts.props += L.props.filter((p) => p.kind === "sprite" && !p.back).length;
       counts.back += L.props.filter((p) => p.kind === "sprite" && p.back).length;
-      for (let c = L.start; c < L.next; c++) for (let r = 0; r < ROWS; r++) if (kindAt(L, c, r) === LADDER) counts.ladders++;
+      for (let c = L.start; c < L.next; c++)
+        for (let r = 0; r < ROWS; r++) if (kindAt(L, c, r) === LADDER) counts.ladders++;
     }
     expect(counts.props).toBeGreaterThan(40);
     expect(counts.back).toBeGreaterThan(4);
@@ -325,21 +364,30 @@ describe("game", () => {
     expect(BUILDINGS.length).toBeGreaterThanOrEqual(100);
     expect(new Set(BUILDINGS.map((b) => b.key)).size).toBe(BUILDINGS.length);
     // No two alike: each has its own mix of material, roof, windows and contents
-    expect(new Set(BUILDINGS.map((b) => `${b.wall}/${b.roof}/${b.windows}/${b.items.join()}`)).size).toBe(BUILDINGS.length);
+    expect(new Set(BUILDINGS.map((b) => `${b.wall}/${b.roof}/${b.windows}/${b.items.join()}`)).size).toBe(
+      BUILDINGS.length
+    );
     for (const b of BUILDINGS)
-      for (const id of [...b.items, ...(b.walls ?? []), ...(b.upper ?? []), ...(b.top ?? []), ...(b.outside ?? [])]) expect(ASSETS[id], `${b.key}: ${id}`).toBeTruthy();
+      for (const id of [...b.items, ...(b.walls ?? []), ...(b.upper ?? []), ...(b.top ?? []), ...(b.outside ?? [])])
+        expect(ASSETS[id], `${b.key}: ${id}`).toBeTruthy();
     expect(Object.keys(ASSETS).length).toBeGreaterThanOrEqual(240);
     const L = createLevel(THEMES.city, 2, { boss: null, length: 3000 });
     const spawns = extend(L, RING - 20);
-    // Shops and offices with their signs, across a few city stretches (the old-style buildings have none)
-    const signs = [L, ...[5, 6].map((seed) => {
-      const M = createLevel(THEMES.city, seed, { boss: null, length: 3000 });
-      extend(M, RING - 20);
-      return M;
-    })].reduce((n, M) => n + M.props.filter((p) => p.kind === "sign").length, 0);
+    // Shops and offices with their signs, across a few city stretches; the old-style buildings have none
+    const signs = [
+      L,
+      ...[5, 6].map((seed) => {
+        const M = createLevel(THEMES.city, seed, { boss: null, length: 3000 });
+        extend(M, RING - 20);
+        return M;
+      }),
+    ].reduce((n, M) => n + M.props.filter((p) => p.kind === "sign").length, 0);
     expect(signs).toBeGreaterThan(3);
-    // (a harbour turns up somewhere along a city's miles of streets and metro lines)
-    const harbour = [spawns, ...[3, 4].map((seed) => extend(createLevel(THEMES.city, seed, { boss: null, length: 6000 }), 2500))];
+    // A harbour turns up somewhere along a city's miles of streets and metro lines
+    const harbour = [
+      spawns,
+      ...[3, 4].map((seed) => extend(createLevel(THEMES.city, seed, { boss: null, length: 6000 }), 2500)),
+    ];
     expect(harbour.some((list) => list.some((s) => s.kind === "battleship"))).toBe(true);
   });
 
@@ -347,7 +395,19 @@ describe("game", () => {
     const g = new Game(THEMES.cave, { seed: 1 });
     const view = play(g, 0.1);
     const y = g.level.ground[4] * TILE;
-    g.barrels.push({ x: 36, y, vx: 0, vy: 0, ground: true, facing: 1, type: "propane", hp: 1, fuse: -1, owner: -3, alive: true });
+    g.barrels.push({
+      x: 36,
+      y,
+      vx: 0,
+      vy: 0,
+      ground: true,
+      facing: 1,
+      type: "propane",
+      hp: 1,
+      fuse: -1,
+      owner: -3,
+      alive: true,
+    });
     const tank = g.barrels[g.barrels.length - 1];
     g.explode(20, y - 4, 10, -2, false);
     let top = y;
@@ -382,7 +442,7 @@ describe("game", () => {
     g.hurtPlayer(p, 99);
     expect(p.dead).toBe(true);
     expect(g.popups.some((u) => u.text === "P2 DOWN")).toBe(true);
-    // (down for a couple of seconds, then the next transport over drops them back in)
+    // Down for a couple of seconds, then the next transport over drops them back in
     play(g, 4.5);
     expect(p.dead).toBe(false);
     expect(p.hp).toBe(PLAYER_HP);
@@ -392,7 +452,21 @@ describe("game", () => {
     const g = new Game(THEMES.cave, { seed: 1 });
     const view = play(g, 0.1);
     const y = g.level.ground[2] * TILE;
-    g.barrels.push(...[20, 30].map((x) => ({ x, y, vx: 0, vy: 0, ground: true, facing: 1 as const, type: "barrel" as const, hp: 1, fuse: -1, owner: -3, alive: true })));
+    g.barrels.push(
+      ...[20, 30].map((x) => ({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        ground: true,
+        facing: 1 as const,
+        type: "barrel" as const,
+        hp: 1,
+        fuse: -1,
+        owner: -3,
+        alive: true,
+      }))
+    );
     const p = g.players[0];
     const hp = p.hp;
     g.strike(20, y - 2);
@@ -412,7 +486,19 @@ describe("game", () => {
     const g = new Game(THEMES.hive, { seed: 1 });
     const view = play(g, 0.1);
     const p = g.players[0];
-    g.barrels.push({ x: p.x + 20, y: p.y, vx: 0, vy: 0, ground: true, facing: 1, type: "egg", hp: 3, fuse: -1, owner: -3, alive: true });
+    g.barrels.push({
+      x: p.x + 20,
+      y: p.y,
+      vx: 0,
+      vy: 0,
+      ground: true,
+      facing: 1,
+      type: "egg",
+      hp: 3,
+      fuse: -1,
+      owner: -3,
+      alive: true,
+    });
     g.step(1 / 30, view);
     expect(g.enemies.filter((e) => e.kind === "crawler").length).toBeGreaterThanOrEqual(2);
   });

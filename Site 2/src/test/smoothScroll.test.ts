@@ -22,7 +22,7 @@ class FakeLenis {
 vi.mock("lenis", () => ({ default: FakeLenis }));
 
 const mod = await import("@/lib/smoothScroll");
-// (after the mock: the helpers import the app, which imports Lenis)
+// Imported after the mock: the helpers import the app, which imports Lenis
 const { resetState } = await import("./utils");
 
 beforeEach(resetState);
@@ -48,7 +48,7 @@ describe("smooth scrolling", () => {
     mod.setScrollLocked(true);
     expect(lenis.stop).toHaveBeenCalled();
     expect(document.documentElement).toHaveClass("scroll-locked");
-    // …and tells the 3D scene it's hidden behind the overlay
+    // …and tells the scene it's hidden behind the overlay
     expect(sceneState.covered).toBe(true);
     mod.setScrollLocked(false);
     expect(lenis.start).toHaveBeenCalled();

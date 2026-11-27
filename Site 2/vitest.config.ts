@@ -20,12 +20,15 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
+      // The engine demo and the battle dev page are dev-only, exercised by hand rather than by unit tests
       exclude: [
         "src/test/**",
         "src/**/*.test.{ts,tsx}",
         "src/main.tsx",
         "src/vite-env.d.ts",
         "src/types/**",
+        "src/engine/demo/**",
+        "src/battle/dev/**",
       ],
       reporter: ["text-summary", "text", "json-summary"],
       reportsDirectory: "coverage",

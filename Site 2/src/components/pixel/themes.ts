@@ -1,9 +1,6 @@
 /**
- * The level themes. Every level picks one at random (never the same twice in a row), so the
- * scenery keeps changing and is different on every visit: what the ground is made of, what
- * gets built on it, who defends it, which boss waits half way, the sky, the weather, how hard
- * the artillery, jets, drones and paratroopers come down, and how big the battle raging in the
- * distance is. Seven of them are jungles of one kind or another. The cave is kept for the 404.
+ * Level themes: ground, buildings, defenders, boss, sky, weather and how hard the air and artillery
+ * attacks come. Levels draw them at random; the cave is kept for the 404 page.
  */
 import {
   ASH,
@@ -31,7 +28,8 @@ import {
   WOOD,
 } from "./level";
 
-export type Feature =
+/** Set pieces the generator can place; level.ts builds each one in `feature`. */
+type Feature =
   | "flat"
   | "slope"
   | "gap"
@@ -77,30 +75,19 @@ export type Feature =
   | "forest"
   | "railway"
   | "nuclear"
-  /** A great mountain to climb, a hundred-odd blocks high, an outpost on its summit */
   | "massif"
-  /** Down a sinkhole into a vast cavern deep in the earth, and back up a chimney */
   | "abyss"
-  /** A working mine: down its shaft, along the gallery past the carts on the rails, up the far shaft */
   | "mineshaft"
-  /** City blocks over a metro line: trains running between its stations, the squad on the street or down in the tunnels */
   | "metro"
-  /** A rail yard on the main line: freight trains running through it, an armoured train patrolling it */
   | "railyard"
-  /** Mills and works: sheds, smokestacks, gas holders, pipe bridges, conveyors, the yard between */
   | "factory"
-  /** A long avenue: traffic both ways, buses calling at their stops, traffic lights, street lights */
   | "boulevard"
-  /** A city park: lawns, big trees, a duck pond, a fountain, a bandstand, a playground */
   | "park"
-  /** A river through the city and a suspension bridge across it, traffic over it, boats under it */
   | "citybridge"
-  /** A waterworks: the pumping station, settling basins, clarifiers, a water tower */
   | "waterplant"
-  /** A railway station: its building, the platform under a canopy, passenger trains calling */
   | "station";
 
-/** Foot soldiers a theme fields. */
+/** Enemy foot-soldier kinds. */
 export type Troop =
   | "mook"
   | "heavy"
@@ -120,8 +107,7 @@ export type Troop =
   | "engineer"
   | "laser"
   | "exosuit";
-export type BossKind =
-  "tank" | "mech" | "gunship" | "worm" | "airship" | "cannon" | "spider";
+export type BossKind = "tank" | "mech" | "gunship" | "worm" | "airship" | "cannon" | "spider";
 export type Backdrop =
   | "jungle"
   | "deepjungle"
@@ -148,17 +134,8 @@ export type Backdrop =
   | "airbase"
   | "archipelago"
   | "mangrove";
-export type Ambient =
-  | "fireflies"
-  | "smoke"
-  | "embers"
-  | "ash"
-  | "snow"
-  | "rain"
-  | "storm"
-  | "sand"
-  | "spores"
-  | "none";
+/** Ambient particles and weather. */
+type Ambient = "fireflies" | "smoke" | "embers" | "ash" | "snow" | "rain" | "storm" | "sand" | "spores" | "none";
 
 export interface Theme {
   key: string;
@@ -166,41 +143,31 @@ export interface Theme {
   name: string;
   /** Sky gradient, top → horizon */
   sky: [string, string, string];
-  /** How dark the world is tinted (0 day … 1 black) */
+  /** How dark the world is tinted, from 0 for day to 1 for black */
   night: number;
-  /** A colour wash over the world (rgba), e.g. a warm dawn */
+  /** An rgba colour wash over the world, or empty for none */
   tint: string;
   sun: "sun" | "red" | "moon" | "none";
   backdrop: Backdrop;
-  /** Enemy uniforms */
+  /** Which backdrop's enemy uniforms to use */
   look: Backdrop;
   /** Ground: top block, the few below it, and the deep rock */
   top: number;
   fill: number;
   deep: number;
-  /** Obstacles and buildings; `skyline` builds big ruins in the background (0: none) */
+  /** Block kinds for obstacles, buildings and background ruins; skyline 0 means no ruins */
   wall: number;
   build: number;
   skyline: number;
-  decor:
-    | "palms"
-    | "jungle"
-    | "pines"
-    | "deadwood"
-    | "fires"
-    | "crystals"
-    | "rubble"
-    | "none"
-    | "autumn"
-    | "sakura";
-  /** How often each feature comes up (relative weights) */
+  decor: "palms" | "jungle" | "pines" | "deadwood" | "fires" | "crystals" | "rubble" | "none" | "autumn" | "sakura";
+  /** Relative weight of each feature */
   features: Partial<Record<Feature, number>>;
   troops: Partial<Record<Troop, number>>;
   /** Enemies per 12 columns */
   enemies: number;
-  /** Chance of a barrel cluster per chunk */
+  /** Scales the chance of a barrel cluster in each feature */
   barrels: number;
-  /** Artillery shells and meteors per second; enemy helicopters, paratroopers, bombing jets and drone swarms per minute */
+  /** Artillery shells and meteors per second; helicopters, paratroopers, bombing jets and drone swarms per minute */
   artillery: number;
   meteors: number;
   helis: number;
@@ -208,18 +175,18 @@ export interface Theme {
   jets: number;
   drones: number;
   ambient: Ambient;
-  /** How much of a battle rages in the distance behind the level (0 none … 1 a lot) */
+  /** Intensity of the distant background battle, 0 to 1 */
   distant: number;
   /** How fast the squad pushes forward, px/s */
   speed: number;
-  /** How mountainous the ground is (0 flat … 1.5 alpine): scales the hills and ranges the generator raises */
+  /** Hill and mountain scale for terrainAt, from 0 for flat to about 1.5 for alpine */
   relief: number;
   bosses: BossKind[];
   /** A cave roof over the level */
   ceiling?: boolean;
-  /** How many times longer than usual a level of it runs (the cities and the industrial lands go on and on) */
+  /** Level length multiplier */
   long?: number;
-  /** Day turns to night and back, and the weather comes and goes (clear, cloud, rain, storms, fog) */
+  /** Run a day–night and weather cycle instead of fixed light and weather */
   cycle?: boolean;
 }
 
@@ -835,7 +802,9 @@ export const THEMES: Record<string, Theme> = {
     wall: METAL,
     build: METAL,
     skyline: METAL,
-    features: { waterplant: 1.5, station: 1,
+    features: {
+      waterplant: 1.5,
+      station: 1,
       flat: 1,
       gap: 1,
       wall: 2,
@@ -900,7 +869,10 @@ export const THEMES: Record<string, Theme> = {
     wall: METAL,
     build: METAL,
     skyline: METAL,
-    features: { waterplant: 2, station: 1.5, citybridge: 1,
+    features: {
+      waterplant: 2,
+      station: 1.5,
+      citybridge: 1,
       railyard: 9,
       factory: 7,
       catwalk: 3,
@@ -956,7 +928,14 @@ export const THEMES: Record<string, Theme> = {
     build: BRICK,
     skyline: BRICK,
     decor: "rubble",
-    features: { boulevard: 9, park: 3, citybridge: 2.5, waterplant: 1.5, station: 2.5, metro: 12, railyard: 1.5,
+    features: {
+      boulevard: 9,
+      park: 3,
+      citybridge: 2.5,
+      waterplant: 1.5,
+      station: 2.5,
+      metro: 12,
+      railyard: 1.5,
       ruins: 5,
       flat: 1,
       wreck: 2,
@@ -1168,7 +1147,10 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: CONCRETE,
     skyline: CONCRETE,
-    features: { station: 0.5, railyard: 3, factory: 1.5,
+    features: {
+      station: 0.5,
+      railyard: 3,
+      factory: 1.5,
       silo: 4,
       bunker: 2,
       mgnest: 2,
@@ -1232,7 +1214,12 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: CONCRETE,
     skyline: CONCRETE,
-    features: { boulevard: 2, park: 1, station: 1, metro: 2.5, railyard: 1.5,
+    features: {
+      boulevard: 2,
+      park: 1,
+      station: 1,
+      metro: 2.5,
+      railyard: 1.5,
       flat: 1,
       wall: 2,
       bunker: 3,
@@ -1576,7 +1563,12 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: BRICK,
     decor: "jungle",
-    features: { boulevard: 3, park: 4, station: 1, waterplant: 1, metro: 2,
+    features: {
+      boulevard: 3,
+      park: 4,
+      station: 1,
+      waterplant: 1,
+      metro: 2,
       flat: 1,
       downtown: 6,
       metropolis: 1,
@@ -1623,7 +1615,13 @@ export const THEMES: Record<string, Theme> = {
     wall: SANDBAG,
     build: CONCRETE,
     skyline: CONCRETE,
-    features: { boulevard: 9, park: 2.5, citybridge: 2.5, waterplant: 1, station: 2.5, metro: 12,
+    features: {
+      boulevard: 9,
+      park: 2.5,
+      citybridge: 2.5,
+      waterplant: 1,
+      station: 2.5,
+      metro: 12,
       metropolis: 8,
       downtown: 3,
       highway: 3,
@@ -1671,16 +1669,7 @@ export const THEMES: Record<string, Theme> = {
     deep: STONE,
     wall: SANDBAG,
     build: CONCRETE,
-    features: { park: 0.5,
-      airfield: 5,
-      bunker: 2,
-      mgnest: 2,
-      radar: 2,
-      downtown: 1,
-      highway: 1,
-      flat: 1,
-      convoy: 1,
-    },
+    features: { park: 0.5, airfield: 5, bunker: 2, mgnest: 2, radar: 2, downtown: 1, highway: 1, flat: 1, convoy: 1 },
     troops: {
       mook: 4,
       heavy: 1,
@@ -1826,7 +1815,19 @@ export const THEMES: Record<string, Theme> = {
     wall: ICE,
     build: CONCRETE,
     decor: "pines",
-    features: { massif: 6, mineshaft: 1, pines: 3, forest: 2, flat: 2, slope: 2, mgnest: 1, bunker: 1, radar: 1, waterfall: 1, camp: 1 },
+    features: {
+      massif: 6,
+      mineshaft: 1,
+      pines: 3,
+      forest: 2,
+      flat: 2,
+      slope: 2,
+      mgnest: 1,
+      bunker: 1,
+      radar: 1,
+      waterfall: 1,
+      camp: 1,
+    },
     troops: { mook: 5, sniper: 3, heavy: 1, mortar: 1, rocket: 1, jetpacker: 1 },
     enemies: 5,
     barrels: 0.4,
@@ -1870,10 +1871,8 @@ export const THEMES: Record<string, Theme> = {
 };
 
 /**
- * Great mountains to climb, descents into the depths of the earth and mines to go through, in
- * the country they suit: the share of each theme's set pieces (on top of what it already has)
- * that should be one. (They're long, fifty to a hundred-odd columns each, so even a small share
- * comes up often.)
+ * Weights for the long set pieces in each theme, as a share of its other features' total. They span
+ * 50 to 100-odd columns, so even a small share comes up often.
  */
 type Big = "massif" | "abyss" | "mineshaft";
 const BIG: Partial<Record<string, Partial<Record<Big, number>>>> = {
@@ -1901,16 +1900,14 @@ for (const [key, add] of Object.entries(BIG)) {
   const t = THEMES[key];
   if (!t || !add) continue;
   const total = (Object.values(t.features) as number[]).reduce((s, v) => s + v, 0);
-  for (const [f, share] of Object.entries(add) as [Big, number][]) t.features[f] = Math.round(total * share * 100) / 100;
+  for (const [f, share] of Object.entries(add) as [Big, number][])
+    t.features[f] = Math.round(total * share * 100) / 100;
 }
 
-/** The themes levels are drawn from (the cave is the 404's). */
+/** Themes levels are drawn from; the cave is kept for the 404 page. */
 export const ROTATION = Object.keys(THEMES).filter((k) => k !== "cave");
 
-/**
- * Biomes dealt like cards from a shuffled deck: every one comes up once before any comes up
- * again, so there's no bias towards any of them (and never the same one twice running).
- */
+/** Deals themes from a shuffled deck: each comes up once per pass, and never twice in a row. */
 export function themeDeck(rand: () => number) {
   let deck: string[] = [];
   return (current?: string): Theme => {
@@ -1920,8 +1917,7 @@ export function themeDeck(rand: () => number) {
         const j = Math.floor(rand() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
       }
-      if (deck[deck.length - 1] === current)
-        [deck[0], deck[deck.length - 1]] = [deck[deck.length - 1], deck[0]];
+      if (deck[deck.length - 1] === current) [deck[0], deck[deck.length - 1]] = [deck[deck.length - 1], deck[0]];
     }
     let key = deck.pop()!;
     if (key === current && deck.length) {
@@ -1936,20 +1932,11 @@ export function themeDeck(rand: () => number) {
 const mixHex = (a: string, b: string, t: number) => {
   const pa = parseInt(a.slice(1), 16);
   const pb = parseInt(b.slice(1), 16);
-  const ch = (sh: number) =>
-    Math.round(
-      ((pa >> sh) & 255) + (((pb >> sh) & 255) - ((pa >> sh) & 255)) * t,
-    );
-  return (
-    "#" + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, "0")).join("")
-  );
+  const ch = (sh: number) => Math.round(((pa >> sh) & 255) + (((pb >> sh) & 255) - ((pa >> sh) & 255)) * t);
+  return "#" + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, "0")).join("");
 };
 
-/**
- * A one-off version of a biome, so no two levels are quite alike: a time of day (dawn, dusk,
- * night), weather (rain, a storm, fog, snow where it's cold), hills higher or lower, and its
- * features in a different mix. The name says what's different.
- */
+/** A randomised copy of a theme with its own time of day, weather, relief and feature mix. */
 export function variant(t: Theme, rand: () => number): Theme {
   const v: Theme = {
     ...t,
@@ -1962,36 +1949,23 @@ export function variant(t: Theme, rand: () => number): Theme {
     if (time < 0.14) {
       v.night = 0.42;
       v.sun = "moon";
-      v.sky = [
-        mixHex(t.sky[0], "#05060f", 0.8),
-        mixHex(t.sky[1], "#14102a", 0.75),
-        mixHex(t.sky[2], "#2a1a3a", 0.7),
-      ];
+      v.sky = [mixHex(t.sky[0], "#05060f", 0.8), mixHex(t.sky[1], "#14102a", 0.75), mixHex(t.sky[2], "#2a1a3a", 0.7)];
       v.tint = "";
       notes.push("at night");
     } else if (time < 0.3) {
       v.sun = "red";
       v.night = Math.max(t.night, 0.12);
-      v.sky = [
-        mixHex(t.sky[0], "#2a2d6e", 0.5),
-        mixHex(t.sky[1], "#c85a5a", 0.55),
-        mixHex(t.sky[2], "#ffa65a", 0.6),
-      ];
+      v.sky = [mixHex(t.sky[0], "#2a2d6e", 0.5), mixHex(t.sky[1], "#c85a5a", 0.55), mixHex(t.sky[2], "#ffa65a", 0.6)];
       v.tint = "rgba(255,110,40,0.1)";
       notes.push("at dusk");
     } else if (time < 0.4) {
-      v.sky = [
-        mixHex(t.sky[0], "#3a3a7a", 0.4),
-        mixHex(t.sky[1], "#e898a8", 0.5),
-        mixHex(t.sky[2], "#ffe0c0", 0.5),
-      ];
+      v.sky = [mixHex(t.sky[0], "#3a3a7a", 0.4), mixHex(t.sky[1], "#e898a8", 0.5), mixHex(t.sky[2], "#ffe0c0", 0.5)];
       v.tint = "rgba(255,160,180,0.07)";
       notes.push("at dawn");
     }
   }
   const weather = rand();
-  const cold =
-    t.top === SNOW || t.backdrop === "snow" || t.backdrop === "tundra";
+  const cold = t.top === SNOW || t.backdrop === "snow" || t.backdrop === "tundra";
   if (weather < 0.12 && t.backdrop !== "cave") {
     v.ambient = "storm";
     notes.push("in a storm");
@@ -2004,8 +1978,7 @@ export function variant(t: Theme, rand: () => number): Theme {
     notes.push("in fog");
   }
   v.relief = Math.max(0.2, Math.min(1.6, t.relief * (0.6 + rand() * 0.8)));
-  for (const k of Object.keys(v.features) as Feature[])
-    v.features[k] = (v.features[k] ?? 0) * (0.5 + rand());
+  for (const k of Object.keys(v.features) as Feature[]) v.features[k] = (v.features[k] ?? 0) * (0.5 + rand());
   v.name = notes.length ? `${t.name} ${notes[0]}` : t.name;
   return v;
 }
@@ -2016,7 +1989,7 @@ export function nextTheme(rand: () => number, current?: string) {
   return THEMES[pool[Math.floor(rand() * pool.length)]];
 }
 
-/** How the HUD names a theme's weather and light. */
+/** HUD label for each kind of weather. */
 export const WEATHER: Record<Ambient, string> = {
   fireflies: "Fireflies",
   smoke: "Smoke",
@@ -2029,6 +2002,7 @@ export const WEATHER: Record<Ambient, string> = {
   spores: "Spores",
   none: "Clear",
 };
+/** HUD label for a theme's light. */
 export const lightOf = (t: Theme) =>
   t.backdrop === "cave"
     ? "Underground"

@@ -1,10 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * End-to-end checks of the built site in a real browser (e2e/): pages load without
- * errors, navigation works, the layout fits phones, the pixel scene reacts, and axe finds
- * no accessibility violations. Runs against `vite preview` of dist/, so build first
- * (`npm run test:e2e` does both). Site 2 is served from the root path.
+ * End-to-end tests of the built site in a real browser. They run against `vite preview` of dist/,
+ * so build first; `npm run test:e2e` does both.
  */
 const PORT = 4174;
 const BASE = `http://localhost:${PORT}/`;

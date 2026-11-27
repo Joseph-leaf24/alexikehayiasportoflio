@@ -47,7 +47,7 @@ export default function Counter({ value, className }: { value: number; className
     };
   }, [value]);
 
-  // Screen readers get the final number (aria-label on a plain span is ignored by most of them)
+  // Screen readers get the final number from the sr-only copy: most ignore aria-label on a plain span
   return (
     <span className={className}>
       <span ref={ref} aria-hidden="true">

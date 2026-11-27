@@ -1,14 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { BAMBOO, BASE_ROW, cell, createLevel, extend, kindAt, LAVA, LEAF, LEVEL_H, MOSS, RING, ROWS, solidAt, TILE, VINE, WATER, waterAt } from "@/components/pixel/level";
+import {
+  BAMBOO,
+  BASE_ROW,
+  cell,
+  createLevel,
+  extend,
+  kindAt,
+  LAVA,
+  LEAF,
+  LEVEL_H,
+  MOSS,
+  RING,
+  ROWS,
+  solidAt,
+  TILE,
+  VINE,
+  WATER,
+  waterAt,
+} from "@/components/pixel/level";
 import { lightOf, ROTATION, THEMES, WEATHER, type Theme } from "@/components/pixel/themes";
-import { BULLET, FLAMESHOT, Game, GRENADE, PLAYER_HP, WEAPONS, type Enemy, type EnemyKind, type View } from "@/components/pixel/game";
+import {
+  BULLET,
+  FLAMESHOT,
+  Game,
+  GRENADE,
+  PLAYER_HP,
+  WEAPONS,
+  type Enemy,
+  type EnemyKind,
+  type View,
+} from "@/components/pixel/game";
 
 /** Step a game for `seconds`, with the camera following the squad like PixelScene's does. `each` runs every step. */
 function play(g: Game, seconds: number, each?: () => void) {
   const view: View = { x: 0, y: 0, w: 480, h: 300 };
   for (let i = 0; i < seconds * 30; i++) {
     view.x = Math.max(g.level.start * TILE, g.advance - view.w * 0.42);
-    // (up the mountains and down the valleys with the squad's feet)
+    // Up the mountains and down the valleys with the squad's feet
     const up = g.players.filter((p) => !p.dead && !p.chute);
     const feet = up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : g.level.h * TILE;
     view.y = Math.max(-80, Math.min(LEVEL_H - view.h, feet - view.h * 0.68));
@@ -20,22 +48,39 @@ function play(g: Game, seconds: number, each?: () => void) {
 }
 
 /** A flat, empty stretch with nothing coming in, so one enemy can be watched on its own. */
-const quiet: Theme = { ...THEMES.jungle, relief: 0, features: { flat: 1 }, enemies: 0, barrels: 0, artillery: 0, helis: 0, paras: 0, jets: 0, drones: 0, decor: "none" };
+const quiet: Theme = {
+  ...THEMES.jungle,
+  relief: 0,
+  features: { flat: 1 },
+  enemies: 0,
+  barrels: 0,
+  artillery: 0,
+  helis: 0,
+  paras: 0,
+  jets: 0,
+  drones: 0,
+  decor: "none",
+};
 
-/** Put an enemy down (the generator normally does this). */
+/** Put an enemy down by hand, as the generator normally would. */
 const place = (g: Game, kind: EnemyKind, x: number, y = BASE_ROW * TILE): Enemy => {
   const e = (g as unknown as { makeEnemy(k: EnemyKind, x: number, y: number): Enemy }).makeEnemy(kind, x, y);
   g.enemies.push(e);
   return e;
 };
 const tough = (e: Enemy) => Object.assign(e, { hp: 1e6, maxHp: 1e6 });
-/** A theme without its great mountains and descents into the depths (the jungle checks are about the jungle). */
-/** A country without its great descents (mountains, the depths, mineshafts): those are climbed down and up, not jumped. */
-const plain = (t: Theme): Theme => ({ ...t, features: Object.fromEntries(Object.entries(t.features).filter(([k]) => k !== "massif" && k !== "abyss" && k !== "mineshaft")) });
+/** A country without its great mountains, depths and mineshafts: those are climbed down and up, not jumped. */
+const plain = (t: Theme): Theme => ({
+  ...t,
+  features: Object.fromEntries(
+    Object.entries(t.features).filter(([k]) => k !== "massif" && k !== "abyss" && k !== "mineshaft")
+  ),
+});
 
 /** The first column of open water in a level, and its surface row. */
 function seaStart(L: ReturnType<typeof createLevel>) {
-  for (let c = L.start; c < L.next; c++) for (let r = 0; r < ROWS; r++) if (kindAt(L, c, r) === WATER) return { first: c, surface: r };
+  for (let c = L.start; c < L.next; c++)
+    for (let r = 0; r < ROWS; r++) if (kindAt(L, c, r) === WATER) return { first: c, surface: r };
   return { first: -1, surface: -1 };
 }
 
@@ -44,7 +89,8 @@ function census(theme: Theme, seed: number) {
   const L = createLevel(theme, seed, { boss: null, length: 2000 });
   extend(L, RING - 20);
   const n = new Map<number, number>();
-  for (let c = L.start; c < L.next; c++) for (let r = 0; r < ROWS; r++) n.set(L.fg[cell(c, r)], (n.get(L.fg[cell(c, r)]) ?? 0) + 1);
+  for (let c = L.start; c < L.next; c++)
+    for (let r = 0; r < ROWS; r++) n.set(L.fg[cell(c, r)], (n.get(L.fg[cell(c, r)]) ?? 0) + 1);
   return { L, count: (k: number) => n.get(k) ?? 0 };
 }
 
@@ -52,7 +98,11 @@ describe("jungle levels", () => {
   it("are seven of the seventeen levels in the rotation, each with its own weather and light", () => {
     expect(ROTATION.length).toBeGreaterThanOrEqual(17);
     for (const k of ["deepjungle", "temple", "monsoon", "nightraid"]) expect(ROTATION).toContain(k);
-    expect(ROTATION.filter((k) => ["jungle", "deepjungle", "temple", "monsoon"].includes(THEMES[k].backdrop) || k === "swamp").length).toBeGreaterThanOrEqual(7);
+    expect(
+      ROTATION.filter(
+        (k) => ["jungle", "deepjungle", "temple", "monsoon"].includes(THEMES[k].backdrop) || k === "swamp"
+      ).length
+    ).toBeGreaterThanOrEqual(7);
     for (const t of Object.values(THEMES)) {
       expect(WEATHER[t.ambient]).toBeTruthy();
       expect(lightOf(t)).toBeTruthy();
@@ -64,7 +114,7 @@ describe("jungle levels", () => {
   it("grow rainforest, bamboo, rivers and waterfalls; temples and ruins of mossy stone", () => {
     const deep = census(plain(THEMES.deepjungle), 4);
     for (const k of [LEAF, VINE, BAMBOO, WATER]) expect(deep.count(k), `block ${k}`).toBeGreaterThan(0);
-    // (over a few levels: any one stretch may or may not roll a camp or a cliff)
+    // Over a few levels: any one stretch may or may not roll a camp or a cliff
     const deeps = [4, 5, 6].map((seed) => census(THEMES.deepjungle, seed).L);
     expect(deeps.some((L) => L.props.some((p) => p.kind === "waterfall"))).toBe(true);
     expect(deeps.some((L) => L.props.some((p) => p.kind === "tent"))).toBe(true);
@@ -120,7 +170,8 @@ describe("new enemies", () => {
     const e = place(g, "shield", front.x + 60);
     play(g, 1 / 30);
     expect(e.facing).toBe(-1);
-    const bullet = (x: number, vx: number) => g.shots.push({ kind: BULLET, x, y: e.y - 8, vx, vy: 0, life: 1, dmg: 1, pid: 0, pierce: 0 });
+    const bullet = (x: number, vx: number) =>
+      g.shots.push({ kind: BULLET, x, y: e.y - 8, vx, vy: 0, life: 1, dmg: 1, pid: 0, pierce: 0 });
     bullet(e.x - 10, 400);
     play(g, 2 / 30);
     expect(e.hp).toBe(e.maxHp);
@@ -161,7 +212,10 @@ describe("new enemies", () => {
     const g = new Game({ ...quiet, drones: 120 }, { seed: 1, level: { boss: null, length: 900 } });
     let flying = 0;
     play(g, 14, () => {
-      flying = Math.max(flying, g.enemies.filter((e) => e.kind === "drone" && e.alive && e.y < BASE_ROW * TILE - 40).length);
+      flying = Math.max(
+        flying,
+        g.enemies.filter((e) => e.kind === "drone" && e.alive && e.y < BASE_ROW * TILE - 40).length
+      );
     });
     expect(flying).toBeGreaterThanOrEqual(2);
   });
@@ -246,11 +300,37 @@ describe("mayhem", () => {
     play(g, 0.2);
     const p = g.players[0];
     p.inv = 0;
-    g.barrels.push({ x: p.x + 2, y: p.y, vx: 0, vy: 0, ground: true, facing: 1, type: "mine", hp: 1, fuse: -1, owner: -3, alive: true });
+    g.barrels.push({
+      x: p.x + 2,
+      y: p.y,
+      vx: 0,
+      vy: 0,
+      ground: true,
+      facing: 1,
+      type: "mine",
+      hp: 1,
+      fuse: -1,
+      owner: -3,
+      alive: true,
+    });
     const booms = g.booms;
     for (let i = 0; i < 10; i++) g.step(1 / 30, view);
     expect(g.booms).toBeGreaterThan(booms);
-    for (const kind of ["jetpacker", "minigunner", "officer", "dynamiter", "rusher", "engineer", "laser", "exosuit", "apc", "lighttank", "airship", "cannon", "spider"] as EnemyKind[]) {
+    for (const kind of [
+      "jetpacker",
+      "minigunner",
+      "officer",
+      "dynamiter",
+      "rusher",
+      "engineer",
+      "laser",
+      "exosuit",
+      "apc",
+      "lighttank",
+      "airship",
+      "cannon",
+      "spider",
+    ] as EnemyKind[]) {
       const e = tough(place(g, kind, p.x + 120, p.y));
       play(g, 0.2);
       expect(e.hp, kind).toBeGreaterThan(0);
@@ -292,7 +372,7 @@ describe("seamless levels", () => {
     const { first, surface } = seaStart(L);
     expect(first).toBeGreaterThan(0);
     for (let c = first; c < L.next; c++) expect(kindAt(L, c, surface), `column ${c}`).toBe(WATER);
-    // (well past a single sea's length: it carried straight on)
+    // Well past a single sea's length: it carried straight on
     expect(L.next - first).toBeGreaterThan(300);
   });
 

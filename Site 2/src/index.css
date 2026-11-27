@@ -27,11 +27,12 @@
 
     /* One "pixel" of UI chrome */
     --px: 4px;
-    /* Outline with notched corners (four offset copies, so the corners stay open) */
+    /* Outline with notched corners: four offset copies, so the corners stay open */
     --frame: 0 calc(-1 * var(--px)) 0 0 var(--ink), 0 var(--px) 0 0 var(--ink), calc(-1 * var(--px)) 0 0 0 var(--ink),
       var(--px) 0 0 0 var(--ink);
     /* Light top-left, dark bottom-right */
-    --bevel: inset var(--px) var(--px) 0 0 rgba(255, 255, 255, 0.09), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 rgba(0, 0, 0, 0.32);
+    --bevel: inset var(--px) var(--px) 0 0 rgba(255, 255, 255, 0.09),
+      inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 rgba(0, 0, 0, 0.32);
     --drop: calc(2 * var(--px)) calc(2 * var(--px)) 0 0 rgba(5, 4, 10, 0.55);
 
     --font-display: "Press Start 2P", ui-monospace, monospace;
@@ -39,8 +40,6 @@
     --font-body: "Pixelify Sans", ui-monospace, monospace;
 
     --gutter: clamp(16px, 4vw, 64px);
-    /* Retro motion: things move in a few hard steps instead of gliding */
-    --steps: steps(4, end);
   }
 
   html {
@@ -92,7 +91,7 @@
   }
 }
 
-/* Lenis (it toggles these classes on <html> itself) */
+/* Lenis toggles these classes on <html> itself */
 html.lenis,
 html.lenis body {
   height: auto;
@@ -176,14 +175,6 @@ html.scroll-locked {
     line-height: 1.4;
   }
 
-  /* A game dialog box: dark slate, ink outline with notched corners, bevel, hard shadow */
-  .dialog {
-    position: relative;
-    padding: 18px 22px;
-    background: rgba(29, 33, 53, 0.94);
-    box-shadow: var(--frame), var(--bevel), var(--drop);
-  }
-
   .lead {
     margin: 0;
     font-size: clamp(1.05rem, 1.4vw, 1.25rem);
@@ -194,10 +185,6 @@ html.scroll-locked {
   .text-outline {
     color: transparent;
     -webkit-text-stroke: 1.5px var(--gold);
-  }
-
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
   }
 
   /* Buttons: a chunky plate that sits on a dark ledge and presses down into it */
@@ -217,8 +204,13 @@ html.scroll-locked {
     background: var(--panel-2);
     border: 0;
     cursor: pointer;
-    box-shadow: var(--frame), var(--bevel), 0 calc(2 * var(--px)) 0 0 var(--ink);
-    transition: background-color 0.15s steps(2), color 0.15s steps(2);
+    box-shadow:
+      var(--frame),
+      var(--bevel),
+      0 calc(2 * var(--px)) 0 0 var(--ink);
+    transition:
+      background-color 0.15s steps(2),
+      color 0.15s steps(2);
   }
   .btn-px:hover {
     background: var(--gold);
@@ -226,7 +218,10 @@ html.scroll-locked {
   }
   .btn-px:active {
     translate: 0 var(--px);
-    box-shadow: var(--frame), var(--bevel), 0 var(--px) 0 0 var(--ink);
+    box-shadow:
+      var(--frame),
+      var(--bevel),
+      0 var(--px) 0 0 var(--ink);
   }
   .btn-px--solid {
     background: var(--gold);
@@ -280,7 +275,7 @@ html.scroll-locked {
     font-size: 13px;
   }
 
-  /* Corner brackets (Corners.tsx): pixel Ls that pop outward when the card is hovered */
+  /* Corner brackets from Corners.tsx: pixel Ls that pop outward when the card is hovered */
   .corners {
     position: absolute;
     inset: 0;
@@ -292,7 +287,9 @@ html.scroll-locked {
     height: 14px;
     border: 0 solid var(--gold);
     opacity: 0;
-    transition: opacity 0.12s steps(1), translate 0.2s steps(2);
+    transition:
+      opacity 0.12s steps(1),
+      translate 0.2s steps(2);
   }
   .corners i:nth-child(1) {
     left: -8px;
@@ -376,12 +373,14 @@ html.scroll-locked {
 }
 
 /* ==================================================================== */
-/* Reveal (Reveal.tsx sets --d, the delay): stepped, like sprites       */
+/* Reveal: stepped, like sprites. Reveal.tsx sets --d, the delay         */
 /* ==================================================================== */
 .reveal-up {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.4s steps(3) var(--d), transform 0.4s steps(3) var(--d);
+  transition:
+    opacity 0.4s steps(3) var(--d),
+    transform 0.4s steps(3) var(--d);
 }
 .reveal-fade {
   opacity: 0;
@@ -401,7 +400,7 @@ html.scroll-locked {
   transform: none;
 }
 .reveal-clip.is-in {
-  /* negative inset so frames, shadows and hover brackets outside the box aren't clipped */
+  /* Negative inset so frames, shadows and hover brackets outside the box aren't clipped */
   clip-path: inset(-40px -40px -40px -40px);
 }
 
@@ -422,8 +421,7 @@ html.scroll-locked {
   image-rendering: crisp-edges;
 }
 html.no-canvas body {
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 4px, transparent 4px 8px),
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 4px, transparent 4px 8px),
     linear-gradient(#1f2a52, #14121f 70%);
   background-attachment: fixed;
 }
@@ -496,7 +494,10 @@ html.no-canvas body {
     linear-gradient(var(--c), var(--c)) bottom right / 3px 9px;
   background-repeat: no-repeat;
   filter: drop-shadow(1px 1px 0 var(--ink)) drop-shadow(-1px -1px 0 var(--ink));
-  transition: width 0.15s steps(2), height 0.15s steps(2), margin 0.15s steps(2);
+  transition:
+    width 0.15s steps(2),
+    height 0.15s steps(2),
+    margin 0.15s steps(2);
 }
 .cursor.is-hover .cursor__ring {
   --c: var(--gold);
@@ -543,9 +544,7 @@ html.no-canvas body {
   left: 0;
   right: 0;
   height: 50.5%;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 4px, transparent 4px 8px),
-    var(--bg);
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 4px, transparent 4px 8px), var(--bg);
   transition: transform 0.7s steps(7);
 }
 .loader__panel--top {
@@ -602,7 +601,9 @@ html.no-canvas body {
   font-size: clamp(3rem, 12vw, 8rem);
   line-height: 1;
   color: var(--text);
-  text-shadow: 0.08em 0.08em 0 var(--fire), 0.16em 0.16em 0 var(--ink);
+  text-shadow:
+    0.08em 0.08em 0 var(--fire),
+    0.16em 0.16em 0 var(--ink);
 }
 .loader__bar {
   position: relative;
@@ -617,8 +618,7 @@ html.no-canvas body {
   height: 100%;
   transform: scaleX(0);
   transform-origin: left;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 18px, var(--ink) 18px 21px),
+  background: repeating-linear-gradient(90deg, transparent 0 18px, var(--ink) 18px 21px),
     linear-gradient(var(--gold-2) 0 4px, var(--gold) 4px);
 }
 .loader__log {
@@ -663,7 +663,9 @@ html.no-canvas body {
 .page-wipe__cell {
   transform: scale(0);
   background: var(--panel);
-  box-shadow: inset 4px 4px 0 0 rgba(255, 255, 255, 0.06), inset -4px -4px 0 0 rgba(0, 0, 0, 0.3);
+  box-shadow:
+    inset 4px 4px 0 0 rgba(255, 255, 255, 0.06),
+    inset -4px -4px 0 0 rgba(0, 0, 0, 0.3);
 }
 .page-wipe__cell[data-t="1"] {
   background: #1a1e31;
@@ -781,7 +783,15 @@ html.no-canvas body {
   flex: none;
   background:
     linear-gradient(#9be36b 0 2px, #5bbf3a 2px 6px, transparent 6px),
-    linear-gradient(90deg, transparent 0 4px, #5bbf3a 4px 6px, transparent 6px 10px, #5bbf3a 10px 12px, transparent 12px) 0 6px / 100% 2px no-repeat,
+    linear-gradient(
+        90deg,
+        transparent 0 4px,
+        #5bbf3a 4px 6px,
+        transparent 6px 10px,
+        #5bbf3a 10px 12px,
+        transparent 12px
+      )
+      0 6px / 100% 2px no-repeat,
     #8a5a2b;
   box-shadow: 0 0 0 2px var(--ink);
 }
@@ -825,7 +835,9 @@ html.no-canvas body {
   color: var(--text);
   background: rgba(29, 33, 53, 0.94);
   box-shadow: var(--frame), var(--bevel);
-  transition: background-color 0.12s steps(2), color 0.12s steps(2);
+  transition:
+    background-color 0.12s steps(2),
+    color 0.12s steps(2);
 }
 .hud-nav a:hover {
   color: var(--ink);
@@ -845,7 +857,9 @@ html.no-canvas body {
   right: 13px;
   height: 4px;
   background: var(--text);
-  transition: transform 0.2s steps(2), top 0.2s steps(2);
+  transition:
+    transform 0.2s steps(2),
+    top 0.2s steps(2);
 }
 .hud-burger i:nth-child(1) {
   top: 15px;
@@ -927,8 +941,7 @@ html.no-canvas body {
   height: 100%;
   transform-origin: left;
   transform: scaleX(0);
-  background:
-    repeating-linear-gradient(90deg, transparent 0 8px, var(--ink) 8px 10px),
+  background: repeating-linear-gradient(90deg, transparent 0 8px, var(--ink) 8px 10px),
     linear-gradient(#a7f07e 0 3px, var(--grass) 3px);
 }
 
@@ -964,12 +977,13 @@ html.no-canvas body {
   flex-direction: column;
   justify-content: space-between;
   padding: 100px var(--gutter) 36px;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 4px, transparent 4px 8px),
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 4px, transparent 4px 8px),
     rgba(20, 18, 31, 0.97);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s steps(2), visibility 0s linear 0.2s;
+  transition:
+    opacity 0.2s steps(2),
+    visibility 0s linear 0.2s;
 }
 .mobile-menu.is-open {
   opacity: 1;
@@ -994,7 +1008,9 @@ html.no-canvas body {
   box-shadow: var(--frame), var(--bevel);
   opacity: 0;
   transform: translateX(-24px);
-  transition: opacity 0.3s steps(3), transform 0.3s steps(3);
+  transition:
+    opacity 0.3s steps(3),
+    transform 0.3s steps(3);
 }
 .mobile-menu nav a:hover,
 .mobile-menu nav a:focus-visible {
@@ -1049,16 +1065,12 @@ html.no-canvas body {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   min-height: 100vh;
   min-height: 100svh;
   padding-top: 104px;
   padding-bottom: clamp(28px, 6vh, 64px);
   will-change: transform, opacity;
-}
-/* Name at the top, the meta row at the bottom: the squad fights in the open space between */
-.hero__inner {
-  justify-content: flex-start;
 }
 .hero__main {
   display: flex;
@@ -1076,7 +1088,6 @@ html.no-canvas body {
   justify-content: space-between;
   gap: 14px;
 }
-/* The eight players, like a title screen's "P1 … P8" */
 /* The eight players: a slim column down the right-hand side, out of the battle's way */
 .hero__squad {
   position: absolute;
@@ -1095,7 +1106,9 @@ html.no-canvas body {
   gap: 0 5px;
   padding: 3px 6px 3px 3px;
   background: rgba(13, 11, 20, 0.82);
-  box-shadow: 0 0 0 2px var(--pc), 3px 3px 0 0 rgba(5, 4, 10, 0.5);
+  box-shadow:
+    0 0 0 2px var(--pc),
+    3px 3px 0 0 rgba(5, 4, 10, 0.5);
 }
 .hero__player .portrait-px {
   grid-row: 1 / span 2;
@@ -1132,7 +1145,7 @@ html.no-canvas body {
   }
 }
 
-/* Pause, resume and speed for the battle behind the page */
+/* Scene controls for the battle behind the page */
 .scene-controls {
   position: fixed;
   left: 50%;
@@ -1229,36 +1242,6 @@ html.is-whiteout .scene-controls {
   background: var(--ink);
   box-shadow: 0 0 0 2px #2e3350;
 }
-.hero__title {
-  --ts: 0.0625em 0 0 var(--ink), -0.0625em 0 0 var(--ink), 0 0.0625em 0 var(--ink), 0 -0.0625em 0 var(--ink),
-    0.0625em 0.0625em 0 var(--ink), -0.0625em -0.0625em 0 var(--ink), 0.0625em -0.0625em 0 var(--ink),
-    -0.0625em 0.0625em 0 var(--ink), 0.125em 0.125em 0 var(--red), 0.1875em 0.1875em 0 var(--ink);
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, min(5.2vw, 8.5vh), 5.25rem);
-  font-weight: 400;
-  line-height: 1.12;
-  text-transform: uppercase;
-  color: var(--text);
-  text-shadow: var(--ts);
-}
-.hero__line {
-  display: block;
-}
-.hero__line:first-of-type {
-  color: var(--gold);
-}
-.hero__line--r {
-  text-align: right;
-}
-.hero__title .sc-ch {
-  transition: transform 0.25s steps(2);
-}
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .hero__title .sc-ch {
-    will-change: transform;
-  }
-}
 .hero__meta {
   display: grid;
   grid-template-columns: 1fr;
@@ -1296,37 +1279,6 @@ html.is-whiteout .scene-controls {
   flex-wrap: wrap;
   gap: 16px;
 }
-.scroll-cue {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  transform: translateX(-50%);
-  font-family: var(--font-label);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text);
-  text-shadow: 2px 2px 0 var(--ink);
-  animation: blink 1.4s steps(1) infinite;
-}
-/* A pixel down-arrow that bobs */
-.scroll-cue i {
-  width: 16px;
-  height: 10px;
-  background: var(--gold);
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
-  filter: drop-shadow(2px 2px 0 var(--ink));
-  animation: cue 0.9s steps(2) infinite;
-}
-@keyframes cue {
-  50% {
-    transform: translateY(4px);
-  }
-}
 @media (min-width: 900px) {
   .hero__meta {
     grid-template-columns: 1fr auto auto;
@@ -1337,7 +1289,6 @@ html.is-whiteout .scene-controls {
     padding-bottom: 92px;
   }
 }
-/* (the bottom HUD's player cards sit where the scroll cue was: it stays hidden) */
 
 /* ==================================================================== */
 /* Section head: [ 01 ] ▪▪▪▪▪▪▪ WHO I AM                                 */
@@ -1464,8 +1415,7 @@ html.is-whiteout .scene-controls {
   width: calc(var(--v, 1) * 100%);
   transform: scaleX(0);
   transform-origin: left;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 8px, var(--ink) 8px 10px),
+  background: repeating-linear-gradient(90deg, transparent 0 8px, var(--ink) 8px 10px),
     linear-gradient(#ffb38a 0 3px, var(--fire) 3px);
   transition: transform 0.8s steps(8) calc(var(--d) + 0.3s);
 }
@@ -1487,7 +1437,11 @@ html.is-whiteout .scene-controls {
   position: relative;
   padding: 14px 14px 0;
   background: #e9dfc4;
-  box-shadow: var(--frame), inset var(--px) var(--px) 0 0 rgba(255, 255, 255, 0.5), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 rgba(0, 0, 0, 0.18), var(--drop);
+  box-shadow:
+    var(--frame),
+    inset var(--px) var(--px) 0 0 rgba(255, 255, 255, 0.5),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 rgba(0, 0, 0, 0.18),
+    var(--drop);
 }
 .portrait::before {
   content: "";
@@ -1627,7 +1581,7 @@ html.is-whiteout .scene-controls {
 }
 
 /* ==================================================================== */
-/* Domains: the data lifecycle as a level path, then four outposts       */
+/* Domains: the data lifecycle as a level path, then one card per domain */
 /* ==================================================================== */
 .lifecycle {
   display: flex;
@@ -1692,7 +1646,7 @@ html.is-whiteout .scene-controls {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
-/* Each domain card wears its outpost's roof colour */
+/* Each domain card wears its player's colour from data/squad.ts */
 .domain {
   --dc: var(--gold);
   position: relative;
@@ -1750,7 +1704,9 @@ html.is-whiteout .scene-controls {
   gap: 12px;
   padding: 8px 12px 8px 8px;
   background: var(--ink);
-  box-shadow: 0 0 0 2px #2e3350, inset 3px 0 0 var(--dc);
+  box-shadow:
+    0 0 0 2px #2e3350,
+    inset 3px 0 0 var(--dc);
 }
 .domain__squad .portrait-px {
   flex: none;
@@ -1857,7 +1813,9 @@ html.is-whiteout .scene-controls {
   padding-block: 1.25rem;
   background: rgba(13, 11, 20, 0.86);
   border-block: var(--px) solid var(--ink);
-  box-shadow: inset 0 var(--px) 0 #2e3350, inset 0 calc(-1 * var(--px)) 0 #2e3350;
+  box-shadow:
+    inset 0 var(--px) 0 #2e3350,
+    inset 0 calc(-1 * var(--px)) 0 #2e3350;
 }
 .marquee__row {
   display: flex;
@@ -1928,7 +1886,10 @@ html.is-whiteout .scene-controls {
   min-height: 170px;
   padding: 14px;
   background: rgba(29, 33, 53, 0.96);
-  box-shadow: var(--frame), inset var(--px) var(--px) 0 0 rgba(0, 0, 0, 0.35), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 rgba(255, 255, 255, 0.06);
+  box-shadow:
+    var(--frame),
+    inset var(--px) var(--px) 0 0 rgba(0, 0, 0, 0.35),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 rgba(255, 255, 255, 0.06);
   transition: background-color 0.12s steps(2);
 }
 .skill-tile:hover {
@@ -1994,8 +1955,13 @@ html.is-whiteout .scene-controls {
   background: rgba(29, 33, 53, 0.96);
   border: 0;
   cursor: pointer;
-  box-shadow: var(--frame), var(--bevel), 0 calc(2 * var(--px)) 0 0 var(--ink);
-  transition: background-color 0.12s steps(2), translate 0.12s steps(2);
+  box-shadow:
+    var(--frame),
+    var(--bevel),
+    0 calc(2 * var(--px)) 0 0 var(--ink);
+  transition:
+    background-color 0.12s steps(2),
+    translate 0.12s steps(2);
 }
 .spec-tab:hover {
   background: var(--panel-3);
@@ -2004,7 +1970,10 @@ html.is-whiteout .scene-controls {
   translate: 0 var(--px);
   color: var(--ink);
   background: var(--gold);
-  box-shadow: var(--frame), var(--bevel), 0 var(--px) 0 0 var(--ink);
+  box-shadow:
+    var(--frame),
+    var(--bevel),
+    0 var(--px) 0 0 var(--ink);
 }
 .spec-tab__top {
   display: flex;
@@ -2111,12 +2080,17 @@ html.is-whiteout .scene-controls {
   width: 100%;
   background: rgba(29, 33, 53, 0.97);
   box-shadow: var(--frame), var(--bevel), var(--drop);
-  transition: translate 0.15s steps(2), box-shadow 0.15s steps(2);
+  transition:
+    translate 0.15s steps(2),
+    box-shadow 0.15s steps(2);
 }
 @media (hover: hover) {
   .project-card:hover {
     translate: 0 calc(-1 * var(--px));
-    box-shadow: var(--frame), var(--bevel), calc(3 * var(--px)) calc(3 * var(--px)) 0 0 rgba(5, 4, 10, 0.6);
+    box-shadow:
+      var(--frame),
+      var(--bevel),
+      calc(3 * var(--px)) calc(3 * var(--px)) 0 0 rgba(5, 4, 10, 0.6);
   }
 }
 .project-card__media {
@@ -2243,10 +2217,9 @@ html.is-whiteout .scene-controls {
   padding: 22px 24px;
   background: rgba(29, 33, 53, 0.96);
   box-shadow: var(--frame), var(--bevel), var(--drop);
-  transition: background-color 0.12s steps(2), color 0.12s steps(2);
-}
-.contact-row__fill {
-  display: none;
+  transition:
+    background-color 0.12s steps(2),
+    color 0.12s steps(2);
 }
 .contact-row:hover,
 .contact-row:focus-visible {
@@ -2354,168 +2327,22 @@ html.is-whiteout .scene-controls {
 .section--watch {
   padding-bottom: 0;
 }
-.watch__text {
-  display: inline-block;
-  max-width: 52ch;
-  margin: 1.5rem 0 0;
-  padding: 14px 18px;
-  font-size: 1.1rem;
-  line-height: 1.55;
-  background: rgba(29, 33, 53, 0.94);
-  box-shadow: var(--frame), var(--bevel), var(--drop);
-}
 /* The open ground itself: tall and empty, so the battle fills the screen */
 .watch__stage {
   position: relative;
   height: 190vh;
   margin-top: clamp(3rem, 8vh, 6rem);
 }
-.watch__dock {
-  position: sticky;
-  top: 84px;
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-.watch__dock > * {
-  pointer-events: auto;
-}
-.watch-intel {
-  width: min(330px, 100%);
-  padding: 12px 14px 14px;
-  font-family: var(--font-label);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  background: rgba(13, 11, 20, 0.86);
-  box-shadow: 0 0 0 2px #2e3350, var(--drop);
-}
-.watch-intel__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-}
-.watch-intel__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 6px 2px;
-  font-size: 10px;
-  color: var(--ink);
-  background: var(--red);
-}
-.watch-intel__live::before {
-  content: "";
-  width: 4px;
-  height: 4px;
-  background: var(--ink);
-  animation: watch-blink 1.2s steps(1, end) infinite;
-}
-@keyframes watch-blink {
-  50% {
-    opacity: 0;
-  }
-}
-.watch-intel__level {
-  font-family: var(--font-display);
-  font-size: 11px;
-  color: var(--gold);
-}
-.watch-intel__stage {
-  color: var(--cyan);
-}
-.watch-intel__objective {
-  margin: 10px 0 8px;
-  font-family: var(--font-body);
-  font-size: 15px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text);
-}
-.watch-intel__progress {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-}
-.watch-intel__bar {
-  flex: 1;
-  height: 10px;
-  padding: 1px;
-  background: var(--ink);
-  box-shadow: 0 0 0 1px #3a4160;
-}
-.watch-intel__bar i {
-  display: block;
-  height: 100%;
-  transform-origin: left;
-  background:
-    repeating-linear-gradient(90deg, transparent 0 9%, var(--ink) 9% 10%),
-    linear-gradient(var(--gold-2) 0 2px, var(--gold) 2px);
-  transition: transform 0.3s steps(2);
-}
-.watch-intel__stats {
-  display: grid;
-  gap: 3px;
-  margin: 12px 0 0;
-}
-.watch-intel__stats > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.watch-intel__stats dt {
-  color: var(--dim);
-}
-.watch-intel__stats dd {
-  margin: 0;
-  text-align: right;
-  color: var(--text);
-}
-.watch-intel__log {
-  display: grid;
-  gap: 2px;
-  margin: 12px 0 0;
-  padding: 10px 0 0;
-  list-style: none;
-  border-top: 2px solid #2e3350;
-  font-size: 11px;
-}
-.watch-intel__log li {
-  display: flex;
-  gap: 6px;
-  color: var(--text);
-}
-.watch-intel__log b {
-  font-weight: 400;
-  color: var(--gold);
-}
-.watch-intel__log span {
-  margin-left: auto;
-  color: var(--dim);
-}
-.watch-intel__toggle {
-  margin-top: 12px;
-}
-@media (max-width: 719px) {
-  .watch-intel__log {
-    display: none;
-  }
-}
 
 /* The end-of-level white-out: while someone is spectating, the HUD fades with it so the whole screen goes white */
 .hud-top,
 .hud-bottom,
-.hud-frame,
-.watch__dock {
+.hud-frame {
   transition: opacity 0.4s;
 }
 html.is-whiteout .hud-top,
 html.is-whiteout .hud-bottom,
 html.is-whiteout .hud-frame,
-html.is-whiteout .watch__dock,
 html.is-whiteout .cursor {
   opacity: 0;
 }
@@ -2793,7 +2620,9 @@ html.is-whiteout .cursor {
   padding: 20px 22px;
   background: rgba(29, 33, 53, 0.96);
   box-shadow: var(--frame), var(--bevel), var(--drop);
-  transition: background-color 0.12s steps(2), color 0.12s steps(2);
+  transition:
+    background-color 0.12s steps(2),
+    color 0.12s steps(2);
 }
 .pager__link .mono-label {
   display: inline-flex;
@@ -3007,8 +2836,7 @@ html.is-whiteout .cursor {
   align-items: center;
   justify-content: center;
   padding: 80px 16px 24px;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 4px, transparent 4px 8px),
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 4px, transparent 4px 8px),
     rgba(13, 11, 20, 0.96);
   animation: lb-in 0.2s steps(2);
 }
@@ -3047,7 +2875,9 @@ html.is-whiteout .cursor {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  box-shadow: 0 0 0 var(--px) var(--ink), 0 0 0 calc(2 * var(--px)) #2e3350;
+  box-shadow:
+    0 0 0 var(--px) var(--ink),
+    0 0 0 calc(2 * var(--px)) #2e3350;
   animation: lb-img 0.25s steps(3);
 }
 @keyframes lb-img {
@@ -3130,7 +2960,9 @@ html.is-whiteout .cursor {
   text-align: center;
   color: var(--ink);
   background: var(--text);
-  box-shadow: 0 0 0 2px var(--ink), 0 4px 0 0 var(--ink);
+  box-shadow:
+    0 0 0 2px var(--ink),
+    0 4px 0 0 var(--ink);
 }
 .shortcuts__list dd {
   margin: 0;
@@ -3171,7 +3003,7 @@ html.is-whiteout .cursor {
 }
 
 /* ==================================================================== */
-/* Lighter tiers: only via ?quality=low|mid (every device gets "high")   */
+/* Lighter tiers, only via ?quality=low|mid; every device gets "high"    */
 /* ==================================================================== */
 html[data-tier="low"] .portrait__scan::after,
 html[data-tier="low"] .loader__log li.is-current::after,
@@ -3179,7 +3011,6 @@ html[data-tier="low"] .lifecycle__link::after,
 html[data-tier="low"] .pgraph * {
   animation: none !important;
 }
-html[data-tier="low"] .hero__title .sc-ch,
 html[data-tier="low"] .ghost-num {
   transform: none !important;
 }
@@ -3202,17 +3033,13 @@ html[data-tier="low"] .ghost-num {
   .pgraph *,
   .lifecycle__link::after,
   .portrait__scan::after,
-  .scroll-cue,
-  .scroll-cue i,
   .btn-px__caret,
   .loader__title,
   .contact-row::before,
-  .project-card__cta::before,
-  .watch-intel__live::before {
+  .project-card__cta::before {
     animation: none !important;
   }
-  .project-card,
-  .hero__title .sc-ch {
+  .project-card {
     transform: none !important;
     translate: none !important;
   }

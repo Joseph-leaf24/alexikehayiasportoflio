@@ -1,4 +1,4 @@
-/* The scene full screen, nothing else: its low-resolution canvas scaled up with hard pixel edges */
+/* Full-screen scene: the low-resolution canvas is scaled up with hard pixel edges. */
 html,
 body {
   margin: 0;

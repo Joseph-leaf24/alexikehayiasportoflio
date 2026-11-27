@@ -147,17 +147,16 @@ Other automation:
   checks the live site, app bundle and CV respond, and that every external link in the
   site still works (lychee, settings in `Site 1/lychee.toml`). Failures arrive by email like any
   failed run. Set the repository variable `SITE_URL` if the address changes.
-- **Dependabot** (`.github/dependabot.yml`): weekly PRs for npm (minor/patch updates
-  grouped into one), the Docker base images and the GitHub Actions used here (images and actions
-  are pinned to exact digests/commits, so Dependabot is what keeps them current). Each PR
-  runs the checks above. Major npm upgrades are left for you to do by hand.
+- **Dependency updates** are done by hand: the repo uses only the `main` branch and no pull
+  requests, so there is no Dependabot. Docker images and GitHub Actions are pinned to exact
+  digests/commits; bump them, and npm packages, when you choose to.
 
 Never commit credentials: use environment variables or GitHub repository secrets. The
 secrets scan fails the build if a key, token or hard-coded password slips in.
 
 ### Repository settings to turn on (one-off)
-- **Settings → Code security → Dependabot alerts** and **Dependabot security updates**:
-  fix PRs for newly published vulnerabilities, without waiting for the weekly run.
+- **Settings → Code security → Dependabot alerts** (optional): email alerts for newly
+  published vulnerabilities. Leave **Dependabot security updates** off, as they open pull requests.
 - While the repo is **public** (free only on public repos): **Code scanning → CodeQL
   analysis → Default setup**, and **Secret Protection → Push protection**, which blocks
   pushes that contain secrets.

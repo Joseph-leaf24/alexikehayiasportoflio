@@ -1,4 +1,12 @@
-import { createElement, useEffect, useRef, type CSSProperties, type ElementType, type HTMLAttributes, type ReactNode } from "react";
+import {
+  createElement,
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type ElementType,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/utils";
 import { onAppReady } from "@/lib/store";
 
@@ -12,7 +20,7 @@ interface Props extends HTMLAttributes<HTMLElement> {
   [dataAttr: `data-${string}`]: string | undefined;
 }
 
-/** Adds `.is-in` once the element scrolls into view (after the loader). CSS does the rest. */
+/** Adds `.is-in` once the element scrolls into view after the loader. CSS does the rest. */
 export default function Reveal({ children, as = "div", className, variant = "up", delay = 0, style, ...rest }: Props) {
   const ref = useRef<HTMLElement | null>(null);
 
@@ -23,7 +31,7 @@ export default function Reveal({ children, as = "div", className, variant = "up"
     // Chromium treats an element fully hidden by its own clip-path as "not intersecting",
     // so clip reveals watch their parent instead.
     const clip = variant === "clip";
-    const target = clip ? el.parentElement ?? el : el;
+    const target = clip ? (el.parentElement ?? el) : el;
     const unsub = onAppReady(() => {
       io = new IntersectionObserver(
         (entries) => {

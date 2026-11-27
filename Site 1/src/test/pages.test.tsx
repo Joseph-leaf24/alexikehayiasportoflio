@@ -31,7 +31,14 @@ describe("home page", () => {
     for (const id of ["top", "about", "domains", "toolbox", "projects", "contact"]) {
       expect(document.getElementById(id)).toBeInTheDocument();
     }
-    expect(sceneState.stops.map((s) => s.layout)).toEqual(["village", "shatter", "clusters", "network", "bars", "villageTop"]);
+    expect(sceneState.stops.map((s) => s.layout)).toEqual([
+      "village",
+      "shatter",
+      "clusters",
+      "network",
+      "bars",
+      "villageTop",
+    ]);
     expect(sceneState.override).toBeNull();
     await flush();
     // the section label follows whatever crosses the middle of the screen
@@ -67,7 +74,7 @@ describe("home page", () => {
   it("after moving within the site, opens on the requested section with the specialization that was being viewed", () => {
     nav.inApp = true;
     renderIndex({ scrollTo: "projects", category: "nlp" });
-    // #projects is at 0 in jsdom, so the -10 offset gives -10 (not the plain top, 0)
+    // #projects is at 0 in jsdom, so the -10 offset gives -10 rather than the plain top, 0
     expect(window.scrollTo).toHaveBeenCalledWith({ top: -10, behavior: "auto" });
     const selected = screen.getAllByRole("tab").find((t) => t.getAttribute("aria-selected") === "true")!;
     expect(selected).toHaveAttribute("id", "tab-nlp");
@@ -164,7 +171,10 @@ describe("project page", () => {
 
   it("embeds the Power BI dashboard for analytics projects", () => {
     renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: "/project/dataAnalytics/1" });
-    expect(screen.getByTitle(projectData.dataAnalytics.projects[1].title)).toHaveAttribute("src", projectData.dataAnalytics.projects[1].powerBiUrl);
+    expect(screen.getByTitle(projectData.dataAnalytics.projects[1].title)).toHaveAttribute(
+      "src",
+      projectData.dataAnalytics.projects[1].powerBiUrl
+    );
     expect(screen.getByRole("link", { name: /open dashboard/i })).toBeInTheDocument();
   });
 
@@ -183,9 +193,21 @@ describe("project page", () => {
   });
 
   it("treats built-in object names and non-canonical indexes as unknown projects (no crash)", () => {
-    const routes = ["toString/0", "constructor/0", "__proto__/0", "hasOwnProperty/0", "nlp/01", "nlp/1.0", "nlp/0x1", "nlp/-0"];
+    const routes = [
+      "toString/0",
+      "constructor/0",
+      "__proto__/0",
+      "hasOwnProperty/0",
+      "nlp/01",
+      "nlp/1.0",
+      "nlp/0x1",
+      "nlp/-0",
+    ];
     for (const r of routes) {
-      const { unmount } = renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: `/project/${r}` });
+      const { unmount } = renderRoute(<ProjectDetails />, {
+        path: "/project/:category/:projectIndex",
+        route: `/project/${r}`,
+      });
       expect(screen.getByText("Project not found", { selector: ".sr-only" })).toBeInTheDocument();
       unmount();
     }

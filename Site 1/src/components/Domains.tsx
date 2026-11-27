@@ -113,9 +113,7 @@ export default function Domains({ onExplore }: DomainsProps) {
                 </ul>
 
                 <div className="domain__projects">
-                  <span className="chip-label">
-                    {pad(related.length)} related projects
-                  </span>
+                  <span className="chip-label">{pad(related.length)} related projects</span>
                   <ul>
                     {related.map(({ category, index, project }) => (
                       <li key={`${category}-${index}`}>
@@ -128,7 +126,11 @@ export default function Domains({ onExplore }: DomainsProps) {
                   </ul>
                 </div>
 
-                <button type="button" className="btn-ice btn-ice--sm domain__explore" onClick={() => explore(d.explore)}>
+                <button
+                  type="button"
+                  className="btn-ice btn-ice--sm domain__explore"
+                  onClick={() => explore(d.explore)}
+                >
                   <ScrambleText text="Explore the work" trigger="none" hover />
                   <ArrowRight className="h-4 w-4" />
                 </button>

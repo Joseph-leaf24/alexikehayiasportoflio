@@ -3,13 +3,15 @@ import { BASE_ROW, TILE } from "@/components/pixel/level";
 import { THEMES } from "@/components/pixel/themes";
 import { Game, type View } from "@/components/pixel/game";
 
-/** Step a game for `seconds`, the camera on the squad (or, all aboard, on their gunship). `each` runs every step. */
+/** Step a game for `seconds`, the camera on the squad or, all aboard, their gunship. `each` runs every step. */
 function play(g: Game, seconds: number, each?: (t: number) => void) {
   const view: View = { x: 0, y: 0, w: 480, h: 300 };
   for (let i = 0; i < seconds * 30; i++) {
     view.x = Math.max(g.level.start * TILE, g.advance - view.w * 0.42);
     const up = g.players.filter((p) => !p.dead && !p.chute && !p.aboard);
-    view.y = (up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : g.ship ? g.ship.y + 58 : BASE_ROW * TILE) - view.h * 0.68;
+    view.y =
+      (up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : g.ship ? g.ship.y + 58 : BASE_ROW * TILE) -
+      view.h * 0.68;
     g.step(1 / 30, view);
     g.fresh.length = 0;
     g.dirty.length = 0;
@@ -34,9 +36,9 @@ describe("the squad's gunship", () => {
       if (g.shipMode === "fly" && !s.dead) {
         if (from < 0) from = s.x;
         flown = s.x - from;
-        // (far enough: then it's brought down, if the enemy hasn't managed it yet)
+        // Far enough: then it's brought down, if the enemy hasn't managed it yet
         if (flown > 1400) g.hurtAlly(s, 999);
-        // (the squad's advance goes along with it; and those aboard are out of the fight on the ground)
+        // The squad's advance goes along with it, and those aboard are out of the fight on the ground
         expect(g.advance).toBeGreaterThanOrEqual(s.x - 1);
         for (const id of g.crew) if (Math.abs(g.players[id].y - s.y) > 12) hidden = false;
       }
@@ -57,7 +59,7 @@ describe("the squad's gunship", () => {
   });
 
   it("flies them on over the land, never into it, and its door gunners score for the squad", () => {
-    // (over a couple of battles: how long it lasts up there is down to the enemy)
+    // Over a couple of battles: how long it lasts up there is down to the enemy
     let clipped = 0;
     let flying = 0;
     let killsAboard = 0;

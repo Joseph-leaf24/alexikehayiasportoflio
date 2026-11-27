@@ -6,13 +6,13 @@ export interface Project {
   image: string;
   /** Screenshots for the gallery on the project page */
   images?: string[];
-  /** Key technologies ("Technologies Used"); the middle layer of the project network */
+  /** Key technologies, listed as "Technologies Used"; the middle layer of the project network */
   tags: string[];
   /** AI / data-science concepts; the output layer of the project network */
   concepts: string[];
   /** Secondary facts and results, shown in a collapsed "Highlights" drop-down */
   highlights?: string[];
-  /** Tools & languages; the input layer of the project network (tags stand in when absent) */
+  /** Tools & languages; the input layer of the project network, where tags stand in when absent */
   tools?: string[];
   /** Live demo, linked from the project page */
   demoUrl?: string;
@@ -20,14 +20,14 @@ export interface Project {
   powerBiUrl?: string;
 }
 
-/** A specialization (Work tab) and its projects. */
-export interface ProjectCategory {
+/** A specialization, shown as a Work tab, and its projects. */
+interface ProjectCategory {
   title: string;
   description: string;
   projects: Project[];
 }
 
-/** Every specialization's projects, keyed by category id (see CategoryId). */
+/** Every specialization's projects, keyed by CategoryId. */
 export interface ProjectData {
   [key: string]: ProjectCategory;
 }

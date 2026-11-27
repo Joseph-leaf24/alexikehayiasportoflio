@@ -1,11 +1,11 @@
 /**
- * Session storage that never throws (it can be blocked, e.g. in some private windows), and the
- * keys the site keeps in it: where the home page was scrolled to, and which Work tab was open.
+ * Session storage that never throws, since it can be blocked in some private windows, and the keys
+ * the site keeps in it: where the home page was scrolled to and which Work tab was open.
  */
 export const HOME_Y = "ak:homeY";
 export const SPEC = "ak:spec";
 
-/** A number saved this session (0 when missing, invalid or storage is blocked). */
+/** A number saved this session; 0 when missing, invalid or blocked. */
 export function readNumber(key: string) {
   try {
     const v = Number(sessionStorage.getItem(key));

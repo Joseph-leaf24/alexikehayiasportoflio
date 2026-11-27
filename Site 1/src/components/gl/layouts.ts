@@ -1,18 +1,18 @@
 /**
- * Geometry for the 3D scene, all seeded so it is identical on every load: the caldera
- * terrain (as voxels), the moon, the ice floes, the Cycladic village built from
- * instanced pieces, and every formation those pieces morph between.
+ * Geometry for the 3D scene, seeded so it is identical on every load: the voxel caldera terrain,
+ * the moon, the ice floes, the Cycladic village built from instanced pieces, and every formation
+ * those pieces morph between.
  */
 import * as THREE from "three";
 import type { LayoutKey } from "@/lib/store";
 
 /** Proportions of a piece once it has turned into an ice block in the formations. */
 export const BLOCK = new THREE.Vector3(0.62, 0.36, 0.34);
-/** Size of one terrain voxel (the hills are stacks of cubes this big). */
+/** Edge length of one terrain voxel; the hills are stacks of cubes this big. */
 export const CELL = 0.5;
 
 /** Piece kinds: drawn by the rounded-box or the dome InstancedMesh. */
-export const KIND_BOX = 0;
+const KIND_BOX = 0;
 export const KIND_DOME = 1;
 
 /** One formation: a target transform for every piece, plus the camera and scene settings it is shown with. */
@@ -27,7 +27,7 @@ export interface Layout {
   bob: number;
   camPos: THREE.Vector3;
   camTarget: THREE.Vector3;
-  /** 1 = real moonlit landscape, 0 = holographic voxel equaliser. */
+  /** 1 = real landscape, 0 = holographic voxel equaliser. */
   land: number;
   /** Opacity of the neural-network edges. */
   lines: number;
@@ -37,14 +37,14 @@ export interface Layout {
   push: number;
   /** 0 = whitewashed houses / blue domes, 1 = ice. */
   ice: number;
-  /** Windmill rotors turn (only while the village is assembled). */
+  /** Windmill rotors turn; only set while the village is assembled. */
   rotors: boolean;
-  /** Points of interest the UI can highlight (e.g. the four domain clusters). */
+  /** Points of interest the UI can highlight, e.g. the four domain clusters. */
   anchors?: THREE.Vector3[];
 }
 
-/** Where a windmill stands; its rotor pieces are posed relative to `hub` (local, unscaled). */
-export interface Windmill {
+/** Where a windmill stands; its rotor pieces are posed relative to `hub`, in local unscaled units. */
+interface Windmill {
   base: THREE.Vector3;
   yawQ: THREE.Quaternion;
   hub: THREE.Vector3;
@@ -52,7 +52,7 @@ export interface Windmill {
 }
 
 /** Every piece's per-instance data plus all formations, indexed by piece. */
-export interface LayoutSet {
+interface LayoutSet {
   count: number;
   kinds: Uint8Array;
   /** Index of each piece inside its own InstancedMesh. */
@@ -121,9 +121,9 @@ const smooth = (e0: number, e1: number, x: number) => {
 /* Caldera terrain: sea → sheer cliff → terraced village → ridge       */
 /* ------------------------------------------------------------------ */
 
-/** z of the cliff edge for a given x (the rim curves gently like a bay). */
+/** z of the cliff edge for a given x; the rim curves gently like a bay. */
 export const rimZ = (x: number) => -0.011 * x * x + 0.45 * Math.sin(x * 0.33);
-/** Yaw that lines a building up with the cliff edge at x (from the slope of rimZ). */
+/** Yaw that lines a building up with the cliff edge at x, from the slope of rimZ. */
 const rimYaw = (x: number) => -Math.atan(-0.022 * x + 0.45 * 0.33 * Math.cos(x * 0.33));
 
 /** How far inland the village slope climbs before the ridge. */
@@ -159,9 +159,14 @@ export const SEA_LEVEL = -0.15;
  */
 export const WAVE_AMP = 0.12;
 
-/** Swell height at (x, z) at time t. GLSL twin: `waveHeight` in shaders.ts (floes ride this one). */
+/** Swell height at (x, z) at time t; the floes ride it. GLSL twin: `waveHeight` in shaders.ts. */
 export function waveHeight(x: number, z: number, t: number) {
-  return WAVE_AMP * (0.5 * Math.sin(0.55 * x + 0.9 * t) + 0.3 * Math.sin(0.8 * z - 1.3 * t + 1.7) + 0.2 * Math.sin(0.35 * (x + z) + 0.6 * t));
+  return (
+    WAVE_AMP *
+    (0.5 * Math.sin(0.55 * x + 0.9 * t) +
+      0.3 * Math.sin(0.8 * z - 1.3 * t + 1.7) +
+      0.2 * Math.sin(0.35 * (x + z) + 0.6 * t))
+  );
 }
 
 /** The flat distant sea sits just under the lowest trough, so it never fights the water blocks. */
@@ -171,8 +176,8 @@ export const SEA_PLANE_Y = SEA_LEVEL - WAVE_AMP - 0.03;
 const WATER_Z_MAX = 18;
 
 /**
- * The near sea as a grid of water blocks, wherever there is no land: x, z and a random
- * 0..1 per block. Same x extent as the terrain; `cell` sets the block size (see device.ts).
+ * The near sea as a grid of water blocks wherever there is no land: x, z and a random 0..1
+ * per block. Same x extent as the terrain; `cell` is the block size, set per quality tier.
  */
 export function buildWater(ext: { xMin: number; xMax: number; cell: number } = { xMin: -28, xMax: 28, cell: 0.6 }) {
   const rnd = mulberry32(4242);
@@ -188,9 +193,9 @@ export function buildWater(ext: { xMin: number; xMax: number; cell: number } = {
 }
 
 /**
- * The hills as individual cubes (so they can break apart). Each cube: x, y, z, depth,
- * where depth is the distance from the cube's top to the top of its column.
- * Columns only go as deep as needed to close the gap to the lowest neighbour.
+ * The hills as individual cubes, so they can break apart. Each cube is x, y, z, depth, where
+ * depth is the distance from the cube's top to the top of its column. Columns only go as deep
+ * as needed to close the gap to the lowest neighbour.
  */
 export function buildTerrain(ext: { xMin: number; xMax: number; zMin: number } = { xMin: -28, xMax: 28, zMin: -30 }) {
   const x0 = ext.xMin;
@@ -201,14 +206,19 @@ export function buildTerrain(ext: { xMin: number; xMax: number; zMin: number } =
   for (let ix = 0; ix < nx; ix++)
     for (let iz = 0; iz < nz; iz++) tops[ix * nz + iz] = voxelTop(x0 + ix * CELL, z0 + iz * CELL);
   const cubes: number[] = [];
-  // Front (near the camera) to back: drawn in this order, the GPU's depth test can skip the
-  // many cubes hidden behind nearer ones (most of the hills sit behind the ridge)
+  // Front to back, so the GPU's depth test can skip the many cubes hidden behind nearer ones:
+  // most of the hills sit behind the ridge
   for (let iz = nz - 1; iz >= 0; iz--)
     for (let ix = 0; ix < nx; ix++) {
       const top = tops[ix * nz + iz];
       if (top < 0) continue; // under the sea
       let minN = top;
-      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (const [dx, dz] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
         const jx = ix + dx;
         const jz = iz + dz;
         let t = jx >= 0 && jx < nx && jz >= 0 && jz < nz ? tops[jx * nz + jz] : -1;
@@ -258,7 +268,12 @@ export function buildFloes(count = 70) {
     const x = (rnd() - 0.5) * 30;
     const z = rimZ(x) + 3.4 + rnd() * 7;
     const s = 0.18 + Math.pow(rnd(), 2) * 0.45;
-    return { pos: new THREE.Vector3(x, SEA_LEVEL + 0.04, z), size: new THREE.Vector3(s * (0.8 + rnd() * 0.6), s * 0.45, s * (0.8 + rnd() * 0.6)), yaw: rnd() * 6.28, rand: rnd() };
+    return {
+      pos: new THREE.Vector3(x, SEA_LEVEL + 0.04, z),
+      size: new THREE.Vector3(s * (0.8 + rnd() * 0.6), s * 0.45, s * (0.8 + rnd() * 0.6)),
+      yaw: rnd() * 6.28,
+      rand: rnd(),
+    };
   });
 }
 
@@ -291,7 +306,7 @@ function buildVillage(rnd: () => number) {
   const pieces: Piece[] = [];
   const Y = new THREE.Vector3(0, 1, 0);
 
-  /** A whitewashed box sitting on the slope (walls run down into the rock). */
+  /** A whitewashed box on the slope; its walls run down into the rock. */
   const addHouse = (
     x: number,
     z: number,
@@ -406,7 +421,12 @@ function buildVillage(rnd: () => number) {
     const hub = new THREE.Vector3(0, 1.55, 0.64);
     windmills.push({ base, yawQ, hub, scale });
 
-    const place = (local: THREE.Vector3, q: THREE.Quaternion, dims: THREE.Vector3, tint: [number, number, number, number]) => {
+    const place = (
+      local: THREE.Vector3,
+      q: THREE.Quaternion,
+      dims: THREE.Vector3,
+      tint: [number, number, number, number]
+    ) => {
       pieces.push({
         kind: KIND_BOX,
         pos: local.clone().multiplyScalar(scale).applyQuaternion(yawQ).add(base),
@@ -431,7 +451,10 @@ function buildVillage(rnd: () => number) {
         const up = new THREE.Vector3(0, 1, 0);
         const isWindow = row === 4 && Math.abs(dFront) * r < 0.15;
         place(
-          nrm.clone().multiplyScalar(r).setY((row + 0.5) * rowH),
+          nrm
+            .clone()
+            .multiplyScalar(r)
+            .setY((row + 0.5) * rowH),
           basis(tan, up, new THREE.Vector3().crossVectors(tan, up)),
           new THREE.Vector3(((2 * Math.PI * r) / n) * 0.97, rowH * 0.94, 0.18),
           isWindow ? [...AEGEAN, 0] : [...WHITE, 0]
@@ -439,7 +462,10 @@ function buildVillage(rnd: () => number) {
       }
     }
     // Door
-    place(new THREE.Vector3(0, 0.22, 0.52), new THREE.Quaternion(), new THREE.Vector3(0.26, 0.44, 0.06), [...AEGEAN, 0]);
+    place(new THREE.Vector3(0, 0.22, 0.52), new THREE.Quaternion(), new THREE.Vector3(0.26, 0.44, 0.06), [
+      ...AEGEAN,
+      0,
+    ]);
     // Conical cap: shrinking rings of dark wood
     const yT = rows * rowH;
     for (let k = 0; k < 3; k++) {
@@ -451,7 +477,10 @@ function buildVillage(rnd: () => number) {
         const tan = new THREE.Vector3(-Math.sin(th), 0, Math.cos(th));
         const up = new THREE.Vector3(0, 1, 0);
         place(
-          nrm.clone().multiplyScalar(r).setY(yT + 0.09 + k * 0.17),
+          nrm
+            .clone()
+            .multiplyScalar(r)
+            .setY(yT + 0.09 + k * 0.17),
           basis(tan, up, new THREE.Vector3().crossVectors(tan, up)),
           new THREE.Vector3(((2 * Math.PI * r) / n) * 0.97, 0.17, 0.2),
           [...WOOD, 0]
@@ -462,7 +491,12 @@ function buildVillage(rnd: () => number) {
 
     // Rotor: hub, eight spokes of cubes, and a canvas sail on each
     const Z = new THREE.Vector3(0, 0, 1);
-    const addRotor = (local: THREE.Vector3, localQ: THREE.Quaternion, dims: THREE.Vector3, tint: [number, number, number, number]) => {
+    const addRotor = (
+      local: THREE.Vector3,
+      localQ: THREE.Quaternion,
+      dims: THREE.Vector3,
+      tint: [number, number, number, number]
+    ) => {
       pieces.push({
         kind: KIND_BOX,
         pos: local.clone().add(hub).multiplyScalar(scale).applyQuaternion(yawQ).add(base),
@@ -479,7 +513,10 @@ function buildVillage(rnd: () => number) {
       const perp = new THREE.Vector3(-Math.sin(a), Math.cos(a), 0);
       const armQ = new THREE.Quaternion().setFromAxisAngle(Z, a - Math.PI / 2);
       for (let j = 0; j < 5; j++)
-        addRotor(dir.clone().multiplyScalar(0.2 + j * 0.24), armQ.clone(), new THREE.Vector3(0.06, 0.21, 0.05), [...WOOD, 0]);
+        addRotor(dir.clone().multiplyScalar(0.2 + j * 0.24), armQ.clone(), new THREE.Vector3(0.06, 0.21, 0.05), [
+          ...WOOD,
+          0,
+        ]);
       addRotor(
         dir.clone().multiplyScalar(0.78).addScaledVector(perp, 0.12),
         armQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(Y, 0.35)),
@@ -494,8 +531,11 @@ function buildVillage(rnd: () => number) {
 
 /** Uniformly distributed random rotation (Shoemake's method). */
 const randomQuat = (rnd: () => number) => {
-  const u1 = rnd(), u2 = rnd() * Math.PI * 2, u3 = rnd() * Math.PI * 2;
-  const a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
+  const u1 = rnd(),
+    u2 = rnd() * Math.PI * 2,
+    u3 = rnd() * Math.PI * 2;
+  const a = Math.sqrt(1 - u1),
+    b = Math.sqrt(u1);
   return new THREE.Quaternion(a * Math.sin(u2), a * Math.cos(u2), b * Math.sin(u3), b * Math.cos(u3));
 };
 
@@ -525,7 +565,7 @@ export function buildLayouts(): LayoutSet {
     if (p.rotor) rotorMill[i] = p.rotor.mill;
   });
 
-  /** Formation-sized scale for a piece (ice block proportions, or a small dome). */
+  /** Formation-sized scale for a piece: ice-block proportions, or a small dome. */
   const formScale = (i: number, s: number) =>
     kinds[i] === KIND_DOME ? new THREE.Vector3(0.3 * s, 0.3 * s, 0.3 * s) : BLOCK.clone().multiplyScalar(s);
 
@@ -540,9 +580,14 @@ export function buildLayouts(): LayoutSet {
     // The village lifts off in a wave sweeping across the cliff
     delay[i] = THREE.MathUtils.clamp(((pieces[i].pos.x + 14) / 28) * 0.22 + rnd() * 0.13, 0, 0.35);
     lambda[i] = 3.2 + rnd() * 3.5;
-    // Where the piece flies on hold-to-shatter (and arcs mid-transition): out from the village and up
+    // Fling direction on hold-to-shatter and for the mid-transition arc: out from the village and up
     burstDir.push(
-      pieces[i].pos.clone().sub(villageCenter).normalize().add(new THREE.Vector3(rnd() - 0.5, 0.6 + rnd() * 0.4, rnd() - 0.2)).normalize()
+      pieces[i].pos
+        .clone()
+        .sub(villageCenter)
+        .normalize()
+        .add(new THREE.Vector3(rnd() - 0.5, 0.6 + rnd() * 0.4, rnd() - 0.2))
+        .normalize()
     );
     tumbleAxis.push(new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize());
   }
@@ -560,7 +605,12 @@ export function buildLayouts(): LayoutSet {
   const shatterScale: THREE.Vector3[] = [];
   for (let i = 0; i < N; i++) {
     const dir = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
-    shatterPos.push(sc.clone().addScaledVector(dir, 3.0 + rnd() * 5.5).add(v(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(1.4)));
+    shatterPos.push(
+      sc
+        .clone()
+        .addScaledVector(dir, 3.0 + rnd() * 5.5)
+        .add(v(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(1.4))
+    );
     shatterQuat.push(randomQuat(rnd));
     shatterScale.push(formScale(i, (i < P ? 0.6 : 0.35) + rnd() * 0.6));
   }
@@ -624,7 +674,7 @@ export function buildLayouts(): LayoutSet {
   /* Four domain clusters joined by a lifecycle ring (Domains) ------- */
   const clusterCenter = fv(0, 2.4, 0);
   const anchors = [0, 1, 2, 3].map((k) => {
-    const a = Math.PI * 0.75 - (k * Math.PI) / 2; // lifecycle order: front-left, front-right, back-right, back-left (before the spin)
+    const a = Math.PI * 0.75 - (k * Math.PI) / 2; // lifecycle order before the spin: front-left, front-right, back-right, back-left
     return clusterCenter.clone().add(v(Math.cos(a) * 3.2, Math.sin(k * 1.7) * 0.5, Math.sin(a) * 3.2));
   });
   const clusterPos: THREE.Vector3[] = [];
@@ -642,7 +692,12 @@ export function buildLayouts(): LayoutSet {
   }
   for (let j = 0; j < S; j++) {
     const a = (j / S) * Math.PI * 2;
-    clusterPos.push(clusterCenter.clone().add(v(Math.cos(a) * 3.2, (rnd() - 0.5) * 0.25, Math.sin(a) * 3.2)).add(v(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(0.25)));
+    clusterPos.push(
+      clusterCenter
+        .clone()
+        .add(v(Math.cos(a) * 3.2, (rnd() - 0.5) * 0.25, Math.sin(a) * 3.2))
+        .add(v(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(0.25))
+    );
     clusterQuat.push(randomQuat(rnd));
   }
 
@@ -674,7 +729,8 @@ export function buildLayouts(): LayoutSet {
   for (let l = 0; l < sizes.length - 1; l++)
     for (let j = 0; j < sizes[l]; j++) {
       const fanOut = 2 + Math.floor(rnd() * 2);
-      for (let f = 0; f < fanOut; f++) edges.push([layerStart[l] + j, layerStart[l + 1] + Math.floor(rnd() * sizes[l + 1])]);
+      for (let f = 0; f < fanOut; f++)
+        edges.push([layerStart[l] + j, layerStart[l + 1] + Math.floor(rnd() * sizes[l + 1])]);
     }
 
   /* Voxel cube ----------------------------------------------------- */
@@ -683,7 +739,8 @@ export function buildLayouts(): LayoutSet {
   const cells: THREE.Vector3[] = [];
   const half = ((side - 1) * gap) / 2;
   for (let x = 0; x < side; x++)
-    for (let y = 0; y < side; y++) for (let z = 0; z < side; z++) cells.push(v(x * gap - half, y * gap - half, z * gap - half));
+    for (let y = 0; y < side; y++)
+      for (let z = 0; z < side; z++) cells.push(v(x * gap - half, y * gap - half, z * gap - half));
   for (let i = cells.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
     [cells[i], cells[j]] = [cells[j], cells[i]];
@@ -698,42 +755,153 @@ export function buildLayouts(): LayoutSet {
 
   const layouts: Record<LayoutKey, Layout> = {
     village: {
-      pos: pieces.map((p) => p.pos), quat: pieces.map((p) => p.quat), scale: villageScale, spin: 0, center: zero, bob: 0,
-      camPos: v(-6.5, 5.6, 15.5), camTarget: v(1.2, 4.4, -3.6), land: 1, lines: 0, exposure: 1, push: 0.35, ice: 0, rotors: true,
+      pos: pieces.map((p) => p.pos),
+      quat: pieces.map((p) => p.quat),
+      scale: villageScale,
+      spin: 0,
+      center: zero,
+      bob: 0,
+      camPos: v(-6.5, 5.6, 15.5),
+      camTarget: v(1.2, 4.4, -3.6),
+      land: 1,
+      lines: 0,
+      exposure: 1,
+      push: 0.35,
+      ice: 0,
+      rotors: true,
     },
     shatter: {
-      pos: shatterPos, quat: shatterQuat, scale: shatterScale, spin: 0.05, center: sc, bob: 0.18,
-      camPos: fv(2.2, 3.6, 10.5), camTarget: fv(-2.2, 2.5, 0), land: 0.35, lines: 0, exposure: 0.9, push: 1.3, ice: 1, rotors: false,
+      pos: shatterPos,
+      quat: shatterQuat,
+      scale: shatterScale,
+      spin: 0.05,
+      center: sc,
+      bob: 0.18,
+      camPos: fv(2.2, 3.6, 10.5),
+      camTarget: fv(-2.2, 2.5, 0),
+      land: 0.35,
+      lines: 0,
+      exposure: 0.9,
+      push: 1.3,
+      ice: 1,
+      rotors: false,
     },
     bars: {
-      pos: barsPos, quat: barsQuat, scale: barsScale, spin: 0.08, center: barsCenter, bob: 0.02,
-      camPos: fv(-5.4, 6.4, 8.6), camTarget: fv(0.4, 1.6, 0), land: 0.08, lines: 0, exposure: 0.66, push: 0.8, ice: 1, rotors: false,
+      pos: barsPos,
+      quat: barsQuat,
+      scale: barsScale,
+      spin: 0.08,
+      center: barsCenter,
+      bob: 0.02,
+      camPos: fv(-5.4, 6.4, 8.6),
+      camTarget: fv(0.4, 1.6, 0),
+      land: 0.08,
+      lines: 0,
+      exposure: 0.66,
+      push: 0.8,
+      ice: 1,
+      rotors: false,
     },
     clusters: {
-      pos: clusterPos, quat: clusterQuat, scale: scaledMix(0.48, 0.26), spin: 0.12, center: clusterCenter, bob: 0.06,
-      camPos: fv(0.5, 5.2, 11.5), camTarget: fv(0.5, 2.2, 0), land: 0.2, lines: 0, exposure: 0.72, push: 1, ice: 1, rotors: false,
+      pos: clusterPos,
+      quat: clusterQuat,
+      scale: scaledMix(0.48, 0.26),
+      spin: 0.12,
+      center: clusterCenter,
+      bob: 0.06,
+      camPos: fv(0.5, 5.2, 11.5),
+      camTarget: fv(0.5, 2.2, 0),
+      land: 0.2,
+      lines: 0,
+      exposure: 0.72,
+      push: 1,
+      ice: 1,
+      rotors: false,
       anchors,
     },
     network: {
-      pos: netPos, quat: netQuat, scale: scaledMix(0.5, 0.3), spin: 0.07, center: netCenter, bob: 0.05,
-      camPos: fv(-7.6, 3.4, 9.6), camTarget: fv(0.6, 2.4, 0), land: 0, lines: 1, exposure: 0.7, push: 0.7, ice: 1, rotors: false,
+      pos: netPos,
+      quat: netQuat,
+      scale: scaledMix(0.5, 0.3),
+      spin: 0.07,
+      center: netCenter,
+      bob: 0.05,
+      camPos: fv(-7.6, 3.4, 9.6),
+      camTarget: fv(0.6, 2.4, 0),
+      land: 0,
+      lines: 1,
+      exposure: 0.7,
+      push: 0.7,
+      ice: 1,
+      rotors: false,
     },
     villageTop: {
-      pos: pieces.map((p) => p.pos), quat: pieces.map((p) => p.quat), scale: villageScale, spin: 0, center: zero, bob: 0,
-      camPos: v(2, 24, 13), camTarget: v(0, 2.5, -4.5), land: 1, lines: 0, exposure: 0.85, push: 0.35, ice: 0, rotors: true,
+      pos: pieces.map((p) => p.pos),
+      quat: pieces.map((p) => p.quat),
+      scale: villageScale,
+      spin: 0,
+      center: zero,
+      bob: 0,
+      camPos: v(2, 24, 13),
+      camTarget: v(0, 2.5, -4.5),
+      land: 1,
+      lines: 0,
+      exposure: 0.85,
+      push: 0.35,
+      ice: 0,
+      rotors: true,
     },
     cube: {
-      pos: cubePos, quat: cubePos.map(() => tilt.clone()), scale: scaledMix(0.52, 0.52), spin: 0.16, center: cubeCenter, bob: 0.03,
-      camPos: fv(0, 2.8, 10.5), camTarget: fv(-3.2, 2.6, 0), land: 0.1, lines: 0, exposure: 0.7, push: 0.8, ice: 1, rotors: false,
+      pos: cubePos,
+      quat: cubePos.map(() => tilt.clone()),
+      scale: scaledMix(0.52, 0.52),
+      spin: 0.16,
+      center: cubeCenter,
+      bob: 0.03,
+      camPos: fv(0, 2.8, 10.5),
+      camTarget: fv(-3.2, 2.6, 0),
+      land: 0.1,
+      lines: 0,
+      exposure: 0.7,
+      push: 0.8,
+      ice: 1,
+      rotors: false,
     },
     lost: {
-      pos: lostPos, quat: shatterQuat, scale: shatterScale, spin: 0.03, center: sc, bob: 0.3,
-      camPos: fv(0, 2.5, 12), camTarget: fv(0, 2.5, 0), land: 0.25, lines: 0, exposure: 0.9, push: 1.2, ice: 1, rotors: false,
+      pos: lostPos,
+      quat: shatterQuat,
+      scale: shatterScale,
+      spin: 0.03,
+      center: sc,
+      bob: 0.3,
+      camPos: fv(0, 2.5, 12),
+      camTarget: fv(0, 2.5, 0),
+      land: 0.25,
+      lines: 0,
+      exposure: 0.9,
+      push: 1.2,
+      ice: 1,
+      rotors: false,
     },
   };
 
   return {
-    count: N, kinds, local, boxCount, domeCount, tints, layouts, edges, rand, delay, lambda, burstDir, tumbleAxis,
-    windmills, rotorMill, rotorLocal, rotorLocalQ,
+    count: N,
+    kinds,
+    local,
+    boxCount,
+    domeCount,
+    tints,
+    layouts,
+    edges,
+    rand,
+    delay,
+    lambda,
+    burstDir,
+    tumbleAxis,
+    windmills,
+    rotorMill,
+    rotorLocal,
+    rotorLocalQ,
   };
 }

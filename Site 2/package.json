@@ -14,7 +14,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "vite build && playwright test",
-    "scan:secrets": "node scripts/scan-secrets.mjs ."
+    "scan:secrets": "node scripts/scan-secrets.mjs .",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"scripts/**/*.mjs\" \"*.{ts,js}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"scripts/**/*.mjs\" \"*.{ts,js}\""
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -46,6 +48,7 @@
     "globals": "^15.9.0",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.47",
+    "prettier": "3.3.3",
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.73.0",

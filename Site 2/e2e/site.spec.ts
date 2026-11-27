@@ -2,12 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 /**
- * Smoke + accessibility checks of the built site in a real browser. Every test also
- * fails on uncaught exceptions or console errors.
+ * Smoke and accessibility tests of the built site in a real browser. Every test also fails on
+ * uncaught exceptions or console errors.
  */
 
 const SECTIONS = ["top", "about", "domains", "toolbox", "projects", "contact", "watch"];
-/** WCAG 2.0–2.2 A/AA rules plus axe's best practices (e.g. heading order). */
+/** WCAG 2.0–2.2 A/AA rules plus axe's best practices, such as heading order. */
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
 
 let problems: string[] = [];
@@ -41,7 +41,7 @@ test.afterEach(() => {
   expect(problems, "page errors / console errors").toEqual([]);
 });
 
-/** Open a route and wait for the intro loader to finish (it waits for the pixel scene). */
+/** Open a route and wait for the intro loader, which waits for the pixel scene, to finish. */
 async function open(page: Page, route = "") {
   await page.goto(route);
   await expect(page.locator(".loader")).toHaveCount(0, { timeout: 45_000 });
@@ -62,7 +62,9 @@ async function expectAccessible(page: Page) {
   // preload: false — axe would otherwise fetch cross-origin stylesheets, which the
   // site's CSP (connect-src 'self') rightly blocks and logs as a console error
   const { violations } = await new AxeBuilder({ page }).withTags(AXE_TAGS).options({ preload: false }).analyze();
-  const summary = violations.map((v) => `${v.id} (${v.impact}) ×${v.nodes.length}: ${v.help} — ${v.nodes[0]?.target.join(" ")}`);
+  const summary = violations.map(
+    (v) => `${v.id} (${v.impact}) ×${v.nodes.length}: ${v.help} — ${v.nodes[0]?.target.join(" ")}`
+  );
   expect(summary, "axe accessibility violations").toEqual([]);
 }
 
@@ -76,7 +78,7 @@ async function expectSilent(page: Page) {
 }
 
 /**
- * No personal location (city, country code or map coordinates) in the visible text. The
+ * No personal location, such as a city, country code or map coordinates, in the visible text. The
  * IKEA Breda dashboard keeps its client's name: that's the store, not where Alexi lives.
  */
 async function expectNoLocation(page: Page) {
@@ -84,7 +86,7 @@ async function expectNoLocation(page: Page) {
   expect(text).not.toMatch(/breda|\bNL\b|°\s*[NSEW]/i);
 }
 
-/** Nothing may be wider than the viewport (no sideways scrolling on phones). */
+/** Nothing may be wider than the viewport, so phones never scroll sideways. */
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow, "horizontal overflow in px").toBeLessThanOrEqual(1);
@@ -122,7 +124,7 @@ test("a reload always opens on the intro, also after coming back from a project"
   // Scrolled down, then reloaded
   await page.locator("#projects").scrollIntoViewIfNeeded();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
-  // the position is saved shortly after scrolling stops: reload once it has been (so the test proves it is ignored)
+  // The position is saved shortly after scrolling stops; wait for it so the test proves it is ignored
   await expect.poll(() => page.evaluate(() => Number(sessionStorage.getItem("ak:homeY")))).toBeGreaterThan(1000);
   await page.reload();
   await atIntro();
@@ -140,9 +142,9 @@ test("a project card opens its page, and Back returns to the work section", asyn
   await open(page);
   await page.locator("#projects").scrollIntoViewIfNeeded();
   const link = page.locator(".project-card__link").first();
-  // ScrambleText keeps the real text in an .sr-only span (the visible glyphs may be mid-scramble)
+  // ScrambleText keeps the real text in an .sr-only span; the visible glyphs may be mid-scramble
   const title = (await link.locator(".sr-only").first().textContent())?.trim() ?? "";
-  // Click the middle of the card (not the title) — the stretched link must catch it
+  // Click the middle of the card, not the title: the stretched link must catch it
   await link.locator("xpath=ancestor::article").click();
   await expect(page).toHaveURL(/#\/project\/[a-zA-Z]+\/\d+$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(title);
@@ -177,7 +179,7 @@ test("unknown routes show the 404 page with a way home, and it passes axe", asyn
   await expectAccessible(page);
 });
 
-/** A fingerprint of what the battle's canvas shows right now (it changes whenever the picture does). */
+/** A fingerprint of what the battle's canvas shows right now; it changes whenever the picture does. */
 const frame = (page: Page) =>
   page.evaluate(() => {
     const canvas = document.querySelector<HTMLCanvasElement>("canvas.pixel-canvas");
@@ -188,9 +190,11 @@ const frame = (page: Page) =>
     return `${url.length}:${h}`;
   });
 
-test("the battle plays behind the page by itself, and a click on the scenery doesn't break it", async ({ page, isMobile }) => {
+test("the battle plays behind the page by itself, and a click on the scenery doesn't break it", async ({
+  page,
+  isMobile,
+}) => {
   await open(page);
-  // (the HUD keeps the game's stats out of the way: the picture itself is what moves)
   const first = await frame(page);
   expect(first).not.toBe("no canvas");
   await expect.poll(() => frame(page), { timeout: 10_000 }).not.toBe(first);
@@ -203,12 +207,13 @@ test("the battle plays behind the page by itself, and a click on the scenery doe
   }
 });
 
-test("the spectator space at the bottom brings up the scene controls (pause, speed, zoom), and they go with it", async ({ page }) => {
+test("the spectator space at the bottom brings up the scene controls (pause, speed, zoom), and they go with it", async ({
+  page,
+}) => {
   await open(page, "?level=temple");
   const controls = page.getByRole("region", { name: "Background animation" });
   await expect(controls).toHaveCount(0);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  // (scrolled right down into the open ground: nothing over the battle but the controls)
   await expect(page.locator("section#watch")).toBeInViewport();
   await expect(controls).toBeVisible();
   // Pause holds the picture still; Resume sets it going again
@@ -219,7 +224,7 @@ test("the spectator space at the bottom brings up the scene controls (pause, spe
   expect(await frame(page), "the picture while paused").toBe(still);
   await controls.getByRole("button", { name: "Resume the background" }).click();
   await expect.poll(() => frame(page), { timeout: 10_000 }).not.toBe(still);
-  // One speed at a time (each named by what it shows)
+  // One speed at a time
   const speeds = controls.getByRole("group", { name: "Speed" });
   await speeds.getByRole("button", { name: "4×", exact: true }).click();
   await expect(speeds.getByRole("button", { name: "4×", exact: true })).toHaveAttribute("aria-pressed", "true");

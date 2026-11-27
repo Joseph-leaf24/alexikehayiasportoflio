@@ -24,7 +24,7 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
-/** Everything observed is reported as in view (unless a test turns this off). */
+/** Everything observed is reported as in view unless a test turns `autoIntersect` off. */
 export const io = { autoIntersect: true, instances: [] as MockIntersectionObserver[] };
 class MockIntersectionObserver {
   root = null;
@@ -38,12 +38,18 @@ class MockIntersectionObserver {
     this.targets.push(el);
     if (io.autoIntersect)
       queueMicrotask(() =>
-        this.cb([{ isIntersecting: true, target: el, intersectionRatio: 1 } as IntersectionObserverEntry], this as unknown as IntersectionObserver)
+        this.cb(
+          [{ isIntersecting: true, target: el, intersectionRatio: 1 } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver
+        )
       );
   }
   /** Manually report an entry. */
   fire(isIntersecting: boolean, target = this.targets[0]) {
-    this.cb([{ isIntersecting, target, intersectionRatio: isIntersecting ? 1 : 0 } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+    this.cb(
+      [{ isIntersecting, target, intersectionRatio: isIntersecting ? 1 : 0 } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver
+    );
   }
   unobserve() {}
   disconnect() {}
@@ -51,7 +57,11 @@ class MockIntersectionObserver {
     return [];
   }
 }
-Object.defineProperty(window, "IntersectionObserver", { writable: true, configurable: true, value: MockIntersectionObserver });
+Object.defineProperty(window, "IntersectionObserver", {
+  writable: true,
+  configurable: true,
+  value: MockIntersectionObserver,
+});
 
 class MockResizeObserver {
   constructor(public cb: ResizeObserverCallback) {}
@@ -74,11 +84,11 @@ export const setScrollY = (y: number) => {
   scrollY = y;
 };
 window.scrollTo = vi.fn((x?: number | ScrollToOptions, y?: number) => {
-  scrollY = typeof x === "object" ? x.top ?? scrollY : y ?? scrollY;
+  scrollY = typeof x === "object" ? (x.top ?? scrollY) : (y ?? scrollY);
 }) as unknown as typeof window.scrollTo;
 Element.prototype.scrollIntoView = () => {};
 
-// No canvas in jsdom: getContext returns null instead of logging "not implemented" (scene.test.tsx stubs a 2D context)
+// No canvas in jsdom: getContext returns null instead of logging "not implemented". scene.test.tsx stubs a 2D context.
 HTMLCanvasElement.prototype.getContext = (() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
 Object.defineProperty(document, "fonts", { configurable: true, value: { ready: Promise.resolve() } });

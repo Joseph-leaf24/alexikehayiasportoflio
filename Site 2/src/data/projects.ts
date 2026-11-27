@@ -14,14 +14,13 @@ import computerVisionImg_root_1 from "@/assets/CV-Roots-Output-1.png";
 import computerVisionImg_root_2 from "@/assets/CV-Roots-Output-3.png";
 import computerVisionImg_root_3 from "@/assets/Robotics-Innoculation.gif";
 
-import machineLearningImg_1 from  "@/assets/ML-ANWB-Application.png";
+import machineLearningImg_1 from "@/assets/ML-ANWB-Application.png";
 import machineLearningImg_2 from "@/assets/ML-ANWB-Model-Conf-Matrix.png";
 import machineLearningImg_3 from "@/assets/ML-ANWB-Model-Learning-Curves.png";
 
 import nlpImg_1 from "@/assets/NLP_Main_Page.png";
 import nlpImg_2 from "@/assets/NPL_Results_Page.png";
 
-// CORE Project images
 import coreImg_dashboard from "@/assets/CORE-Dashboard.png";
 import coreImg_langgraph from "@/assets/CORE-LangGraph-Flowchart.png";
 import coreImg_performance from "@/assets/CORE-Performance-Iterations.png";
@@ -37,170 +36,208 @@ import mlopsImg_4 from "@/assets/Airflow.png";
 
 import { ProjectData } from "@/types/project";
 
-
 export const projectData: ProjectData = {
   dataAnalytics: {
     title: "Data Analytics",
-    description: "Interactive dashboards and business intelligence solutions using Microsoft Power BI for public health and security analytics.",
+    description:
+      "Interactive dashboards and business intelligence solutions using Microsoft Power BI for public health and security analytics.",
     projects: [
       {
         title: "Tuberculosis Analysis in Zimbabwe",
-        description: "This is an interactive Power BI dashboard made to support health decision-making by analyzing TB trends in Zimbabwe. It also features regional benchmarking against neighbouring countries and tracks progress toward SDG 3 goals.",
+        description:
+          "This is an interactive Power BI dashboard made to support health decision-making by analyzing TB trends in Zimbabwe. It also features regional benchmarking against neighbouring countries and tracks progress toward SDG 3 goals.",
         image: sdgImg,
         tags: ["Power BI", "Public Health", "SDG Tracking"],
-        highlights: ["Interactive Power BI dashboard built to support health decision-making", "Benchmarks Zimbabwe against neighbouring countries by region", "Tracks progress toward the SDG 3 health goals"],
+        highlights: [
+          "Interactive Power BI dashboard built to support health decision-making",
+          "Benchmarks Zimbabwe against neighbouring countries by region",
+          "Tracks progress toward the SDG 3 health goals",
+        ],
         concepts: ["Exploratory Data Analysis", "Data Visualization", "Time Series Analysis", "Regional Benchmarking"],
         tools: ["Microsoft Power BI", "Excel", "WHO Data APIs"],
-        
-        powerBiUrl: "https://app.powerbi.com/view?r=eyJrIjoiZTQyMzU2ZTEtNzJjZi00MzRmLWE0M2UtYjBlYmIzM2MxYzExIiwidCI6IjBhMzM1ODliLTAwMzYtNGZlOC1hODI5LTNlZDA5MjZhZjg4NiIsImMiOjl9"
+
+        powerBiUrl:
+          "https://app.powerbi.com/view?r=eyJrIjoiZTQyMzU2ZTEtNzJjZi00MzRmLWE0M2UtYjBlYmIzM2MxYzExIiwidCI6IjBhMzM1ODliLTAwMzYtNGZlOC1hODI5LTNlZDA5MjZhZjg4NiIsImMiOjl9",
       },
       {
         title: "IKEA Card Skimming Detection Dashboard",
-        description: "This is a dashboard for monitoring payment terminal redeployment at IKEA Breda. It enables tracking of terminal movements, employee behavior analysis, and identification of security risk hotspots.",
+        description:
+          "This is a dashboard for monitoring payment terminal redeployment at IKEA Breda. It enables tracking of terminal movements, employee behavior analysis, and identification of security risk hotspots.",
         image: ikeaImg,
         tags: ["Power BI", "Security Analytics", "Retail"],
-        highlights: ["Tracks payment-terminal movements during redeployment", "Analyses employee behaviour around the terminals", "Pinpoints security risk hotspots in the store"],
-        concepts: ["Security Risk Analytics", "Operational Intelligence", "Employee Behavior Analysis", "Compliance Monitoring"],
+        highlights: [
+          "Tracks payment-terminal movements during redeployment",
+          "Analyses employee behaviour around the terminals",
+          "Pinpoints security risk hotspots in the store",
+        ],
+        concepts: [
+          "Security Risk Analytics",
+          "Operational Intelligence",
+          "Employee Behavior Analysis",
+          "Compliance Monitoring",
+        ],
         tools: ["Microsoft Power BI", "SQL Server", "Excel"],
-        powerBiUrl: "https://app.powerbi.com/view?r=eyJrIjoiMTMxMDM2MGItYzI3ZC00MzI3LTk2YjktMzg0ODE2YzhkM2E5IiwidCI6IjBhMzM1ODliLTAwMzYtNGZlOC1hODI5LTNlZDA5MjZhZjg4NiIsImMiOjl9"
-      }
-    ]
+        powerBiUrl:
+          "https://app.powerbi.com/view?r=eyJrIjoiMTMxMDM2MGItYzI3ZC00MzI3LTk2YjktMzg0ODE2YzhkM2E5IiwidCI6IjBhMzM1ODliLTAwMzYtNGZlOC1hODI5LTNlZDA5MjZhZjg4NiIsImMiOjl9",
+      },
+    ],
   },
-  
+
   computerVision: {
     title: "Computer Vision",
-    description: "Advanced image processing and AI solutions for applications such as occupancy detection and agricultural phenotyping.",
+    description:
+      "Advanced image processing and AI solutions for applications such as occupancy detection and agricultural phenotyping.",
     projects: [
       {
         title: "Classroom Occupancy Detection with Explainable AI",
-        description: "This project makes use of a Convolutional Neural Network-based image classification system to detect classroom occupancy with Grad-CAM explainability. It is designed for university space optimization with privacy-first approach.",
+        description:
+          "This project makes use of a Convolutional Neural Network-based image classification system to detect classroom occupancy with Grad-CAM explainability. It is designed for university space optimization with privacy-first approach.",
         image: cv1_modelXAI,
-        images: [ 
-          cv1_accuracyCurves,
-          cv1_lossCurves,
-          cv1_modelAccuracy,
-          cv1_modelXAI
-        ],
+        images: [cv1_accuracyCurves, cv1_lossCurves, cv1_modelAccuracy, cv1_modelXAI],
         tags: ["CNN", "Explainable AI", "Real-time Processing"],
-        highlights: ["CNN image classifier that detects whether a classroom is occupied", "Grad-CAM heat maps show what each prediction is based on", "Privacy-first design for university space optimisation"],
-        concepts: ["Convolutional Neural Networks", "Grad-CAM Explainability", "Image Classification", "Responsible AI"],
+        highlights: [
+          "CNN image classifier that detects whether a classroom is occupied",
+          "Grad-CAM heat maps show what each prediction is based on",
+          "Privacy-first design for university space optimisation",
+        ],
+        concepts: [
+          "Convolutional Neural Networks",
+          "Grad-CAM Explainability",
+          "Image Classification",
+          "Responsible AI",
+        ],
         tools: ["Python", "TensorFlow/Keras", "OpenCV", "Matplotlib"],
       },
       {
         title: "Primary Root Detection Pipeline (NPEC)",
-        description: "For this project, the aim was to create a fully automated AI pipeline for the detection, segmentation, and measurement of plant root structures. This integrated robotics through the use of a virtual OT2 environment for automated inoculation of plant root tips.",
+        description:
+          "For this project, the aim was to create a fully automated AI pipeline for the detection, segmentation, and measurement of plant root structures. This integrated robotics through the use of a virtual OT2 environment for automated inoculation of plant root tips.",
         image: computerVisionImg_root,
-        images: [
-          computerVisionImg_root_1,
-          computerVisionImg_root_2,
-          computerVisionImg_root_3
-        ],
+        images: [computerVisionImg_root_1, computerVisionImg_root_2, computerVisionImg_root_3],
         tags: ["Image Segmentation", "Agricultural AI", "Robotics Integration"],
-        highlights: ["Fully automated detection, segmentation and measurement of plant roots", "Robotic inoculation of root tips in a simulated OT2 environment"],
+        highlights: [
+          "Fully automated detection, segmentation and measurement of plant roots",
+          "Robotic inoculation of root tips in a simulated OT2 environment",
+        ],
         concepts: ["Image Segmentation", "Skeletonization", "Feature Extraction", "Transfer Learning"],
         tools: ["Python", "TensorFlow/Keras", "OpenCV", "Stable-Baselines3"],
-      }
-    ]
+      },
+    ],
   },
-  
+
   machineLearning: {
     title: "Machine Learning",
-    description: "End-to-end ML solutions following CRISP-DM methodology for real-world prediction and classification tasks.",
+    description:
+      "End-to-end ML solutions following CRISP-DM methodology for real-world prediction and classification tasks.",
     projects: [
       {
         title: "Accident Detection & Risk Analysis",
-        description: "Full-stack driving risk prediction system using CRISP-DM methodology. Deep learning classifier for accident risk levels with SQL-based data pipeline and interactive Streamlit deployment.",
+        description:
+          "Full-stack driving risk prediction system using CRISP-DM methodology. Deep learning classifier for accident risk levels with SQL-based data pipeline and interactive Streamlit deployment.",
         image: machineLearningImg_1,
-        images: [ 
-          machineLearningImg_1,
-          machineLearningImg_2,
-          machineLearningImg_3
-
-        ],
+        images: [machineLearningImg_1, machineLearningImg_2, machineLearningImg_3],
         tags: ["Deep Learning", "CRISP-DM", "Risk Prediction"],
-        highlights: ["Built end to end with the CRISP-DM methodology", "SQL-based data pipeline feeding a deep learning risk classifier", "Interactive Streamlit app for exploring predictions"],
+        highlights: [
+          "Built end to end with the CRISP-DM methodology",
+          "SQL-based data pipeline feeding a deep learning risk classifier",
+          "Interactive Streamlit app for exploring predictions",
+        ],
         concepts: ["CRISP-DM Lifecycle", "Deep Learning Classification", "Feature Engineering", "Real-time Prediction"],
         tools: ["Python", "TensorFlow/Keras", "SQL", "Streamlit"],
-      }
-    ]
+      },
+    ],
   },
-  
+
   nlp: {
     title: "Natural Language Processing",
-    description: "Advanced text processing and multilingual (English and Greek) AI for emotion detection and content analysis.",
+    description:
+      "Advanced text processing and multilingual (English and Greek) AI for emotion detection and content analysis.",
     projects: [
       {
         title: "Greek Emotion Detection with Translation",
-        description: "This is an NLP pipeline for emotion detection in Greek & English YouTube videos. It combines Whisper speech recognition, multilingual translation (Greek to English), and transformer-based emotion classification with intensity scoring.",
+        description:
+          "This is an NLP pipeline for emotion detection in Greek & English YouTube videos. It combines Whisper speech recognition, multilingual translation (Greek to English), and transformer-based emotion classification with intensity scoring.",
         image: nlpImg_1,
-        images: [ 
-          nlpImg_1,
-          nlpImg_2,
-
-        ],
+        images: [nlpImg_1, nlpImg_2],
         tags: ["Multilingual NLP", "Speech Recognition", "Emotion AI"],
-        highlights: ["Works on Greek and English YouTube videos", "Whisper speech-to-text, then Greek-to-English translation, then transformer emotion classification", "Scores emotion intensity, not just the emotion label"],
+        highlights: [
+          "Works on Greek and English YouTube videos",
+          "Whisper speech-to-text, then Greek-to-English translation, then transformer emotion classification",
+          "Scores emotion intensity, not just the emotion label",
+        ],
         concepts: ["Speech-to-Text", "Machine Translation", "Emotion Classification", "Pipeline Engineering"],
         tools: ["Python", "HuggingFace Transformers", "Whisper", "OpenAI API"],
       },
       {
         title: "CORE: Coordinated Order Recognition & Enrichment",
-        description: "Built an agentic AI solution that automates email-based order processing for logistics operations at Move Intermodal. Half of all transport orders arrive through email, creating a time-intensive bottleneck. Our LangGraph-based agentic pipeline automatically fetches and classifies incoming emails, extracts transport order data, and enriches orders with customer historical data. The system includes a front-end interface allowing customer care teams to review and edit orders, maintaining human oversight while reducing manual workload. Performance metrics show significant improvement: accuracy increased from 74% in Iteration 1 to 98% by Iteration 4. The dashboard tracks key operational metrics including average processing time (1 minute), total emails processed (276), conversations classified (74), and attachments handled (148). The agentic pipeline flow includes thread retrieval, conversation classification, entity extraction, fuzzy matching, customer enrichment, and automated status updates to Snowflake. LangSmith integration provides comprehensive observability, tracking costs per trace and total system costs, ensuring efficient LLM usage throughout the pipeline.",
+        description:
+          "Built an agentic AI solution that automates email-based order processing for logistics operations at Move Intermodal. Half of all transport orders arrive through email, creating a time-intensive bottleneck. Our LangGraph-based agentic pipeline automatically fetches and classifies incoming emails, extracts transport order data, and enriches orders with customer historical data. The system includes a front-end interface allowing customer care teams to review and edit orders, maintaining human oversight while reducing manual workload. Performance metrics show significant improvement: accuracy increased from 74% in Iteration 1 to 98% by Iteration 4. The dashboard tracks key operational metrics including average processing time (1 minute), total emails processed (276), conversations classified (74), and attachments handled (148). The agentic pipeline flow includes thread retrieval, conversation classification, entity extraction, fuzzy matching, customer enrichment, and automated status updates to Snowflake. LangSmith integration provides comprehensive observability, tracking costs per trace and total system costs, ensuring efficient LLM usage throughout the pipeline.",
         image: coreImg_dashboard,
-        images: [
-          coreImg_dashboard,
-          coreImg_langgraph,
-          coreImg_performance,
-          coreImg_langsmith
-        ],
+        images: [coreImg_dashboard, coreImg_langgraph, coreImg_performance, coreImg_langsmith],
         tags: ["Agentic AI", "LangGraph", "RAG", "Email Processing"],
-        highlights: ["Accuracy rose from 74% in iteration 1 to 98% by iteration 4", "276 emails processed, 74 conversations classified and 148 attachments handled", "About 1 minute average processing time per order", "LangSmith tracks the cost of every trace and of the whole system"],
-        concepts: ["Agentic Pipelines", "Retrieval Augmented Generation", "Entity Extraction", "Fuzzy Matching", "Customer Data Enrichment", "LLM Observability"],
+        highlights: [
+          "Accuracy rose from 74% in iteration 1 to 98% by iteration 4",
+          "276 emails processed, 74 conversations classified and 148 attachments handled",
+          "About 1 minute average processing time per order",
+          "LangSmith tracks the cost of every trace and of the whole system",
+        ],
+        concepts: [
+          "Agentic Pipelines",
+          "Retrieval Augmented Generation",
+          "Entity Extraction",
+          "Fuzzy Matching",
+          "Customer Data Enrichment",
+          "LLM Observability",
+        ],
         tools: ["Python", "LangGraph", "LangSmith", "LangChain", "Snowflake", "FastAPI", "React"],
-      }
-    ]
+      },
+    ],
   },
-  
+
   research: {
     title: "Scientific Research",
-    description: "Comprehensive mixed-methods study exploring chatbot effectiveness in Small and Medium Enterprises. Combined statistical analysis with thematic research to provide actionable business recommendations.",
-    
+    description:
+      "Comprehensive mixed-methods study exploring chatbot effectiveness in Small and Medium Enterprises. Combined statistical analysis with thematic research to provide actionable business recommendations.",
+
     projects: [
       {
         title: "Impact of Chatbots on SMEs",
-        description: "This project explored how chatbots impact customer satisfaction and trust in small and medium-sized enterprises (SMEs). Using both quantitative surveys and qualitative interviews, it examined key factors such as personalisation, response speed, accuracy, and functionality. The research assessed how these elements influence customer experiences, compared chatbot performance to human support, and identified different methods to optimise chatbot design. Findings led to practical recommendations for SMEs on balancing efficiency with personalised service, ensuring accuracy, and improving escalation to human agents.",
+        description:
+          "This project explored how chatbots impact customer satisfaction and trust in small and medium-sized enterprises (SMEs). Using both quantitative surveys and qualitative interviews, it examined key factors such as personalisation, response speed, accuracy, and functionality. The research assessed how these elements influence customer experiences, compared chatbot performance to human support, and identified different methods to optimise chatbot design. Findings led to practical recommendations for SMEs on balancing efficiency with personalised service, ensuring accuracy, and improving escalation to human agents.",
         image: researchImg_1,
-        images: [ 
-          researchImg_1
-
-        ],
+        images: [researchImg_1],
         tags: ["Mixed Methods", "Business Research", "Statistical Analysis"],
-        highlights: ["Mixed methods: quantitative surveys plus qualitative interviews", "Compared chatbot performance with human support", "Practical recommendations on personalisation, accuracy and escalation to human agents"],
+        highlights: [
+          "Mixed methods: quantitative surveys plus qualitative interviews",
+          "Compared chatbot performance with human support",
+          "Practical recommendations on personalisation, accuracy and escalation to human agents",
+        ],
         concepts: ["Mixed-Methods Research", "Statistical Testing", "Thematic Analysis", "Stakeholder Mapping"],
         tools: ["Python", "SPSS", "Qualtrics", "Excel"],
-      }
-    ]
+      },
+    ],
   },
-  
+
   mlops: {
     title: "MLOps & Deployment",
-    description: "This section contains Machine Learning systems with containerization, cloud deployment, and automated workflow orchestration.",
+    description:
+      "This section contains Machine Learning systems with containerization, cloud deployment, and automated workflow orchestration.",
     projects: [
       {
         title: "ROALT: Root Analysis Toolkit Deployment",
-        description: "A Machine Learning Operations (MLOps) deployment of deep learning pipelines using Docker, Azure ML, and Airflow. It features FastAPI for the backend, Gradio UI, and full CI/CD integration for plant research applications, in this case being root segmentation analysis in computer vision.",
+        description:
+          "A Machine Learning Operations (MLOps) deployment of deep learning pipelines using Docker, Azure ML, and Airflow. It features FastAPI for the backend, Gradio UI, and full CI/CD integration for plant research applications, in this case being root segmentation analysis in computer vision.",
         image: mlops_thumbnail,
-        images: [
-            mlopsImg_1,
-            mlopsImg_2,
-            mlopsImg_3,
-            mlopsImg_4
-        ],
+        images: [mlopsImg_1, mlopsImg_2, mlopsImg_3, mlopsImg_4],
         tags: ["Docker", "Azure ML", "CI/CD"],
-        highlights: ["Deep learning pipelines deployed with Docker, Azure ML and Airflow", "FastAPI backend with a Gradio interface", "Full CI/CD integration"],
+        highlights: [
+          "Deep learning pipelines deployed with Docker, Azure ML and Airflow",
+          "FastAPI backend with a Gradio interface",
+          "Full CI/CD integration",
+        ],
         concepts: ["MLOps Lifecycle", "Container Orchestration", "Cloud Deployment", "Workflow Automation"],
         tools: ["Docker", "Azure ML Studio", "Apache Airflow", "FastAPI", "GitHub Actions"],
-      }
-    ]
-  }
+      },
+    ],
+  },
 };

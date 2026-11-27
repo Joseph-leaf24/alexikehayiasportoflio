@@ -8,17 +8,17 @@ The pixel battle from Site 2 as your Windows desktop's live wallpaper. It's the 
 
 - The battle replaces your wallpaper straight away, behind the desktop icons, and a notification says so.
 - **If your windows cover the desktop**, the battle sleeps behind them. That means one maximised window, or several between them (two snapped side by side, say). Press **Win+D**, or minimise them, to see it.
-- **Its icon by the clock** (under the **^** if it's hidden there) has the menu:
+- **Its icon by the clock** (under the **^** if it's hidden there) says what it's doing when you point at it ("playing", "asleep (windows cover it)" and so on). **Click it**, with either button, for the menu:
 
   | Option | Choices |
   |---|---|
-  | Pause | |
+  | Pause | your own wallpaper shows until you resume |
   | Speed | 1×, **2×**, 4× |
   | Zoom | 100%, **75%**, 50% |
   | Frame rate | 20, **30**, 60 |
   | Screens | **main screen**, or every screen |
   | Clicking the desktop calls in a blast | on or off |
-  | Sleep on battery | on or off |
+  | Sleep on battery | on or **off**: tick it to save a laptop's battery |
   | **Start with Windows** | tick it to keep the battle as your wallpaper after a restart |
   | New battle | |
   | **Exit** | puts your own wallpaper back |
@@ -44,7 +44,7 @@ It handles both desktop layouts: the classic one, up to Windows 11 23H2, and the
 **From a shortcut or script:**
 
 - `PixelBattle.exe --exit` closes the running one.
-- `PixelBattle.exe --selftest` runs it for a few seconds, sleeps and wakes it, and writes what happened to `%LOCALAPPDATA%\PixelBattle\selftest.log`.
+- `PixelBattle.exe --selftest` runs it for a few seconds, sleeps and wakes it (changing the settings while it sleeps, without saving them), and writes what happened to `%LOCALAPPDATA%\PixelBattle\selftest.log`.
 - `PixelBattle.exe --log` runs it as usual, and writes when it slept and woke to `log.txt` there when it closes.
 
 ## Going easy on the machine
@@ -56,7 +56,7 @@ Measured on this PC (2880×1800 screen, 16-thread CPU):
 | **Asleep** (desktop covered) | about 0.3% of one core | about 70 MB if it started covered, about 330 MB once the battle has run |
 | **On show**, 30 frames a second | about 30–55% of one core (2–3% of the whole CPU); the busier the battle, the higher | about 600 MB |
 
-It sleeps whenever its screen is covered by windows, while the PC is locked, and on battery (if ticked). While it sleeps, the battle's page is suspended and draws nothing. The once-a-second check costs next to nothing. Memory is across the WebView2 engine's processes: the browser, the GPU process and the page.
+It sleeps whenever its screen is covered by windows, while the PC is locked or it's paused, and on battery (if ticked). While it sleeps, the battle's page is suspended and draws nothing, and your own wallpaper shows. Settings changed in the menu meanwhile take effect when it wakes. The once-a-second check costs next to nothing. Memory is across the WebView2 engine's processes: the browser, the GPU process and the page.
 
 What keeps it light while it's on show:
 

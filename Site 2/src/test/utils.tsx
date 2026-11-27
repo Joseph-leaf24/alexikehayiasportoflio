@@ -6,7 +6,7 @@ import { TransitionProvider } from "@/components/chrome/Transition";
 import { blankIntel, nav, sceneState, ui } from "@/lib/store";
 import { resetQualityCache } from "@/lib/device";
 
-/** Fake timers that also drive requestAnimationFrame + performance.now. */
+/** Fake timers that also drive requestAnimationFrame and performance.now. */
 export function useAnimationTimers() {
   vi.useFakeTimers({
     toFake: [
@@ -22,16 +22,17 @@ export function useAnimationTimers() {
   });
 }
 
-/** Advance fake timers (and animation frames) by `ms`, inside act(). */
+/** Advance fake timers and animation frames by `ms`, inside act(). */
 export const advance = (ms: number) =>
   act(() => {
     vi.advanceTimersByTime(ms);
   });
 
-/** Let pending microtasks (e.g. the mock IntersectionObserver callbacks) run, inside act(). */
-export const flush = () => act(async () => {
-  await Promise.resolve();
-});
+/** Run pending microtasks, such as the mock IntersectionObserver callbacks, inside act(). */
+export const flush = () =>
+  act(async () => {
+    await Promise.resolve();
+  });
 
 /** Put every shared store back to its initial state. */
 export function resetState() {
@@ -60,7 +61,6 @@ export function resetState() {
     zoom: 0,
     endless: false,
     highlight: -1,
-    formation: "village",
   });
   document.documentElement.classList.remove("is-whiteout");
   sceneState.pointer.x = sceneState.pointer.y = 0;
@@ -69,7 +69,6 @@ export function resetState() {
   for (const p of sceneState.players) Object.assign(p, { score: 0, hp: 1, alive: true });
   resetQualityCache();
   delete document.documentElement.dataset.tier;
-  delete document.documentElement.dataset.sky;
   document.documentElement.classList.remove("no-canvas");
   window.history.replaceState({}, "", "/");
 }
@@ -85,8 +84,11 @@ export function LocationProbe() {
   return <output data-testid="location">{loc.pathname}</output>;
 }
 
-/** Render inside a router + page-transition provider. */
-export function renderRoute(element: ReactElement, { path = "/", route = "/", state }: { path?: string; route?: string; state?: unknown } = {}) {
+/** Render inside a router and the page-transition provider. */
+export function renderRoute(
+  element: ReactElement,
+  { path = "/", route = "/", state }: { path?: string; route?: string; state?: unknown } = {}
+) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: route, state }]}>
       <TransitionProvider>

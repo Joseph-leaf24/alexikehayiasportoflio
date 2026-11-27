@@ -28,8 +28,8 @@ const within = (p: Promise<unknown>, ms: number) => Promise.race([p, new Promise
 const focusMain = () => document.getElementById("main")?.focus({ preventScroll: true });
 
 /**
- * `go(to, state?)`: navigate behind the page-wipe transition. A request made while a
- * transition is running is queued (latest wins) and plays as soon as it ends.
+ * `go(to, state?)`: navigate behind the page-wipe transition. A request made while a transition
+ * is running is queued and plays as soon as it ends; only the latest is kept.
  */
 export const usePageTransition = () => useContext(TransitionCtx);
 
@@ -37,7 +37,7 @@ const EASE = "cubic-bezier(.76,0,.24,1)";
 
 /**
  * Wipes slanted ice sheets over the page, swaps the route underneath, then wipes them away.
- * With reduced motion (or no Web Animations API) it navigates straight away.
+ * With reduced motion, or without the Web Animations API, it navigates straight away.
  */
 export function TransitionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -81,7 +81,12 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
           Promise.all(
             shards.map(
               (sh, i) =>
-                sh.animate([{ transform: from }, { transform: to }], { duration, delay: i * STAGGER, easing: EASE, fill: "forwards" }).finished
+                sh.animate([{ transform: from }, { transform: to }], {
+                  duration,
+                  delay: i * STAGGER,
+                  easing: EASE,
+                  fill: "forwards",
+                }).finished
             )
           ),
           duration + (shards.length - 1) * STAGGER + 300
@@ -143,8 +148,11 @@ interface TLinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href
   children: ReactNode;
 }
 
-/** A real `<a href="#/...">` (so open-in-new-tab works) that plays the page wipe. */
-export const TLink = forwardRef<HTMLAnchorElement, TLinkProps>(function TLink({ to, state, onClick, children, ...rest }, ref) {
+/** A link that plays the page wipe. It is a real `<a href="#/...">`, so open-in-new-tab still works. */
+export const TLink = forwardRef<HTMLAnchorElement, TLinkProps>(function TLink(
+  { to, state, onClick, children, ...rest },
+  ref
+) {
   const go = usePageTransition();
   const handle = (e: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(e);

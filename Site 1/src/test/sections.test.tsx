@@ -48,7 +48,10 @@ describe("Hero", () => {
   it("click-and-hold shatters the village; releasing restores it", () => {
     const { container } = renderRoute(<Hero />);
     const hero = container.querySelector(".hero")!;
-    fireEvent(hero, new PointerEvent("pointerdown", { pointerType: "mouse", clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(
+      hero,
+      new PointerEvent("pointerdown", { pointerType: "mouse", clientX: 100, clientY: 100, bubbles: true })
+    );
     expect(sceneState.press).toBe(true);
     fireEvent(window, new PointerEvent("pointerup"));
     expect(sceneState.press).toBe(false);
@@ -60,13 +63,16 @@ describe("Hero", () => {
     fireEvent(window, new MouseEvent("contextmenu"));
     expect(sceneState.press).toBe(false);
 
-    // dragging a finger cancels (so scrolling on phones doesn't shatter)
+    // Dragging a finger cancels, so scrolling on phones doesn't shatter
     fireEvent(hero, new PointerEvent("pointerdown", { pointerType: "touch", clientX: 0, clientY: 0, bubbles: true }));
     fireEvent(window, new PointerEvent("pointermove", { pointerType: "touch", clientX: 0, clientY: 40 }));
     expect(sceneState.press).toBe(false);
 
     // pressing a button does not shatter
-    fireEvent(screen.getByRole("button", { name: /view projects/i }), new PointerEvent("pointerdown", { bubbles: true }));
+    fireEvent(
+      screen.getByRole("button", { name: /view projects/i }),
+      new PointerEvent("pointerdown", { bubbles: true })
+    );
     expect(sceneState.press).toBe(false);
   });
 
@@ -175,15 +181,18 @@ describe("ProjectCard", () => {
   it("links to the project and tilts toward the pointer", () => {
     const project = projectData.dataAnalytics.projects[0];
     renderRoute(<ProjectCard project={project} category="dataAnalytics" index={0} />);
-    // The title is the link (stretched over the card by CSS); the card is the tilting article
+    // The title is the link, stretched over the card by CSS; the card is the tilting article
     const link = screen.getByRole("link", { name: project.title });
     expect(link).toHaveAttribute("href", "#/project/dataAnalytics/0");
     const card = link.closest(".project-card") as HTMLElement;
     expect(card.tagName).toBe("ARTICLE");
-    // No "Live dashboard" badge on the cards (the dashboards are on the project pages)
+    // No "Live dashboard" badge on the cards; the dashboards are on the project pages
     expect(screen.queryByText(/live dashboard/i)).toBeNull();
     vi.spyOn(card, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 200, height: 100 } as DOMRect);
-    fireEvent(card, new PointerEvent("pointermove", { pointerType: "mouse", clientX: 150, clientY: 25, bubbles: true }));
+    fireEvent(
+      card,
+      new PointerEvent("pointermove", { pointerType: "mouse", clientX: 150, clientY: 25, bubbles: true })
+    );
     expect(card.style.getPropertyValue("--ry")).toBe("2.25deg");
     fireEvent(card, new PointerEvent("pointermove", { pointerType: "touch", clientX: 0, clientY: 0, bubbles: true }));
     expect(card.style.getPropertyValue("--ry")).toBe("2.25deg");
@@ -217,7 +226,9 @@ describe("Lightbox", () => {
   it("pages through images with buttons and keys, and closes", () => {
     const onClose = vi.fn();
     const onIndex = vi.fn();
-    render(<Lightbox images={["a.png", "b.png", "c.png"]} index={0} title="Demo" onClose={onClose} onIndex={onIndex} />);
+    render(
+      <Lightbox images={["a.png", "b.png", "c.png"]} index={0} title="Demo" onClose={onClose} onIndex={onIndex} />
+    );
     const dialog = screen.getByRole("dialog", { name: "Demo — image viewer" });
     expect(within(dialog).getByText("01 / 03")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close image viewer" })).toHaveFocus();
@@ -258,7 +269,9 @@ describe("Lightbox", () => {
 
   it("hides paging for a single image", () => {
     const onIndex = vi.fn();
-    const { unmount } = render(<Lightbox images={["a.png"]} index={0} title="One" onClose={() => {}} onIndex={onIndex} />);
+    const { unmount } = render(
+      <Lightbox images={["a.png"]} index={0} title="One" onClose={() => {}} onIndex={onIndex} />
+    );
     expect(screen.queryByRole("button", { name: "Next image" })).toBeNull();
     fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(onIndex).not.toHaveBeenCalled();

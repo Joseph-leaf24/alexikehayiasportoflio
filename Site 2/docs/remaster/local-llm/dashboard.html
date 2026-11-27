@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Remaster Dashboard</title>
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --card: #ffffff;
+        --text: #1d2330;
+        --muted: #677084;
+        --line: #e2e5eb;
+        --claude: #c96442;
+        --local: #2f7de1;
+        --ok: #2e9e5b;
+        --warn: #c98a12;
+        --bar: #e9ecf1;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #12151b;
+          --card: #1b2029;
+          --text: #e6e9ef;
+          --muted: #98a1b3;
+          --line: #2a303b;
+          --claude: #e0805e;
+          --local: #5a9ef0;
+          --ok: #4cc47e;
+          --warn: #e0a83a;
+          --bar: #262c37;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.45 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 20px 16px 40px;
+        display: grid;
+        gap: 14px;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0;
+        flex: 1;
+      }
+      h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin: 0 0 10px;
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+        min-width: 0;
+      }
+      .pill {
+        padding: 5px 12px;
+        border-radius: 99px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--muted);
+      }
+      .pill.claude {
+        background: var(--claude);
+      }
+      .pill.local {
+        background: var(--local);
+      }
+      .pill.complete {
+        background: var(--ok);
+      }
+      .pill.stopping {
+        background: var(--warn);
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 7px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--ok);
+        border-color: var(--ok);
+        color: #fff;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .bar {
+        height: 10px;
+        background: var(--bar);
+        border-radius: 99px;
+        overflow: hidden;
+      }
+      .bar > div {
+        height: 100%;
+        background: var(--ok);
+      }
+      .big {
+        font-size: 28px;
+        font-weight: 700;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .phases {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .phase {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 12px;
+      }
+      .phase.done {
+        background: var(--ok);
+        border-color: var(--ok);
+        color: #fff;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 3px 0;
+      }
+      .chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 50px;
+        margin-top: 10px;
+      }
+      .chart div {
+        flex: 1;
+        background: var(--local);
+        border-radius: 2px 2px 0 0;
+        min-height: 2px;
+      }
+      .log {
+        font:
+          12px/1.5 ui-monospace,
+          Consolas,
+          monospace;
+        max-height: 340px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .log .claude {
+        color: var(--claude);
+      }
+      .log .local {
+        color: var(--local);
+      }
+      .log .event {
+        font-weight: 700;
+      }
+      .log .bad {
+        color: #d64545;
+        font-weight: 700;
+      }
+      pre {
+        margin: 6px 0 0;
+        white-space: pre-wrap;
+        font:
+          12px/1.5 ui-monospace,
+          Consolas,
+          monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Site 2 remaster</h1>
+        <span id="status" class="pill">Loading...</span>
+        <button id="start" class="primary" disabled>Start</button>
+        <button id="stop" disabled title="Ends the current session within about 10 seconds; the next start carries on">
+          Stop
+        </button>
+      </header>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Development</h2>
+          <div class="big" id="overall">-</div>
+          <div class="bar"><div id="overallBar" style="width: 0"></div></div>
+          <div class="phases" id="phases"></div>
+          <div class="row" style="margin-top: 10px">
+            <span class="muted">Known bugs (fixed first)</span><span id="bugs">-</span>
+          </div>
+          <div class="row"><span class="muted">Local model log</span><span id="localLog">-</span></div>
+          <div class="muted" style="margin-top: 6px">In progress</div>
+          <pre id="inProgress">-</pre>
+        </section>
+
+        <section class="card">
+          <h2>Models</h2>
+          <div class="row"><span class="muted">Working now</span><b id="who">-</b></div>
+          <div class="row"><span class="muted">For</span><span id="since">-</span></div>
+          <div class="row"><span class="muted">Local turn ends</span><span id="until">-</span></div>
+          <div class="row"><span class="muted">Claude's 5-hour usage</span><span id="util">-</span></div>
+          <div class="bar"><div id="utilBar" style="width: 0; background: var(--claude)"></div></div>
+          <div class="row"><span class="muted">Usage window resets</span><span id="resets">-</span></div>
+          <div class="muted" style="margin-top: 8px; font-size: 12px">
+            Hands over to the local model at 95%, and back after 5 hours once the window has reset.
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Local model speed</h2>
+          <div class="big" id="tps">-</div>
+          <div class="row"><span class="muted">Average, last 20 replies</span><span id="avg">-</span></div>
+          <div class="row"><span class="muted">Last reply</span><span id="last">-</span></div>
+          <div class="row"><span class="muted">Replies since the dashboard started</span><span id="count">0</span></div>
+          <div class="chart" id="chart" title="tokens/s per reply"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Hand-overs and events (this run)</h2>
+        <div class="log" id="events"></div>
+      </section>
+
+      <section class="card">
+        <h2>Live activity</h2>
+        <div class="log" id="feed"></div>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const BAD = /error|failed|keeps failing|no output for|not reset yet/i;
+      const pct = (x) => `${Math.round(x * 100)}%`;
+      const time = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-");
+      const ago = (iso) => {
+        if (!iso) return "-";
+        const min = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+        return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`;
+      };
+
+      function lines(el, items, newestFirst) {
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+        el.replaceChildren(
+          ...(newestFirst ? [...items].reverse() : items).map((text) => {
+            const div = document.createElement("div");
+            div.textContent = text;
+            div.className = BAD.test(text)
+              ? "bad"
+              : /\[Claude\]/.test(text)
+                ? "claude"
+                : /\[Local\]/.test(text)
+                  ? "local"
+                  : /  == /.test(text)
+                    ? "event"
+                    : "";
+            return div;
+          })
+        );
+        if (!newestFirst && atBottom) el.scrollTop = el.scrollHeight;
+      }
+
+      function render(s) {
+        const mode = s.state.mode;
+        const [label, cls] = !s.running
+          ? s.progress.complete
+            ? ["Remaster complete", "complete"]
+            : ["Stopped", ""]
+          : s.stopping
+            ? ["Stopping...", "stopping"]
+            : mode === "local"
+              ? ["Local model working", "local"]
+              : mode === "claude"
+                ? ["Claude working", "claude"]
+                : mode === "test"
+                  ? ["Running a test", "claude"]
+                  : ["Starting", ""];
+        $("status").textContent = label;
+        $("status").className = `pill ${cls}`;
+        $("start").disabled = s.running || s.progress.complete;
+        $("stop").disabled = !s.running || s.stopping;
+
+        const p = s.progress;
+        $("overall").textContent = pct(p.overall);
+        $("overallBar").style.width = pct(p.overall);
+        $("phases").replaceChildren(
+          ...p.phases.map((ph) => {
+            const span = document.createElement("span");
+            span.className = `phase ${ph.done ? "done" : ""}`;
+            span.textContent = ph.done ? ph.name : ph.tasks ? `${ph.name} ${ph.ticked}/${ph.tasks}` : ph.name;
+            return span;
+          })
+        );
+        $("bugs").textContent = p.bugs;
+        $("localLog").textContent = `${p.localLog.entries} entries, ${p.localLog.unreviewed} not reviewed yet`;
+        $("inProgress").textContent = p.inProgress || "-";
+
+        const who = {
+          local: "Local model (Qwen3.5 35B)",
+          claude: "Claude",
+          test: "Test: both, briefly",
+          starting: "Starting",
+        };
+        $("who").textContent = s.running ? (who[mode] ?? mode) : "Nobody";
+        $("since").textContent = s.running ? ago(s.state.since) : "-";
+        $("until").textContent = s.running && mode === "local" && s.state.localUntil ? time(s.state.localUntil) : "-";
+        const util = s.state.util;
+        $("util").textContent = util >= 0 ? pct(util) : "-";
+        $("utilBar").style.width = util >= 0 ? pct(Math.min(util, 1)) : "0";
+        $("resets").textContent = time(s.state.resetsAt);
+
+        const r = s.replies;
+        const last = r[r.length - 1];
+        const recent = r.slice(-20);
+        const avg = recent.length ? recent.reduce((sum, x) => sum + x.tps, 0) / recent.length : 0;
+        $("tps").textContent = last ? `${last.tps.toFixed(1)} tokens/s` : "No replies yet";
+        $("avg").textContent = recent.length ? `${avg.toFixed(1)} tokens/s` : "-";
+        $("last").textContent = last
+          ? `${last.tokens} tokens out, ${last.prompt.toLocaleString()} in, first token after ${Math.round(last.ttft)} s, at ${time(new Date(last.at).toISOString())}`
+          : "-";
+        $("count").textContent = r.length;
+        const max = Math.max(1, ...r.map((x) => x.tps));
+        $("chart").replaceChildren(
+          ...r.map((x) => {
+            const bar = document.createElement("div");
+            bar.style.height = `${(x.tps / max) * 100}%`;
+            bar.title = `${x.tps.toFixed(1)} tokens/s, ${x.tokens} tokens`;
+            return bar;
+          })
+        );
+
+        lines($("events"), s.events, true);
+        lines($("feed"), s.feed, false);
+      }
+
+      async function refresh() {
+        let state;
+        try {
+          state = await (await fetch("/api/state")).json();
+        } catch {
+          $("status").textContent = "Dashboard server not running";
+          $("status").className = "pill";
+          return;
+        }
+        render(state);
+      }
+
+      const press = (path) =>
+        fetch(path, { method: "POST", headers: { "x-dashboard": "1" } })
+          .catch(() => {})
+          .then(refresh);
+      $("start").onclick = () => press("/api/start");
+      $("stop").onclick = () => press("/api/stop");
+      refresh();
+      setInterval(refresh, 2000);
+    </script>
+  </body>
+</html>

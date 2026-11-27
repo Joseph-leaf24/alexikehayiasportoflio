@@ -120,7 +120,12 @@ describe("ProjectGraph", () => {
   });
 
   it("fits a narrow frame, with full names as tooltips", () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 360, height: 270, top: 0, left: 0 } as DOMRect);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 360,
+      height: 270,
+      top: 0,
+      left: 0,
+    } as DOMRect);
     const { container } = render(<ProjectGraph project={core} />);
     expect(container.querySelector("svg")).toHaveAttribute("viewBox", "0 0 360 270");
     expect(container.querySelectorAll(".pgraph__node--l2")).toHaveLength(0);

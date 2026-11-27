@@ -5,7 +5,7 @@ import type { CategoryId } from "@/data/profile";
 export type DomainId = "engineering" | "analytics" | "science" | "deployment";
 
 /** A project by its category and index in projectData. */
-export interface ProjectLink {
+interface ProjectLink {
   category: CategoryId;
   index: number;
 }
@@ -19,7 +19,7 @@ export interface Domain {
   description: string;
   capabilities: string[];
   tools: string[];
-  /** Related projects, linked from the card (and tagged with this domain on cards and project pages) */
+  /** Related projects, linked from the card and tagged with this domain on cards and project pages */
   projects: ProjectLink[];
   /** Specialization tab to open when exploring this domain's work */
   explore: CategoryId;
@@ -27,8 +27,8 @@ export interface Domain {
 }
 
 /**
- * The four disciplines of the data lifecycle, in the order data flows through them.
- * The order also matches the clusters formation's anchors (sceneState.highlight).
+ * The four disciplines of the data lifecycle, in the order data flows through them. The order also
+ * matches P1–P4 in SQUAD, which sceneState.highlight points out.
  */
 export const domains: Domain[] = [
   {
@@ -129,10 +129,11 @@ export const domainIntro = {
   text: "Four disciplines across the data lifecycle — from raw data to models in production.",
 };
 
-/** Domains a project belongs to (used on cards and project pages). */
+/** Domains a project belongs to, shown on cards and project pages. */
 export function domainsFor(category: string, index: number): Domain[] {
   return domains.filter((d) => d.projects.some((p) => p.category === category && p.index === index));
 }
 
 /** Resolve a domain's project links to the actual projects. */
-export const projectsOf = (d: Domain) => d.projects.map((p) => ({ ...p, project: projectData[p.category].projects[p.index] }));
+export const projectsOf = (d: Domain) =>
+  d.projects.map((p) => ({ ...p, project: projectData[p.category].projects[p.index] }));

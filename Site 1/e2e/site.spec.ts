@@ -31,8 +31,8 @@ test.beforeEach(async ({ page }) => {
   });
   page.on("pageerror", (e) => problems.push(`uncaught: ${e.message}`));
   page.on("console", (m) => {
-    // Antivirus web protection (e.g. Kaspersky) injects its own CSP and scripts on local
-    // machines; that noise isn't the site's (CI runners have none)
+    // Antivirus web protection such as Kaspersky injects its own CSP and scripts on local
+    // machines; that noise isn't the site's, and CI runners have none
     if (/kaspersky-labs\.com/i.test(m.text())) return;
     if (m.type() === "error") problems.push(`console: ${m.text()}`);
     // GSAP's warning for an animation scoped to an element React has already removed
@@ -65,7 +65,9 @@ async function expectAccessible(page: Page) {
   // preload: false — axe would otherwise fetch cross-origin stylesheets, which the
   // site's CSP (connect-src 'self') rightly blocks and logs as a console error
   const { violations } = await new AxeBuilder({ page }).withTags(AXE_TAGS).options({ preload: false }).analyze();
-  const summary = violations.map((v) => `${v.id} (${v.impact}) ×${v.nodes.length}: ${v.help} — ${v.nodes[0]?.target.join(" ")}`);
+  const summary = violations.map(
+    (v) => `${v.id} (${v.impact}) ×${v.nodes.length}: ${v.help} — ${v.nodes[0]?.target.join(" ")}`
+  );
   expect(summary, "axe accessibility violations").toEqual([]);
 }
 
@@ -125,7 +127,7 @@ test("a reload always opens on the intro, also after coming back from a project"
   // Scrolled down, then reloaded
   await page.locator("#projects").scrollIntoViewIfNeeded();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
-  // the position is saved shortly after scrolling stops: reload once it has been (so the test proves it is ignored)
+  // The position is saved shortly after scrolling stops: reload once it has been, so the test proves it is ignored
   await expect.poll(() => page.evaluate(() => Number(sessionStorage.getItem("ak:homeY")))).toBeGreaterThan(1000);
   await page.reload();
   await atIntro();
@@ -143,9 +145,9 @@ test("a project card opens its page, and Back returns to the work section", asyn
   await open(page);
   await page.locator("#projects").scrollIntoViewIfNeeded();
   const link = page.locator(".project-card__link").first();
-  // ScrambleText keeps the real text in an .sr-only span (the visible glyphs may be mid-scramble)
+  // ScrambleText keeps the real text in an .sr-only span; the visible glyphs may be mid-scramble
   const title = (await link.locator(".sr-only").first().textContent())?.trim() ?? "";
-  // Click the middle of the card (not the title) — the stretched link must catch it
+  // Click the middle of the card, not the title: the stretched link must catch it
   await link.locator("xpath=ancestor::article").click();
   await expect(page).toHaveURL(/#\/project\/[a-zA-Z]+\/\d+$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(title);

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import PixelScene from "@/components/pixel/PixelScene";
 import { sceneState } from "@/lib/store";
 import { advance, resetState, useAnimationTimers } from "./utils";
-import { media, setScrollY } from "./setup";
+import { media } from "./setup";
 
 /**
  * jsdom has no 2D canvas, so these tests give every canvas a stand-in context that accepts
@@ -18,7 +18,8 @@ function fakeContext(canvas: HTMLCanvasElement): FakeCtx {
   return new Proxy(state, {
     get(target, key: string) {
       if (key in target) return target[key];
-      if (key === "createImageData") return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
+      if (key === "createImageData")
+        return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
       return () => {
         calls[key] = (calls[key] ?? 0) + 1;
       };
@@ -42,7 +43,7 @@ function renderScene() {
   return { ...view, canvas, main: () => contexts.get(canvas)! };
 }
 
-/** Point the (mouse) pointer at a place on the screen, in CSS px. */
+/** Point the mouse pointer at a place on the screen, in CSS px. */
 function pointAt(clientX: number, clientY: number) {
   sceneState.pointer.x = (clientX / window.innerWidth) * 2 - 1;
   sceneState.pointer.y = -(clientY / window.innerHeight) * 2 + 1;
@@ -67,7 +68,7 @@ describe("PixelScene", () => {
     expect(sceneState.ready).toBe(false);
     advance(50);
     expect(sceneState.ready).toBe(true);
-    // jsdom's 1024×768 window at 1× → 2 screen pixels per scene pixel (a wide view of the battle)
+    // jsdom's 1024×768 window at 1×: 2 screen pixels per scene pixel, a wide view of the battle
     expect(canvas.width).toBe(512);
     expect(canvas.height).toBe(384);
     expect(canvas.style.width).toBe("1024px");
@@ -87,15 +88,15 @@ describe("PixelScene", () => {
 
   it("follows the squad as it pushes through the level", () => {
     useAnimationTimers();
-    // (a country without great mountains or descents into the depths: those take minutes to get through)
+    // A country without great mountains or descents into the depths: those take minutes to get through
     window.history.replaceState({}, "", "/?level=nightraid");
     renderScene();
     advance(50);
     const start = sceneState.cam.x;
-    // (fights hold the squad up for a few seconds at a time, a defended city block longer, so give it a while)
+    // Fights hold the squad up for a few seconds at a time, a defended city block longer, so give it a while
     advance(16_000);
     expect(sceneState.cam.x).toBeGreaterThan(start + 80);
-    // (sixteen seconds of a whole battle, drawn: allow it the time under a busy test run)
+    // Sixteen seconds of a whole battle, drawn: allow it the time on a busy test run
   }, 15_000);
 
   it("opens on the level named in ?level=, if there is one", () => {
@@ -143,7 +144,7 @@ describe("PixelScene", () => {
     pointAt(512, 768 * 0.72);
     sceneState.burst++;
     advance(20);
-    // (at least the click's: with a battle this busy, something else may well go off in the same frame)
+    // At least the click's: with a battle this busy, something else may well go off in the same frame
     expect(sceneState.booms).toBeGreaterThanOrEqual(before + 1);
   });
 
@@ -181,7 +182,7 @@ describe("PixelScene", () => {
     expect(Math.abs(sceneState.velocity)).toBeLessThan(20);
   });
 
-  it("reports the level in play, in detail, for the spectator panel", () => {
+  it("reports the level in play, in detail", () => {
     useAnimationTimers();
     window.history.replaceState({}, "", "/?level=monsoon");
     renderScene();

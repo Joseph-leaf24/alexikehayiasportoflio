@@ -18,7 +18,11 @@ describe("HUD", () => {
     document.body.appendChild(target);
     renderRoute(<Hud />);
     const nav = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["About", "Domains", "Toolbox", "Work", "Contact"].map((t) => expect.stringContaining(t)));
+    expect(
+      within(nav)
+        .getAllByRole("link")
+        .map((a) => a.textContent)
+    ).toEqual(["About", "Domains", "Toolbox", "Work", "Contact"].map((t) => expect.stringContaining(t)));
     fireEvent.click(within(nav).getAllByRole("link")[2]);
     expect(window.scrollTo).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("link", { name: /home/i }));
@@ -83,7 +87,7 @@ describe("HUD", () => {
     useAnimationTimers();
     renderRoute(<Hud />);
     expect(document.querySelector(".hud-telemetry")).not.toBeNull();
-    // (the scene's effect runs after the HUD's first render)
+    // The scene's effect runs after the HUD's first render
     sceneState.webgl = false;
     advance(300);
     expect(document.querySelector(".hud-telemetry")).toBeNull();
@@ -183,7 +187,7 @@ describe("Loader", () => {
 
   it("keeps the scene drawing behind it, and lifts soon after the scene's first frame (not at its timeout)", async () => {
     useAnimationTimers();
-    // (jsdom never loads images: this portrait loads straight away, as a cached one would)
+    // jsdom never loads images: this portrait loads straight away, as a cached one would
     class LoadingImage {
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
@@ -201,7 +205,7 @@ describe("Loader", () => {
     });
     advance(500);
     sceneState.ready = true;
-    // (the 2 s minimum, the count's last stretch and the 380 ms hand-over: well inside the 7 s timeout)
+    // The 2 s minimum, the count's last stretch and the 380 ms hand-over fit well inside the 7 s timeout
     advance(3000);
     expect(ui.get().ready).toBe(true);
     expect(document.documentElement).not.toHaveClass("scroll-locked");

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { dayCycle, parseTimeOverride, sceneSun, solarPosition, sunDirection, VIEW_HEADING, wallClockToday } from "@/lib/sun";
+import {
+  dayCycle,
+  parseTimeOverride,
+  sceneSun,
+  solarPosition,
+  sunDirection,
+  VIEW_HEADING,
+  wallClockToday,
+} from "@/lib/sun";
 
 const deg = (r: number) => (r * 180) / Math.PI;
 const AMS = "Europe/Amsterdam";

@@ -36,7 +36,9 @@ function play(g: Game, seconds: number, each?: () => void) {
   for (let i = 0; i < seconds * 30; i++) {
     view.x = Math.max(g.level.start * TILE, g.advance - view.w * 0.42);
     const up = g.players.filter((p) => !p.dead && !p.chute && !p.aboard);
-    view.y = (up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : g.ship ? g.ship.y + 58 : BASE_ROW * TILE) - view.h * 0.68;
+    view.y =
+      (up.length ? up.reduce((s, p) => s + p.y, 0) / up.length : g.ship ? g.ship.y + 58 : BASE_ROW * TILE) -
+      view.h * 0.68;
     g.step(1 / 30, view);
     g.fresh.length = 0;
     g.dirty.length = 0;
@@ -44,8 +46,19 @@ function play(g: Game, seconds: number, each?: () => void) {
   }
 }
 
-/** A quiet country (nothing coming in on its own) of mineshafts and some flat ground. */
-const mines: Theme = { ...THEMES.summit, features: { mineshaft: 3, flat: 1 }, enemies: 0, barrels: 0, artillery: 0, helis: 0, paras: 0, jets: 0, drones: 0, relief: 0 };
+/** A quiet country of mineshafts and some flat ground, with nothing coming in on its own. */
+const mines: Theme = {
+  ...THEMES.summit,
+  features: { mineshaft: 3, flat: 1 },
+  enemies: 0,
+  barrels: 0,
+  artillery: 0,
+  helis: 0,
+  paras: 0,
+  jets: 0,
+  drones: 0,
+  relief: 0,
+};
 
 /** How many of each kind of block a stretch of level holds. */
 function census(L: Level) {
@@ -107,7 +120,9 @@ describe("mineshafts", () => {
     expect(ladders).toBeGreaterThan(30);
     const kit = new Set(L.props.filter((p) => p.kind === "sprite").map((p) => (p as { id: string }).id));
     for (const id of ["headframe", "winch", "orebin"]) expect(kit.has(id), id).toBe(true);
-    expect(["cartcoal", "carttipped", "drillrig", "timbers", "dynamite", "railbuffer"].filter((id) => kit.has(id)).length).toBeGreaterThan(2);
+    expect(
+      ["cartcoal", "carttipped", "drillrig", "timbers", "dynamite", "railbuffer"].filter((id) => kit.has(id)).length
+    ).toBeGreaterThan(2);
   });
 
   it("have carts rolling up and down the rails, and the squad goes down the shaft and on through", () => {
@@ -128,7 +143,7 @@ describe("mineshafts", () => {
     expect(rolling).toBeGreaterThan(1);
     expect(moved).toBeGreaterThan(0);
     expect(lowest).toBeGreaterThan(18);
-    // ... and on past the mines (the advance didn't stall in them)
+    // ... and on past the mines: the advance didn't stall in them
     expect(g.advance).toBeGreaterThan(1800);
   });
 });
@@ -136,7 +151,21 @@ describe("mineshafts", () => {
 describe("blasts", () => {
   /** A game on flat ground in a quiet country, its first stretch built. */
   const quiet = (theme: Theme) => {
-    const g = new Game({ ...theme, features: { flat: 1 }, enemies: 0, barrels: 0, artillery: 0, helis: 0, paras: 0, jets: 0, drones: 0, relief: 0 }, { seed: 1, gunship: false, level: { boss: null, length: 4000 } });
+    const g = new Game(
+      {
+        ...theme,
+        features: { flat: 1 },
+        enemies: 0,
+        barrels: 0,
+        artillery: 0,
+        helis: 0,
+        paras: 0,
+        jets: 0,
+        drones: 0,
+        relief: 0,
+      },
+      { seed: 1, gunship: false, level: { boss: null, length: 4000 } }
+    );
     play(g, 1 / 30);
     return g;
   };
@@ -144,7 +173,7 @@ describe("blasts", () => {
   it("dig deeper than they did, and loose sand slides down into the crater", () => {
     const g = quiet(THEMES.archipelago);
     const L = g.level;
-    // (out ahead of the squad: falling ground stops short of anyone's head)
+    // Out ahead of the squad: falling ground stops short of anyone's head
     const c = 75;
     const top = L.ground[c % RING];
     for (let x = c - 4; x <= c + 4; x++)
@@ -199,7 +228,7 @@ describe("blasts", () => {
     expect(g.parts.some((p) => p.k === 18)).toBe(true);
     g.explode(400, BASE_ROW * TILE - 20, 20, -2, false);
     expect(g.blasts.at(-1)?.pal).toBe(PAL_FIRE);
-    // (and little secondary bursts round the bigger ones, a moment after)
+    // ... and little secondary bursts round the bigger ones, a moment after
     const balls = g.blasts.length;
     play(g, 0.6);
     expect(g.booms).toBeGreaterThanOrEqual(2);

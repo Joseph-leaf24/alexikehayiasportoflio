@@ -73,9 +73,8 @@ function ScrollMeter() {
 }
 
 /**
- * Fixed chrome on every page: frame corners; a top bar with the brand, current section
- * and nav (a full-screen menu on small screens); and a bottom bar with the shortcuts hint and
- * the scroll progress (the game's stats stay out of the way: the scene speaks for itself).
+ * Fixed chrome on every page: frame corners, a top bar with the brand, current section and nav, a
+ * full-screen menu on small screens, and a bottom bar with the shortcuts hint and scroll progress.
  * Off the home page, nav links go home first.
  */
 export default function Hud() {
@@ -85,9 +84,8 @@ export default function Hud() {
   const onHome = location.pathname === "/";
 
   const navTo = (id: string) => {
-    // From the phone menu: unlock scrolling before scrolling. (Left to the menu-closed effect,
-    // restarting the smooth scroller would cancel the scroll that had just begun, so the
-    // menu closed but the page stayed put.)
+    // From the phone menu, unlock scrolling first: left to the menu-closed effect, restarting the
+    // smooth scroller would cancel the scroll that had just begun and the page would stay put
     if (ui.get().menuOpen) setScrollLocked(false);
     ui.set({ menuOpen: false });
     if (onHome) scrollToTarget(id === "top" ? 0 : `#${id}`, { offset: id === "top" ? 0 : -10 });
@@ -98,7 +96,7 @@ export default function Hud() {
   useEffect(() => {
     setScrollLocked(menuOpen);
     if (!menuOpen) {
-      // Closing with focus on one of its links (now hidden) would drop focus to the page: hand it back to the burger
+      // Closing with focus on one of its now-hidden links would drop focus to the page: hand it back to the burger
       if (document.getElementById("mobile-menu")?.contains(document.activeElement)) burgerRef.current?.focus();
       return;
     }
@@ -132,7 +130,7 @@ export default function Hud() {
         >
           <span className="hud-brand__mark" aria-hidden="true" />
           <ScrambleText text="Alexi Kehayias" trigger="mount" hover />
-          {/* The name stays the visible text plus "home" (WCAG 2.5.3 label in name) */}
+          {/* The visible name plus "home", so the accessible name contains the label (WCAG 2.5.3) */}
           <span className="sr-only"> — home</span>
         </a>
 
@@ -147,7 +145,7 @@ export default function Hud() {
             {NAV.map((n) => (
               <a
                 key={n.id}
-                href={`#/`}
+                href="#/"
                 onClick={(e) => {
                   e.preventDefault();
                   navTo(n.id);
@@ -174,7 +172,7 @@ export default function Hud() {
 
       <div className="hud-bottom" aria-hidden="true">
         <div className="hud-bottom__left">
-          {/* Keyboard users only (hidden on touch screens by CSS) */}
+          {/* For keyboard users; CSS hides it on touch screens */}
           <span className="hud-keys">
             <kbd>?</kbd> Shortcuts
           </span>

@@ -5,7 +5,7 @@
 import { useSyncExternalStore } from "react";
 
 /* ------------------------------------------------------------------ */
-/* Tiny reactive store (no dependency needed)                          */
+/* Reactive store                                                      */
 /* ------------------------------------------------------------------ */
 
 type Listener = () => void;
@@ -37,17 +37,22 @@ export function createStore<T extends object>(initial: T) {
 
 /** Subscribe a component to a slice of a store. */
 export function useStore<T extends object, S>(store: ReturnType<typeof createStore<T>>, select: (s: T) => S): S {
-  return useSyncExternalStore(store.subscribe, () => select(store.get()), () => select(store.get()));
+  return useSyncExternalStore(
+    store.subscribe,
+    () => select(store.get()),
+    () => select(store.get())
+  );
 }
 
 /* ------------------------------------------------------------------ */
 /* UI state                                                            */
 /* ------------------------------------------------------------------ */
 
+/** UI state for the loader, HUD and phone menu. */
 export const ui = createStore({
   /** Loader finished and the page is revealed. */
   ready: false,
-  /** Index + label shown in the HUD for the section (or page) currently in view. */
+  /** Index and label shown in the HUD for the section or page currently in view. */
   sectionIndex: "00",
   sectionLabel: "INTRO",
   /** Mobile menu is open. */
@@ -84,35 +89,35 @@ export function onAppReady(cb: () => void): () => void {
  */
 export type LayoutKey = "village" | "shatter" | "clusters" | "network" | "bars" | "villageTop" | "cube" | "lost";
 
-/** Written by the page / input handlers and read by the scene on every frame (not reactive). */
+/** Written by the pages and input handlers and read by the scene on every frame. Not reactive. */
 export const sceneState = {
   /** Scroll positions where each home section becomes dominant. */
   stops: [] as { y: number; layout: LayoutKey }[],
-  /** When set (detail / 404 pages) the scene ignores scroll and holds this layout. */
+  /** Set on the detail and 404 pages: the scene ignores scroll and holds this layout. */
   override: null as LayoutKey | null,
   /** Pointer in normalised device coords (-1..1); lastMove is performance.now() of the last mouse move. */
   pointer: { x: 0, y: 0, lastMove: -1e9 },
   /** Hold-to-shatter on the hero. */
   press: false,
-  /** A page-wipe transition is running (very slow devices skip the hidden 3D frames meanwhile). */
+  /** A page-wipe transition is running; very slow devices skip the hidden 3D frames meanwhile. */
   transition: false,
-  /** A full-screen overlay (image viewer, phone menu, shortcuts help) hides the scene: no need to draw. */
+  /** A full-screen overlay such as the image viewer hides the scene, so there is no need to draw. */
   covered: false,
   /** performance.now() / 1000 of the last ripple pulse. */
   pulse: -100,
-  /** Scroll velocity in px/s (written by the smooth-scroll driver, decayed by the scene). */
+  /** Scroll velocity in px/s, written by the smooth-scroll driver and decayed by the scene. */
   velocity: 0,
   /** Scene has compiled and rendered its first frame. */
   ready: false,
   /** False if WebGL is unavailable — the site still works without it. */
   webgl: true,
-  /** Number of cubes in the scene (filled in by the scene, shown by the loader and HUD). */
+  /** Number of cubes in the scene, shown by the loader and HUD. */
   blocks: 0,
-  /** Domain card being hovered (index into the clusters formation's anchors, -1 = none). */
+  /** Hovered domain card, as an index into the clusters formation's anchors; -1 for none. */
   highlight: -1,
   /** Incremented on every click — the scene answers with a burst of ice dust. */
   burst: 0,
-  /** Dominant formation + camera position, read by the HUD telemetry. */
+  /** Dominant formation and camera position, read by the HUD telemetry. */
   formation: "village" as LayoutKey,
   cam: { x: 0, y: 0, z: 0 },
 };
@@ -122,16 +127,16 @@ export const sceneState = {
 /* ------------------------------------------------------------------ */
 
 /**
- * Whether the visitor has moved within the site since the page loaded (a link through the
- * page transition, or the browser's back / forward buttons). Until then the home page opens
- * on the intro: the router state and the saved scroll position only describe moves within
- * the site, but both outlive a reload (in history and session storage).
+ * Whether the visitor has moved within the site since the page loaded, through a page-transition
+ * link or the browser's back and forward buttons. Until then the home page opens on the intro:
+ * the router state and the saved scroll position describe moves within the site, but both
+ * survive a reload.
  */
 export const nav = { inApp: false };
 // Registered at import, before the router's own listener, so it is set before the new route renders
 if (typeof window !== "undefined") window.addEventListener("popstate", () => (nav.inApp = true));
 
-/** Send a ripple through the scene (loader exit, page transitions, card hovers, tab changes). */
+/** Sends a ripple through the scene, e.g. on loader exit, page transitions, card hovers and tab changes. */
 export const triggerPulse = () => {
   sceneState.pulse = performance.now() / 1000;
 };

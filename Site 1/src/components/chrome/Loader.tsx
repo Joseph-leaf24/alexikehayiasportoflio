@@ -14,7 +14,7 @@ const LOG = [
   { at: 0.97, text: "READY" },
 ];
 
-/** Boot screen: tracks real readiness (fonts, WebGL, portrait) with a minimum show time. */
+/** Boot screen: tracks the real readiness of the fonts, WebGL scene and portrait, with a minimum show time. */
 export default function Loader() {
   const [gone, setGone] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -33,7 +33,7 @@ export default function Loader() {
     let raf = 0;
     let finished = false;
     const timers: number[] = [];
-    // (no scrolling under it, but the scene keeps drawing: its first frame is what "ready" waits for)
+    // No scrolling under it, but the scene keeps drawing: its first frame is what "ready" waits for
     setScrollLocked(true, { pauseScene: false });
 
     (document.fonts?.ready ?? Promise.resolve()).then(() => (fonts = true)).catch(() => (fonts = true));
@@ -46,10 +46,13 @@ export default function Loader() {
       rootRef.current?.classList.add("is-done");
       setScrollLocked(false);
       timers.push(
-        window.setTimeout(() => {
-          ui.set({ ready: true });
-          triggerPulse();
-        }, reduced ? 0 : 380),
+        window.setTimeout(
+          () => {
+            ui.set({ ready: true });
+            triggerPulse();
+          },
+          reduced ? 0 : 380
+        ),
         window.setTimeout(() => setGone(true), reduced ? 300 : 1500)
       );
     };
@@ -57,7 +60,7 @@ export default function Loader() {
     let lastLines = 1;
     let lastT = t0;
     const loop = () => {
-      // (stops for good once finished: the loader stays mounted, hidden, for the whole visit)
+      // Stops for good once finished: the loader stays mounted, hidden, for the whole visit
       if (finished) return;
       raf = requestAnimationFrame(loop);
       const now = performance.now();

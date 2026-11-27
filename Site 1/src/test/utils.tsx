@@ -29,9 +29,10 @@ export const advance = (ms: number) =>
   });
 
 /** Let pending microtasks (e.g. the mock IntersectionObserver callbacks) run, inside act(). */
-export const flush = () => act(async () => {
-  await Promise.resolve();
-});
+export const flush = () =>
+  act(async () => {
+    await Promise.resolve();
+  });
 
 /** Put every shared store back to its initial state. */
 export function resetState() {
@@ -72,7 +73,10 @@ export function LocationProbe() {
 }
 
 /** Render inside a router + page-transition provider. */
-export function renderRoute(element: ReactElement, { path = "/", route = "/", state }: { path?: string; route?: string; state?: unknown } = {}) {
+export function renderRoute(
+  element: ReactElement,
+  { path = "/", route = "/", state }: { path?: string; route?: string; state?: unknown } = {}
+) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: route, state }]}>
       <TransitionProvider>

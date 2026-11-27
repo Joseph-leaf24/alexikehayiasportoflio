@@ -9,7 +9,7 @@ import Reveal from "@/components/fx/Reveal";
 import Corners from "@/components/fx/Corners";
 import { pad } from "@/lib/utils";
 
-/** One marquee row. The set is rendered twice (the copy hidden from screen readers) so the CSS loop is seamless. */
+/** One marquee row. The set is rendered twice, the copy hidden from screen readers, so the CSS loop is seamless. */
 function MarqueeRow({ reverse = false, outline = false }: { reverse?: boolean; outline?: boolean }) {
   const items = reverse ? [...SKILLS].reverse() : SKILLS;
   const set = (key: string) => (
@@ -30,7 +30,8 @@ function MarqueeRow({ reverse = false, outline = false }: { reverse?: boolean; o
 export default function Skills() {
   const marqueeRef = useRef<HTMLDivElement>(null);
 
-  // The marquee only scrolls while on screen (data-live), and skews with scroll velocity unless motion is reduced
+  // The marquee scrolls only while on screen, marked by data-live, and skews with scroll speed
+  // unless motion is reduced
   useEffect(() => {
     const el = marqueeRef.current;
     if (!el) return;

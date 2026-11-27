@@ -9,15 +9,14 @@ import PlayerPortrait from "@/components/fx/PlayerPortrait";
 import { SQUAD } from "@/data/squad";
 
 /**
- * Hero ("title screen"): the eight players down the side, focus areas and the "View
- * Projects" CTA, the rest left open for the battle behind. Pressing and holding on it calls in
- * an airstrike on the scene (an easter egg, listed in the `?` shortcuts help). The name is the
- * page's heading for screen readers, not shown.
+ * Hero section, styled as a title screen: the player line-up, focus areas and the "View Projects"
+ * button, with the rest left open for the battle behind. Pressing and holding on it calls in an
+ * airstrike on the scene.
  */
 const Hero = () => {
   const ref = useRef<HTMLElement>(null);
 
-  // Click / touch & hold anywhere on the hero (not on controls) to call in the airstrike
+  // Click or touch and hold anywhere on the hero except its controls to call in the airstrike
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -48,11 +47,9 @@ const Hero = () => {
     };
   }, []);
 
-  // Hero copy drifts up and fades as you leave it — not with reduced motion, like the other
-  // scroll-linked effects (a drift tied to scrolling is just what that setting is there to stop).
-  // (The scope is the element itself, not the ref: React nulls the ref before this cleanup runs,
-  // and ScrollTrigger re-reads the scope while tearing down, which made GSAP warn "Invalid
-  // scope" every time the page was left.)
+  // Hero copy drifts up and fades as you scroll away, except with reduced motion. The GSAP scope is
+  // the element, not the ref: React nulls the ref before this cleanup runs, and ScrollTrigger re-reads
+  // the scope while tearing down, which made GSAP warn "Invalid scope" every time the page was left.
   useEffect(() => {
     const el = ref.current;
     if (!el || prefersReducedMotion()) return;
@@ -74,7 +71,6 @@ const Hero = () => {
           <Reveal variant="fade" className="mono-label">
             Portfolio Website
           </Reveal>
-          {/* The title screen's line-up: the eight players fighting in the scene behind */}
           <Reveal className="hero__squad" delay={500} aria-hidden="true">
             {SQUAD.map((m) => (
               <span key={m.player} className="hero__player" style={{ "--pc": m.color } as CSSProperties}>
@@ -87,10 +83,9 @@ const Hero = () => {
         </div>
 
         <div className="hero__main">
-          {/* (the name stays the page's heading for screen readers and search, out of sight: the scene gets the room) */}
+          {/* The page heading for screen readers and search, hidden to leave the room to the scene */}
           <h1 className="sr-only">{profile.name}</h1>
 
-          {/* (the open space between the name and the meta row is where the squad fights, in the scene behind) */}
           <div className="hero__meta">
             <Reveal className="hero__focus" delay={700}>
               <span className="mono-label">Focus</span>
@@ -104,18 +99,18 @@ const Hero = () => {
               </ul>
             </Reveal>
             <Reveal className="hero__ctas" delay={850}>
-              <button type="button" className="btn-px btn-px--solid" onClick={() => scrollToTarget("#projects", { offset: -10 })} data-cursor="SCROLL">
+              <button
+                type="button"
+                className="btn-px btn-px--solid"
+                onClick={() => scrollToTarget("#projects", { offset: -10 })}
+                data-cursor="SCROLL"
+              >
                 <span className="btn-px__caret" aria-hidden="true" />
                 <ScrambleText text="View Projects" trigger="none" hover />
                 <ArrowDown className="h-4 w-4" />
               </button>
             </Reveal>
           </div>
-        </div>
-
-        <div className="scroll-cue" aria-hidden="true">
-          <span>Scroll to start</span>
-          <i />
         </div>
       </div>
     </section>

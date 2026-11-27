@@ -15,7 +15,8 @@ function jpegSize(buf: Buffer): [number, number] | null {
     if (buf[i] !== 0xff) return null;
     const marker = buf[i + 1];
     // SOF0–SOF15, except DHT (C4), JPG (C8) and DAC (CC)
-    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker))
+      return [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
     i += 2 + buf.readUInt16BE(i + 2);
   }
   return null;
@@ -44,12 +45,12 @@ describe("link previews and search profile (index.html)", () => {
     const person = JSON.parse(block);
     expect(person).toMatchObject({ "@type": "Person", name: "Alexi Kehayias", url: SITE });
     expect(person.sameAs).toEqual(["https://www.linkedin.com/in/alexi-kehayias/"]);
-    // (the site itself lives on github.io; what must not appear is a GitHub profile link)
+    // The site itself lives on github.io; what must not appear is a GitHub profile link
     expect(block).not.toMatch(/breda|address|"geo|github\.com/i);
   });
 
   it("ships the preview image it points to", () => {
-    // (a JPEG: the render's film grain makes a PNG of it over 1 MB)
+    // A JPEG, because the render's film grain makes a PNG of it over 1 MB
     const jpg = readFileSync(resolve(process.cwd(), "public/og-image.jpg"));
     expect([jpg[0], jpg[1]]).toEqual([0xff, 0xd8]);
     expect(jpegSize(jpg)).toEqual([1200, 630]);

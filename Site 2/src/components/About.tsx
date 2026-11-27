@@ -19,15 +19,14 @@ const STATS = [
 /** The stat bars are drawn relative to the biggest number. */
 const STAT_MAX = Math.max(...STATS.map((s) => s.value));
 
-/** "Who I Am": the statement (lit word by word as it scrolls past), stat counters with bars, the ID-card portrait and focus areas. */
+/** "Who I Am" section: the scroll-lit statement, stat counters, the ID-card portrait and focus areas. */
 export default function About() {
   const manifestoRef = useRef<HTMLParagraphElement>(null);
 
-  // Words light up one by one as the statement scrolls through the viewport
   useEffect(() => {
     const el = manifestoRef.current;
     if (prefersReducedMotion() || !el) return;
-    // (scoped to the element, not the ref: see Hero)
+    // Scoped to the element, not the ref: see Hero
     const ctx = gsap.context(() => {
       gsap.fromTo(
         ".mw",
@@ -103,7 +102,13 @@ export default function About() {
             </div>
 
             <Reveal className="about-links" delay={200}>
-              <a className="btn-px" href={profile.linkedin} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
+              <a
+                className="btn-px"
+                href={profile.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-cursor="OPEN"
+              >
                 <Linkedin className="h-4 w-4" />
                 <ScrambleText text="LinkedIn" trigger="none" hover />
               </a>

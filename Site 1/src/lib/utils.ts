@@ -1,9 +1,9 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
-/** Join class names (clsx) and let later Tailwind utilities override conflicting ones (tailwind-merge). */
+/** Joins class names with clsx; tailwind-merge lets later Tailwind utilities override conflicting ones. */
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 /** Two-digit index ("07"), as used for numbering across the site. */

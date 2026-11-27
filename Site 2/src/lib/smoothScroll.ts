@@ -17,13 +17,13 @@ let teardown: (() => void) | null = null;
 export const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Start Lenis smooth scrolling driven by the GSAP ticker (falls back to native scroll). Idempotent; returns the teardown. */
+/** Start Lenis on the GSAP ticker, or native scrolling with reduced motion. Idempotent; returns the teardown. */
 export function initSmoothScroll() {
   if (teardown) return teardown;
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
   if (prefersReducedMotion()) {
-    // Native scroll: still feed the scroll velocity to the scene (ScrollTrigger follows native scroll itself)
+    // Native scroll still feeds its velocity to the scene; ScrollTrigger follows native scroll by itself
     let lastY = window.scrollY;
     let lastT = performance.now();
     const onScroll = () => {
@@ -70,7 +70,7 @@ export function initSmoothScroll() {
 /** An element, a selector or a y position in px. */
 type Target = HTMLElement | number | string;
 
-/** Scroll to an element, selector or y position (through Lenis when it is running). */
+/** Scroll to an element, selector or y position, through Lenis when it is running. */
 export function scrollToTarget(target: Target, opts: { offset?: number; immediate?: boolean; duration?: number } = {}) {
   const { offset = 0, immediate = false, duration } = opts;
   if (lenis) {
@@ -91,10 +91,9 @@ export function scrollToTarget(target: Target, opts: { offset?: number; immediat
 }
 
 /**
- * Freeze page scrolling (image viewer, phone menu, shortcuts help); the pixel scene pauses behind
- * them. The intro loader locks scrolling but keeps the scene going (`pauseScene: false`): it's
- * waiting for the scene's first frame, drawn behind it — paused, the scene would never draw it
- * and the loader would sit there until its timeout.
+ * Freeze page scrolling under an overlay; the pixel scene pauses behind it. The intro loader passes
+ * `pauseScene: false`: it waits for the scene's first frame, drawn behind it, and a paused scene
+ * would never draw one, leaving the loader up until its timeout.
  */
 export function setScrollLocked(locked: boolean, { pauseScene = true }: { pauseScene?: boolean } = {}) {
   if (lenis) {

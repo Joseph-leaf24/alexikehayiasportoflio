@@ -3,11 +3,10 @@ import { sceneState } from "@/lib/store";
 
 type Awake = "on" | "off" | "unsupported";
 
-
 /**
- * Keep the screen from dimming and locking while `active`, with the Screen Wake Lock API where
- * the browser has one (the browser drops the lock whenever the tab is hidden: it is taken again
- * on return). Says whether the screen is being kept awake.
+ * Keep the screen from dimming and locking while `active`, through the Screen Wake Lock API where
+ * the browser has one. The browser drops the lock whenever the tab is hidden, so it is taken again on
+ * return. Returns whether the screen is being kept awake.
  */
 function useWakeLock(active: boolean): Awake {
   const supported = typeof navigator !== "undefined" && "wakeLock" in navigator;
@@ -46,10 +45,9 @@ function useWakeLock(active: boolean): Awake {
 }
 
 /**
- * The spectator space at the bottom of the page: open ground to leave the battle running in,
- * nothing over it. While it's in view the scene keeps its full frame rate, the screen is kept
- * awake (where the browser can), the scene controls (pause, speed, zoom) appear, and at the end
- * of each level the HUD fades with the white-out.
+ * The spectator space at the bottom of the page: open ground to leave the battle running in. While
+ * it's in view the scene keeps its full frame rate, the screen is kept awake, the scene controls
+ * appear, and the HUD fades with each end-of-level white-out.
  */
 export default function Watch() {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -81,7 +79,13 @@ export default function Watch() {
   }, [inView]);
 
   return (
-    <section id="watch" className="section section--watch" data-scene="watch" data-section="06|Spectate" aria-label="The battle">
+    <section
+      id="watch"
+      className="section section--watch"
+      data-scene="watch"
+      data-section="06|Spectate"
+      aria-label="The battle"
+    >
       <div ref={stageRef} className="watch__stage" />
     </section>
   );

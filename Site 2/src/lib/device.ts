@@ -3,14 +3,14 @@
  * every page effect. Nothing is scaled down automatically, at load or while running.
  * `?quality=low|mid|high` in the URL picks a lighter budget by hand, for testing.
  */
-export type Tier = "low" | "mid" | "high";
+type Tier = "low" | "mid" | "high";
 
-/** The budget for one tier, read by the pixel scene, the page transition and the CSS (html[data-tier]). */
+/** The budget for one tier, read by the pixel scene, the page transition and the CSS through html[data-tier]. */
 export interface Quality {
   tier: Tier;
   /** Most enemies alive at once */
   enemies: number;
-  /** Most particles alive at once (debris, sparks, smoke, flames) */
+  /** Most particles alive at once: debris, sparks, smoke, flames */
   particles: number;
   /** Clouds drifting across the sky */
   clouds: number;
@@ -18,7 +18,7 @@ export interface Quality {
   wipeCols: number;
 }
 
-/** The budget for a tier. (Touch screens get the same: the scene doesn't depend on a cursor.) */
+/** The budget for a tier. Touch screens get the same: the scene doesn't depend on a cursor. */
 export function qualityFor(tier: Tier): Quality {
   switch (tier) {
     case "high":
@@ -35,7 +35,7 @@ const isTier = (v: unknown): v is Tier => typeof v === "string" && (TIERS as str
 
 let cached: Quality | null = null;
 
-/** The budget for this page load (the full one unless ?quality= says otherwise), exposed as html[data-tier]. */
+/** The budget for this page load, the full one unless ?quality= says otherwise, exposed as html[data-tier]. */
 export function getQuality(): Quality {
   if (cached) return cached;
   const forced = new URLSearchParams(window.location.search).get("quality");

@@ -42,22 +42,47 @@ export interface Specialization {
 
 /** The Work section's tabs, in display order. */
 export const specializations: Specialization[] = [
-  { id: "dataAnalytics", title: "Data Analytics", icon: BarChart3, description: "Interactive dashboards and business intelligence solutions" },
-  { id: "computerVision", title: "Computer Vision", icon: Eye, description: "Image processing and visual recognition systems" },
-  { id: "machineLearning", title: "Machine Learning", icon: Brain, description: "Predictive modeling and algorithmic solutions" },
-  { id: "nlp", title: "Natural Language Processing", icon: MessageSquare, description: "Text analysis and language understanding" },
-  { id: "research", title: "Research Methods", icon: Search, description: "Scientific research and statistical analysis" },
+  {
+    id: "dataAnalytics",
+    title: "Data Analytics",
+    icon: BarChart3,
+    description: "Interactive dashboards and business intelligence solutions",
+  },
+  {
+    id: "computerVision",
+    title: "Computer Vision",
+    icon: Eye,
+    description: "Image processing and visual recognition systems",
+  },
+  {
+    id: "machineLearning",
+    title: "Machine Learning",
+    icon: Brain,
+    description: "Predictive modeling and algorithmic solutions",
+  },
+  {
+    id: "nlp",
+    title: "Natural Language Processing",
+    icon: MessageSquare,
+    description: "Text analysis and language understanding",
+  },
+  {
+    id: "research",
+    title: "Research Methods",
+    icon: Search,
+    description: "Scientific research and statistical analysis",
+  },
   { id: "mlops", title: "MLOps & Deployment", icon: Settings, description: "Production ML systems and infrastructure" },
 ];
 
 /** A project together with where it lives in projectData. */
-export interface ProjectRef {
+interface ProjectRef {
   category: CategoryId;
   index: number;
   project: Project;
 }
 
-/** Every project in display order: the About stats and prev/next navigation on detail pages. */
+/** Every project in display order, for the About stats and prev/next navigation on detail pages. */
 export const allProjects: ProjectRef[] = specializations.flatMap(({ id }) =>
   projectData[id].projects.map((project, index) => ({ category: id, index, project }))
 );

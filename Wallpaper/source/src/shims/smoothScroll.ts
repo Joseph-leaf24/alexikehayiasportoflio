@@ -1,6 +1,5 @@
 /**
- * What the scene wants from the site's smooth scrolling: only whether to hold still for
- * "reduced motion". A wallpaper never does (Windows turns reduced motion on with its "show
- * animations" setting, which would freeze the desktop on one frame).
+ * Replaces Site 2's smooth-scroll module. The wallpaper never honours "reduced motion": Windows
+ * turns it on with its animation setting, which would freeze the desktop on one frame.
  */
 export const prefersReducedMotion = () => false;

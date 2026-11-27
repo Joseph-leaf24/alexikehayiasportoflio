@@ -8,7 +8,17 @@ interface Props {
 }
 
 /** A node label: one or two lines, vertically centred on the node. */
-function Label({ lines, x, anchor, lineH }: { lines: string[]; x: number; anchor: "start" | "middle" | "end"; lineH: number }) {
+function Label({
+  lines,
+  x,
+  anchor,
+  lineH,
+}: {
+  lines: string[];
+  x: number;
+  anchor: "start" | "middle" | "end";
+  lineH: number;
+}) {
   // 0.35em drops a single line's baseline to the node's centre; extra lines shift it up
   const first = 0.35 * (lineH / 1.25) - ((lines.length - 1) * lineH) / 2;
   return (
@@ -23,10 +33,8 @@ function Label({ lines, x, anchor, lineH }: { lines: string[]; x: number; anchor
 }
 
 /**
- * The project as a small neural network: its tools feed the technologies it is built
- * on, which (through an unlabelled hidden layer on wide frames) produce the concepts it
- * demonstrates. Signals fire left to right in a loop (paused while off-screen), and
- * hovering a node lights up its connections. Geometry comes from layoutGraph.
+ * The project drawn as a small neural network, laid out by layoutGraph. Signals fire left to right
+ * in a loop while it is on screen, and hovering a node lights up its connections.
  */
 export default function ProjectGraph({ project }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -39,7 +47,8 @@ export default function ProjectGraph({ project }: Props) {
     if (!el) return;
     const measure = () => {
       const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) setSize((s) => (Math.abs(s.w - r.width) < 1 && Math.abs(s.h - r.height) < 1 ? s : { w: r.width, h: r.height }));
+      if (r.width > 0 && r.height > 0)
+        setSize((s) => (Math.abs(s.w - r.width) < 1 && Math.abs(s.h - r.height) < 1 ? s : { w: r.width, h: r.height }));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -103,7 +112,12 @@ export default function ProjectGraph({ project }: Props) {
                 key={e.key}
                 d={e.d}
                 pathLength={100}
-                style={{ animationDelay: `${(e.step * STEP + e.jitter * 0.18).toFixed(2)}s`, animationDuration: `${PERIOD}s` } as CSSProperties}
+                style={
+                  {
+                    animationDelay: `${(e.step * STEP + e.jitter * 0.18).toFixed(2)}s`,
+                    animationDuration: `${PERIOD}s`,
+                  } as CSSProperties
+                }
               />
             ))}
         </g>
@@ -111,11 +125,20 @@ export default function ProjectGraph({ project }: Props) {
         <g>
           {g.nodes.map((n) => {
             const cls = cn("pgraph__node", `pgraph__node--l${n.layer}`, linked?.has(n.key) && "is-hot");
-            const delay = { animationDelay: `${(n.step * STEP).toFixed(2)}s`, animationDuration: `${PERIOD}s` } as CSSProperties;
+            const delay = {
+              animationDelay: `${(n.step * STEP).toFixed(2)}s`,
+              animationDuration: `${PERIOD}s`,
+            } as CSSProperties;
             const enter = () => setHot(n.key);
             const leave = () => setHot((k) => (k === n.key ? null : k));
             return (
-              <g key={n.key} className={cls} transform={`translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})`} onPointerEnter={enter} onPointerLeave={leave}>
+              <g
+                key={n.key}
+                className={cls}
+                transform={`translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})`}
+                onPointerEnter={enter}
+                onPointerLeave={leave}
+              >
                 {n.clipped ? <title>{n.full}</title> : null}
                 {n.w && n.h ? (
                   <>
@@ -126,9 +149,29 @@ export default function ProjectGraph({ project }: Props) {
                 ) : (
                   <>
                     {/* Square nodes: it's a pixel world */}
-                    <rect className="pgraph__halo" x={n.layer === 2 ? -6 : -9} y={n.layer === 2 ? -6 : -9} width={n.layer === 2 ? 12 : 18} height={n.layer === 2 ? 12 : 18} style={delay} />
-                    <rect className="pgraph__dot" x={n.layer === 2 ? -3 : -4} y={n.layer === 2 ? -3 : -4} width={n.layer === 2 ? 6 : 8} height={n.layer === 2 ? 6 : 8} />
-                    {n.lines ? <Label lines={n.lines} x={n.layer === 0 ? -16 : 16} anchor={n.layer === 0 ? "end" : "start"} lineH={g.lineH} /> : null}
+                    <rect
+                      className="pgraph__halo"
+                      x={n.layer === 2 ? -6 : -9}
+                      y={n.layer === 2 ? -6 : -9}
+                      width={n.layer === 2 ? 12 : 18}
+                      height={n.layer === 2 ? 12 : 18}
+                      style={delay}
+                    />
+                    <rect
+                      className="pgraph__dot"
+                      x={n.layer === 2 ? -3 : -4}
+                      y={n.layer === 2 ? -3 : -4}
+                      width={n.layer === 2 ? 6 : 8}
+                      height={n.layer === 2 ? 6 : 8}
+                    />
+                    {n.lines ? (
+                      <Label
+                        lines={n.lines}
+                        x={n.layer === 0 ? -16 : 16}
+                        anchor={n.layer === 0 ? "end" : "start"}
+                        lineH={g.lineH}
+                      />
+                    ) : null}
                   </>
                 )}
               </g>

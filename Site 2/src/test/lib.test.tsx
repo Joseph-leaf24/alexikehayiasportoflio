@@ -112,7 +112,7 @@ describe("rendering budget", () => {
 describe("HUD and layout helpers", () => {
   it("covers any viewport with roughly square wipe blocks", () => {
     expect(wipeGrid(12, 1440, 900)).toEqual({ cols: 12, rows: 8 });
-    // A portrait phone: the columns go along the long (vertical) side
+    // A portrait phone: the columns go along the long, vertical side
     expect(wipeGrid(12, 390, 844)).toEqual({ cols: 6, rows: 12 });
     expect(wipeGrid(12, 0, 0)).toEqual({ cols: 1, rows: 1 });
   });

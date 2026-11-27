@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { BASE_ROW, cell, createLevel, CRYSTAL, extend, kindAt, LADDER, LAVA, RING, ROWS, SNOW, solidAt, TILE, type Level } from "@/components/pixel/level";
+import {
+  BASE_ROW,
+  cell,
+  createLevel,
+  CRYSTAL,
+  extend,
+  kindAt,
+  LADDER,
+  LAVA,
+  RING,
+  ROWS,
+  SNOW,
+  solidAt,
+  TILE,
+  type Level,
+} from "@/components/pixel/level";
 import { ROTATION, THEMES, type Theme } from "@/components/pixel/themes";
 import { Game, type View } from "@/components/pixel/game";
 
@@ -17,7 +32,7 @@ function play(g: Game, seconds: number, each?: (view: View) => void) {
   }
 }
 
-/** A quiet country (nothing coming in on its own) made of one kind of set piece and some flat ground. */
+/** A quiet country, with nothing coming in on its own, made of one kind of set piece and some flat ground. */
 const only = (feature: "massif" | "abyss"): Theme => ({
   ...THEMES.summit,
   features: { [feature]: 3, flat: 1 },
@@ -31,7 +46,12 @@ const only = (feature: "massif" | "abyss"): Theme => ({
   relief: 0,
 });
 
-const grounds = (L: Level) => Array.from({ length: L.next - L.start }, (_, k) => ({ c: L.start + k, g: L.ground[(L.start + k) % RING], crust: L.crust[(L.start + k) % RING] }));
+const grounds = (L: Level) =>
+  Array.from({ length: L.next - L.start }, (_, k) => ({
+    c: L.start + k,
+    g: L.ground[(L.start + k) % RING],
+    crust: L.crust[(L.start + k) % RING],
+  }));
 
 describe("great mountains", () => {
   it("rise ninety blocks and more over the plain, climbable step by step, snow on top and an outpost on the summit", () => {
@@ -41,7 +61,7 @@ describe("great mountains", () => {
     const top = Math.min(...cols.map((k) => k.g));
     expect(BASE_ROW - top).toBeGreaterThanOrEqual(90);
     expect(top).toBeGreaterThan(8);
-    // Every step up is a cliff the squad can climb (and the tallest have a ladder up them)
+    // Every step up is a cliff the squad can climb, and the tallest have a ladder up them
     let ladders = 0;
     for (let k = 1; k < cols.length; k++) {
       expect(cols[k - 1].g - cols[k].g, `column ${cols[k].c}`).toBeLessThanOrEqual(14);
@@ -68,19 +88,22 @@ describe("the depths", () => {
     for (const k of cavern) {
       expect(k.g).toBeLessThanOrEqual(ROWS - 4);
       // Headroom over the floor
-      for (let r = k.g - 5; r < k.g - 1; r++) if (solidAt(L, k.c * TILE + 4, r * TILE + 4) && kindAt(L, k.c, r) !== CRYSTAL) expect(r, `column ${k.c}`).toBeLessThan(k.g - 3);
-      // Under the land: its surface still there over the cavern (except at the sinkhole and the chimney)
+      for (let r = k.g - 5; r < k.g - 1; r++)
+        if (solidAt(L, k.c * TILE + 4, r * TILE + 4) && kindAt(L, k.c, r) !== CRYSTAL)
+          expect(r, `column ${k.c}`).toBeLessThan(k.g - 3);
+      // Under the land: its surface is still there over the cavern, except at the sinkhole and the chimney
       if (solidAt(L, k.c * TILE + 4, k.crust * TILE + 4)) roofed++;
     }
     expect(roofed).toBeGreaterThan(cavern.length * 0.7);
     // Things to see down there: lava, crystals, lamps
     let lava = 0;
     let crystal = 0;
-    for (const k of cavern) for (let r = k.crust; r < ROWS; r++) {
-      const b = L.fg[cell(k.c, r)];
-      if (b === LAVA) lava++;
-      if (b === CRYSTAL) crystal++;
-    }
+    for (const k of cavern)
+      for (let r = k.crust; r < ROWS; r++) {
+        const b = L.fg[cell(k.c, r)];
+        if (b === LAVA) lava++;
+        if (b === CRYSTAL) crystal++;
+      }
     expect(lava).toBeGreaterThan(0);
     expect(crystal).toBeGreaterThan(0);
     expect(L.props.filter((p) => p.kind === "lamp").length).toBeGreaterThan(3);
@@ -112,8 +135,12 @@ describe("the squad", () => {
           high = p.y;
           summitAt = p.x;
         }
-      // (and on: past the summit, most of the squad back down on the plain)
-      if (BASE_ROW * TILE - high > 80 * TILE && up.filter((p) => p.x > summitAt + 100 && Math.abs(p.y - BASE_ROW * TILE) < 6 * TILE).length > 4) downAgain = true;
+      // ... and on past the summit, most of the squad back down on the plain
+      if (
+        BASE_ROW * TILE - high > 80 * TILE &&
+        up.filter((p) => p.x > summitAt + 100 && Math.abs(p.y - BASE_ROW * TILE) < 6 * TILE).length > 4
+      )
+        downAgain = true;
     });
     expect(BASE_ROW * TILE - high).toBeGreaterThan(80 * TILE);
     expect(downAgain).toBe(true);
@@ -136,8 +163,12 @@ describe("the squad", () => {
         }
         if (g.solid(p.x, p.y - 8)) inRock++;
       }
-      // (and out again: most of the squad back up on the surface, past the cavern)
-      if (deepest - BASE_ROW * TILE > 50 * TILE && up.filter((p) => p.x > deepAt + 60 && p.y <= BASE_ROW * TILE + 2 * TILE).length > 4) outAgain = true;
+      // ... and out again, most of the squad back up on the surface past the cavern
+      if (
+        deepest - BASE_ROW * TILE > 50 * TILE &&
+        up.filter((p) => p.x > deepAt + 60 && p.y <= BASE_ROW * TILE + 2 * TILE).length > 4
+      )
+        outAgain = true;
     });
     expect(deepest - BASE_ROW * TILE).toBeGreaterThan(50 * TILE);
     expect(buried).toBeGreaterThan(30 * 10);
@@ -147,7 +178,10 @@ describe("the squad", () => {
 
   it("drops whoever comes back in down beside them in the cavern, and they come down to the floor", () => {
     const g = new Game(only("abyss"), { seed: 3, gunship: false, level: { boss: null, length: 4000 } });
-    const deep = () => g.players.find((p) => !p.dead && !p.chute && p.ground && p.y - g.level.crust[Math.floor(p.x / TILE) % RING] * TILE > 50 * TILE);
+    const deep = () =>
+      g.players.find(
+        (p) => !p.dead && !p.chute && p.ground && p.y - g.level.crust[Math.floor(p.x / TILE) % RING] * TILE > 50 * TILE
+      );
     let t = 0;
     while (!deep() && t++ < 90 * 30) play(g, 1 / 30);
     const mate = deep()!;

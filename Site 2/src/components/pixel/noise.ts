@@ -1,8 +1,6 @@
 /**
- * Seeded value noise in one and two dimensions, and fractal sums of it: the terrain rolls
- * on for ever without repeating, and a new seed gives a whole new world (the way a voxel
- * game's world generator works). Pure maths, no state: the same seed and position always
- * give the same value, so a level can be generated a chunk at a time.
+ * Seeded value noise in one and two dimensions, and fractal sums of it. Pure functions: the same
+ * seed and position always give the same value, so a level can be generated a chunk at a time.
  */
 
 /** Deterministic 0..1 hash of a seed and up to two lattice coordinates. */
@@ -20,7 +18,7 @@ const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
  * 1D value noise in 0..1, one lattice point per unit. With `period` it wraps (whole numbers
  * only), so a strip drawn with it tiles seamlessly.
  */
-export function noise1(seed: number, x: number, period = 0) {
+function noise1(seed: number, x: number, period = 0) {
   const i = Math.floor(x);
   const f = x - i;
   const a = period ? ((i % period) + period) % period : i;
@@ -79,6 +77,7 @@ export function ridged1(seed: number, x: number, octaves = 4, gain = 0.5, period
   return sum / norm;
 }
 
+/** Hermite smoothstep: 0 at or below `a`, 1 at or above `b`, eased in between. */
 export const smoothstep = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);

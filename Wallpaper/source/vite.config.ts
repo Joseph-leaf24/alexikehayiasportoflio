@@ -5,25 +5,21 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const slash = (p: string) => p.replace(/\\/g, "/");
-/** The battle itself lives in Site 2: the wallpaper is built from it, so the two are always the same battle. */
+// The battle is built straight from Site 2's source.
 const site = slash(path.resolve(here, "../../Site 2/src"));
 
-/**
- * The wallpaper's page: the pixel scene on its own, full screen. scripts/pack.mjs then inlines
- * it into one file, and scripts/build-exe.mjs packs that into PixelBattle.exe.
- */
+/** Builds the wallpaper page; scripts/pack.mjs inlines it and scripts/build-exe.mjs embeds it in the exe. */
 export default defineConfig({
   base: "./",
   plugins: [react()],
   resolve: {
     alias: [
-      // (what the site does that a wallpaper mustn't: freeze the scene for "reduced motion", which
-      // Windows turns on with its animations setting; and spend the site's full budget)
+      // Replace the site's reduced-motion check and device budget with wallpaper versions.
       { find: /^@\/lib\/smoothScroll$/, replacement: slash(path.join(here, "src/shims/smoothScroll.ts")) },
       { find: /^@\/lib\/device$/, replacement: slash(path.join(here, "src/shims/device.ts")) },
       { find: /^@\//, replacement: `${site}/` },
     ],
-    // (one React for the wallpaper and the site's code it pulls in)
+    // One copy of React for the wallpaper and the Site 2 code it imports.
     dedupe: ["react", "react-dom"],
   },
   server: { fs: { allow: [slash(path.resolve(here, "../.."))] } },

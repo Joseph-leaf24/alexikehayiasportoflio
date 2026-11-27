@@ -14,14 +14,14 @@ import { pad } from "@/lib/utils";
 interface ProjectCardProps {
   project: Project;
   category: string;
-  /** Index within the category (builds the link and the P/xx label, and staggers the reveal) */
+  /** Index within the category: builds the link and the P/xx label, and staggers the reveal */
   index: number;
 }
 
 /**
- * Project card linking to its detail page: the project image with the depth effect, domains, chips.
- * The link is the title, stretched over the whole card by CSS (so its accessible name is just the
- * title). Tilts toward the mouse (--rx/--ry) with a glare that follows it (--mx/--my).
+ * Project card linking to its detail page. The link is the title, stretched over the whole card by
+ * CSS so its accessible name is just the title. Tilts toward the mouse (--rx/--ry) with a glare
+ * that follows it (--mx/--my).
  */
 const ProjectCard = ({ project, category, index }: ProjectCardProps) => {
   const ref = useRef<HTMLElement>(null);
@@ -63,7 +63,11 @@ const ProjectCard = ({ project, category, index }: ProjectCardProps) => {
         </div>
 
         <div className="project-card__body">
-          <span className="project-card__domains">{domainsFor(category, index).map((d) => d.title).join(" · ")}</span>
+          <span className="project-card__domains">
+            {domainsFor(category, index)
+              .map((d) => d.title)
+              .join(" · ")}
+          </span>
           <h4 className="project-card__title">
             <TLink to={projectPath(category, index)} className="project-card__link" data-cursor="OPEN">
               <ScrambleText text={title} hover trigger="none" />

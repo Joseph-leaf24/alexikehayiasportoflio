@@ -1,28 +1,25 @@
 /**
- * The props that dress every level: crates, drums, sandbags and radios round the camps;
- * cages, torches and stone idols in the jungle; cactus and fuel pumps in the desert; cones,
- * hydrants and phone booths in the city; wrecks, water towers and radio masts standing in the
- * background. Just the facts about each (size, what it's made of, what lights up or burns, which
- * themes have it): art.ts paints them, level.ts places them, game.ts blows them up.
+ * The facts about every prop (size, debris colour, what lights up, burns or smokes) and which
+ * backdrops use it. art.ts and catalog.ts paint them, level.ts places them, game.ts blows them up.
  */
 import type { Backdrop } from "./themes";
 import { CATALOG } from "./catalog";
 
 export interface AssetDef {
-  /** Size in scene px (it stands on its bottom edge, centred on its x) */
+  /** Size in scene px; it stands on its bottom edge, centred on its x */
   w: number;
   h: number;
   /** The colour of the bits it breaks into */
   debris: string;
-  /** Goes off when it's hit (blast radius) */
+  /** Blast radius, for props that explode when hit */
   boom?: number;
-  /** Lit spots: x, y from its top left, colour, blink rate (0: steady) */
+  /** Lit spots: x, y from its top left, colour, and blink rate, where 0 is steady */
   lights?: [number, number, string, number][];
-  /** Where it burns (x, y from its top left) */
+  /** Where it burns, as x, y from its top left */
   flames?: [number, number][];
-  /** Where it smokes (chimneys, stoves, boilers) */
+  /** Where it smokes */
   smoke?: [number, number][];
-  /** Mounted on a wall (half way up a room) or hanging from the ceiling */
+  /** Mounted half way up a wall, or hanging from the ceiling */
   wall?: boolean;
   hang?: boolean;
 }
@@ -42,11 +39,27 @@ const BASIC = {
   dangersign: { w: 9, h: 13, debris: "#ffcc33" },
   signpost: { w: 12, h: 14, debris: "#8a5a2b" },
   hedgehog: { w: 12, h: 9, debris: "#5d6578" },
-  carwreck: { w: 24, h: 10, debris: "#8a4a2a", flames: [[6, 1], [15, 2]] },
+  carwreck: {
+    w: 24,
+    h: 10,
+    debris: "#8a4a2a",
+    flames: [
+      [6, 1],
+      [15, 2],
+    ],
+  },
   heliwreck: { w: 30, h: 14, debris: "#4a5a30", flames: [[9, 2]] },
   cage: { w: 14, h: 15, debris: "#8a5a2b" },
   tikitorch: { w: 3, h: 14, debris: "#8a5a2b", flames: [[1, 0]] },
-  idol: { w: 12, h: 16, debris: "#7a7a84", lights: [[3, 6, "#ff5a1a", 0.6], [8, 6, "#ff5a1a", 0.6]] },
+  idol: {
+    w: 12,
+    h: 16,
+    debris: "#7a7a84",
+    lights: [
+      [3, 6, "#ff5a1a", 0.6],
+      [8, 6, "#ff5a1a", 0.6],
+    ],
+  },
   bunting: { w: 26, h: 14, debris: "#c8302a" },
   well: { w: 14, h: 13, debris: "#7a7a84" },
   boulders: { w: 14, h: 8, debris: "#6d7184" },
@@ -55,13 +68,29 @@ const BASIC = {
   cone: { w: 5, h: 7, debris: "#ff8a1a" },
   hydrant: { w: 5, h: 8, debris: "#c8302a" },
   phonebooth: { w: 8, h: 18, debris: "#c8302a", lights: [[3, 2, "#ffe27a", 0]] },
-  billboard: { w: 26, h: 22, debris: "#5d6578", lights: [[4, 2, "#ffd479", 0], [21, 2, "#ffd479", 0]] },
+  billboard: {
+    w: 26,
+    h: 22,
+    debris: "#5d6578",
+    lights: [
+      [4, 2, "#ffd479", 0],
+      [21, 2, "#ffd479", 0],
+    ],
+  },
   missiletrailer: { w: 30, h: 12, debris: "#5d6578", boom: 30 },
   fuelpump: { w: 7, h: 14, debris: "#c8302a", boom: 18, lights: [[3, 3, "#ffe27a", 0]] },
   outhouse: { w: 9, h: 16, debris: "#8a5a2b" },
   loudspeaker: { w: 10, h: 22, debris: "#5d6578" },
   valve: { w: 12, h: 9, debris: "#5a7a6a" },
-  mushrooms: { w: 10, h: 6, debris: "#c84aff", lights: [[2, 1, "#d88aff", 0.7], [7, 2, "#8aff6a", 0.9]] },
+  mushrooms: {
+    w: 10,
+    h: 6,
+    debris: "#c84aff",
+    lights: [
+      [2, 1, "#d88aff", 0.7],
+      [7, 2, "#8aff6a", 0.9],
+    ],
+  },
   reeds: { w: 12, h: 11, debris: "#6a8a3a" },
   stump: { w: 8, h: 6, debris: "#7a5230" },
   flowers: { w: 10, h: 6, debris: "#ff6fae" },
@@ -74,41 +103,245 @@ const BASIC = {
   radiotower: { w: 14, h: 46, debris: "#5d6578", lights: [[7, 0, "#ff3b3b", 1]] },
 } satisfies Record<string, AssetDef>;
 
-/** Every prop: the first set (assets painted in art.ts) and the big catalogue (catalog.ts). */
+/** Every prop: the basic set painted in art.ts, then the catalogue in catalog.ts. */
 export const ASSETS: Record<string, AssetDef> = { ...BASIC, ...CATALOG };
 export type AssetId = string;
+/** The definition of prop `id`. */
 export const asset = (id: AssetId): AssetDef => ASSETS[id];
-/** The props art.ts paints itself (the rest paint themselves from the catalogue). */
-export const BASIC_IDS = Object.keys(BASIC);
 
 /** Military kit that turns up wherever there's an army. */
-const KIT: AssetId[] = ["crates", "ammocrate", "drums", "sandbags", "tires", "jerrycans", "radio", "generator", "dangersign", "signpost", "camonet", "boulders", "pallets", "gascylinders", "propanebottles", "trafficbarrels", "jerseybarrier", "roadworks", "cablespool", "toolsrack"];
+const KIT: AssetId[] = [
+  "crates",
+  "ammocrate",
+  "drums",
+  "sandbags",
+  "tires",
+  "jerrycans",
+  "radio",
+  "generator",
+  "dangersign",
+  "signpost",
+  "camonet",
+  "boulders",
+  "pallets",
+  "gascylinders",
+  "propanebottles",
+  "trafficbarrels",
+  "jerseybarrier",
+  "roadworks",
+  "cablespool",
+  "toolsrack",
+];
 
 /** What each kind of land has lying about on the ground, on top of the kit. */
 const GROUND: Record<Backdrop, AssetId[]> = {
-  jungle: ["cage", "tikitorch", "idol", "well", "outhouse", "flowers", "stump", "bunting", "haybales", "chickencoop", "marketstall", "scarecrow", "trough", "pickup", "motorbike"],
-  deepjungle: ["cage", "tikitorch", "idol", "flowers", "stump", "reeds", "flowers", "roots", "minecart", "orepile", "skeleton"],
+  jungle: [
+    "cage",
+    "tikitorch",
+    "idol",
+    "well",
+    "outhouse",
+    "flowers",
+    "stump",
+    "bunting",
+    "haybales",
+    "chickencoop",
+    "marketstall",
+    "scarecrow",
+    "trough",
+    "pickup",
+    "motorbike",
+  ],
+  deepjungle: [
+    "cage",
+    "tikitorch",
+    "idol",
+    "flowers",
+    "stump",
+    "reeds",
+    "flowers",
+    "roots",
+    "minecart",
+    "orepile",
+    "skeleton",
+  ],
   temple: ["idol", "pillar", "tikitorch", "flowers", "cage", "idol", "amphora", "sarcophagus", "bust", "statue"],
-  monsoon: ["reeds", "outhouse", "cage", "bunting", "stump", "reeds", "fishingnets", "marketstall", "scooter", "bicycle", "umbrellatable"],
-  desert: ["cactus", "hedgehog", "carwreck", "fuelpump", "well", "valve", "cactus", "pickup", "lpgtank", "oiltank", "trough", "hotdogcart", "sedan"],
+  monsoon: [
+    "reeds",
+    "outhouse",
+    "cage",
+    "bunting",
+    "stump",
+    "reeds",
+    "fishingnets",
+    "marketstall",
+    "scooter",
+    "bicycle",
+    "umbrellatable",
+  ],
+  desert: [
+    "cactus",
+    "hedgehog",
+    "carwreck",
+    "fuelpump",
+    "well",
+    "valve",
+    "cactus",
+    "pickup",
+    "lpgtank",
+    "oiltank",
+    "trough",
+    "hotdogcart",
+    "sedan",
+  ],
   canyon: ["cactus", "boulders", "carwreck", "signpost", "cactus", "pickup", "tractor", "skeleton", "trough"],
   snow: ["logs", "stump", "outhouse", "hedgehog", "logs", "pickup", "forklift", "lpgtank", "milkcans"],
-  fort: ["hedgehog", "loudspeaker", "streetlamp", "missiletrailer", "dish", "hedgehog", "forklift", "pickup", "containerred", "containergreen", "lpgtank", "utilitybox", "flagpole"],
-  factory: ["valve", "toxicdrum", "cone", "streetlamp", "fuelpump", "toxicdrum", "forklift", "containeryellow", "containerblue", "pallets", "oiltank", "lpgtank", "utilitybox", "deliverytruck", "coalheap", "transformer", "conveyor", "boiler"],
-  city: ["cone", "hydrant", "phonebooth", "streetlamp", "carwreck", "hedgehog", "cone", "trafficlight", "stopsign", "busstop", "bench", "trashbin", "dumpster", "mailbox", "newsbox", "parkingmeter", "bikerack", "bicycle", "treeplanter", "hedge", "fountain", "statue", "streetclock", "infoboard", "hotdogcart", "umbrellatable", "sedan", "sedanblue", "hatchback", "taxi", "policecar", "van", "motorbike", "scooter", "bollards", "atm", "newsstand", "foodtruck", "kiosk", "vending", "metrosign"],
+  fort: [
+    "hedgehog",
+    "loudspeaker",
+    "streetlamp",
+    "missiletrailer",
+    "dish",
+    "hedgehog",
+    "forklift",
+    "pickup",
+    "containerred",
+    "containergreen",
+    "lpgtank",
+    "utilitybox",
+    "flagpole",
+  ],
+  factory: [
+    "valve",
+    "toxicdrum",
+    "cone",
+    "streetlamp",
+    "fuelpump",
+    "toxicdrum",
+    "forklift",
+    "containeryellow",
+    "containerblue",
+    "pallets",
+    "oiltank",
+    "lpgtank",
+    "utilitybox",
+    "deliverytruck",
+    "coalheap",
+    "transformer",
+    "conveyor",
+    "boiler",
+  ],
+  city: [
+    "cone",
+    "hydrant",
+    "phonebooth",
+    "streetlamp",
+    "carwreck",
+    "hedgehog",
+    "cone",
+    "trafficlight",
+    "stopsign",
+    "busstop",
+    "bench",
+    "trashbin",
+    "dumpster",
+    "mailbox",
+    "newsbox",
+    "parkingmeter",
+    "bikerack",
+    "bicycle",
+    "treeplanter",
+    "hedge",
+    "fountain",
+    "statue",
+    "streetclock",
+    "infoboard",
+    "hotdogcart",
+    "umbrellatable",
+    "sedan",
+    "sedanblue",
+    "hatchback",
+    "taxi",
+    "policecar",
+    "van",
+    "motorbike",
+    "scooter",
+    "bollards",
+    "atm",
+    "newsstand",
+    "foodtruck",
+    "kiosk",
+    "vending",
+    "metrosign",
+  ],
   volcano: ["lavavent", "boulders", "lavavent", "carwreck", "orepile", "skeleton", "minecart"],
   hive: ["pod", "crystals", "mushrooms", "toxicdrum", "pod", "skeleton", "labbench"],
   swamp: ["reeds", "mushrooms", "stump", "outhouse", "reeds", "fishingnets", "skeleton", "pickup"],
-  silo: ["missiletrailer", "dish", "hedgehog", "loudspeaker", "toxicdrum", "forklift", "containergreen", "lpgtank", "utilitybox", "flagpole"],
-  cave: ["crystals", "mushrooms", "boulders", "crystals", "minecart", "orepile", "pitprops", "skeleton", "treasurechest", "stalagmites"],
+  silo: [
+    "missiletrailer",
+    "dish",
+    "hedgehog",
+    "loudspeaker",
+    "toxicdrum",
+    "forklift",
+    "containergreen",
+    "lpgtank",
+    "utilitybox",
+    "flagpole",
+  ],
+  cave: [
+    "crystals",
+    "mushrooms",
+    "boulders",
+    "crystals",
+    "minecart",
+    "orepile",
+    "pitprops",
+    "skeleton",
+    "treasurechest",
+    "stalagmites",
+  ],
   savanna: ["haybales", "trough", "boulders", "stump", "marketstall", "pickup", "tractor", "cactus"],
   autumn: ["logs", "stump", "haybales", "flowers", "hedge", "scarecrow", "outhouse", "well"],
   sakura: ["flowers", "hedge", "tikitorch", "idol", "well", "bench", "umbrellatable", "marketstall"],
   tundra: ["logs", "hedgehog", "lpgtank", "pickup", "forklift", "milkcans", "boulders"],
   badlands: ["cactus", "boulders", "skeleton", "carwreck", "signpost", "trough"],
   farmland: ["haybales", "scarecrow", "tractor", "chickencoop", "trough", "milkcans", "veggies", "hedge", "pickup"],
-  megacity: ["trafficlight", "stopsign", "busstop", "bench", "trashbin", "dumpster", "hydrant", "phonebooth", "streetlamp", "treeplanter", "sedan", "taxi", "policecar", "van", "atm", "newsbox", "fountain", "newsstand", "foodtruck", "kiosk", "vending", "metrosign"],
-  airbase: ["hedgehog", "forklift", "containerred", "lpgtank", "runwaylight", "windsock", "parkedjet", "fuelpump", "utilitybox"],
+  megacity: [
+    "trafficlight",
+    "stopsign",
+    "busstop",
+    "bench",
+    "trashbin",
+    "dumpster",
+    "hydrant",
+    "phonebooth",
+    "streetlamp",
+    "treeplanter",
+    "sedan",
+    "taxi",
+    "policecar",
+    "van",
+    "atm",
+    "newsbox",
+    "fountain",
+    "newsstand",
+    "foodtruck",
+    "kiosk",
+    "vending",
+    "metrosign",
+  ],
+  airbase: [
+    "hedgehog",
+    "forklift",
+    "containerred",
+    "lpgtank",
+    "runwaylight",
+    "windsock",
+    "parkedjet",
+    "fuelpump",
+    "utilitybox",
+  ],
   archipelago: ["fishingnets", "boulders", "umbrellatable", "marketstall", "lifering", "buoy", "anchor"],
   mangrove: ["reeds", "fishingnets", "stump", "mushrooms", "roots", "skeleton"],
 };
@@ -123,7 +356,23 @@ const BACK: Record<Backdrop, AssetId[]> = {
   canyon: ["radiotower", "heliwreck", "watertower"],
   snow: ["radiotower", "watertower", "dish", "powerpole", "farmsilo"],
   fort: ["radiotower", "watertower", "dish", "dockcrane", "powerpole", "containerstack"],
-  factory: ["billboard", "watertower", "radiotower", "dockcrane", "crane", "oiltank", "containerstack", "powerpole", "smokestack", "gasholder", "factoryshed", "storagetank", "pylon", "pipebridge", "smokestack"],
+  factory: [
+    "billboard",
+    "watertower",
+    "radiotower",
+    "dockcrane",
+    "crane",
+    "oiltank",
+    "containerstack",
+    "powerpole",
+    "smokestack",
+    "gasholder",
+    "factoryshed",
+    "storagetank",
+    "pylon",
+    "pipebridge",
+    "smokestack",
+  ],
   city: ["billboard", "radiotower", "watertower", "crane", "powerpole", "scaffold", "pylon", "smokestack"],
   volcano: ["heliwreck", "radiotower"],
   hive: ["pod", "radiotower"],
@@ -142,7 +391,7 @@ const BACK: Record<Backdrop, AssetId[]> = {
   mangrove: ["heliwreck", "watertower"],
 };
 
-/** A random prop for this kind of land (`back`: one of the big background ones). */
+/** A random prop for this kind of land; with `back`, one of the big background ones. */
 export function pickAsset(rand: () => number, kind: Backdrop, back = false): AssetId {
   const pool = back ? BACK[kind] : kind === "hive" ? GROUND[kind] : rand() < 0.45 ? KIT : GROUND[kind];
   return pool[Math.floor(rand() * pool.length)];

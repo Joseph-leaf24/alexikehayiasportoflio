@@ -3,9 +3,8 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 /**
- * Production only: strips comments and whitespace from the inline GLSL in
- * src/components/gl so the shipped shaders are compact and much harder to
- * read or lift. (JS is already minified/mangled by Vite.)
+ * Production only: strips comments and whitespace from the inline GLSL in src/components/gl,
+ * so the shipped shaders are compact and hard to lift.
  */
 function minifyInlineGlsl(): Plugin {
   return {
@@ -30,10 +29,9 @@ function minifyInlineGlsl(): Plugin {
 }
 
 /**
- * Production only: a strict Content-Security-Policy so the page can only run its
- * own scripts and talk to the few services it needs (Google Fonts, Power BI embeds).
- * GitHub Pages can't set response headers, so it's delivered as a <meta> tag.
- * (Not used in dev, where Vite/React refresh rely on inline scripts.)
+ * Production-only Content-Security-Policy: the page runs only its own scripts and talks only to
+ * Google Fonts and Power BI embeds. GitHub Pages can't set response headers, so it ships as a
+ * <meta> tag. Dev goes without it because React refresh relies on inline scripts.
  */
 const CSP = [
   "default-src 'self'",
@@ -68,7 +66,6 @@ function securityHeaders(): Plugin {
   };
 }
 
-// https://vitejs.dev/config/
 export default defineConfig(() => ({
   base: "/alexikehayiasportoflio/",
   server: {

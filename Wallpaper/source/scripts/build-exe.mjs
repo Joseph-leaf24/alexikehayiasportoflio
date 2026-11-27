@@ -1,17 +1,6 @@
 /**
- * Builds the wallpaper: ../PixelBattle.exe (Wallpaper/PixelBattle.exe), one file with everything
- * it needs inside it.
- *
- *   the app          host/PixelBattle.cs: puts the battle on the desktop, behind the icons
- *   payload/battle/index.html                the battle itself (dist/index.html, from vite + pack)
- *   payload/Microsoft.Web.WebView2.*.dll     Microsoft's WebView2 SDK: how the app shows the page,
- *   payload/WebView2Loader.dll               in WebView2 (the Edge engine Windows comes with)
- *
- * The payload's files go in gzipped, as resources; the exe unpacks them into
- * %LOCALAPPDATA%\PixelBattle\app\<stamp> when it runs (the stamp: a hash of them, so a new build
- * unpacks afresh). Compiled with the C# compiler that comes with Windows (.NET Framework 4), so
- * there's nothing to install to build it either. The WebView2 SDK comes from nuget.org the first
- * time (it's kept in .build/webview2 after that).
+ * Builds ../PixelBattle.exe: compiles host/PixelBattle.cs with the C# compiler that ships with Windows and
+ * embeds the battle page (dist/index.html) and Microsoft's WebView2 DLLs as gzipped resources.
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -24,20 +13,26 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const host = join(root, "host");
 const build = join(root, ".build");
 const exe = join(dirname(root), "PixelBattle.exe");
-const ps = (cmd) => execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", cmd], { stdio: "inherit" });
+const ps = (cmd) =>
+  execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", cmd], { stdio: "inherit" });
 const kb = (n) => `${Math.round(n / 1024)} KB`;
 
 const page = join(root, "dist", "index.html");
-if (!existsSync(page)) throw new Error("build-exe: no dist/index.html (run `vite build` and scripts/pack.mjs first, or just `npm run build`)");
+if (!existsSync(page))
+  throw new Error(
+    "build-exe: no dist/index.html (run `vite build` and scripts/pack.mjs first, or just `npm run build`)"
+  );
 mkdirSync(build, { recursive: true });
 
-/* ---- Microsoft's WebView2 SDK, from nuget.org (once) ---- */
+// WebView2 SDK, downloaded from nuget.org on the first build.
 const sdk = join(build, "webview2");
 if (!existsSync(join(sdk, "lib"))) {
   const index = await (await fetch("https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/index.json")).json();
   const version = index.versions.filter((v) => !v.includes("-")).pop();
   console.log(`build-exe: WebView2 SDK ${version}, from nuget.org`);
-  const res = await fetch(`https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/${version}/microsoft.web.webview2.${version}.nupkg`);
+  const res = await fetch(
+    `https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/${version}/microsoft.web.webview2.${version}.nupkg`
+  );
   if (!res.ok) throw new Error(`build-exe: couldn't download the WebView2 SDK (${res.status})`);
   const zip = join(build, "webview2.zip");
   writeFileSync(zip, Buffer.from(await res.arrayBuffer()));
@@ -45,7 +40,7 @@ if (!existsSync(join(sdk, "lib"))) {
   ps(`Expand-Archive -LiteralPath '${zip}' -DestinationPath '${sdk}' -Force`);
   rmSync(zip, { force: true });
 }
-/** The .NET Framework build of a DLL in the SDK (lib/net462, or lib/net45 in older ones). */
+/** The .NET Framework build of a DLL in the SDK (lib/net462, or lib/net45 in older SDKs). */
 const lib = (name) => {
   for (const d of ["net462", "net45"]) if (existsSync(join(sdk, "lib", d, name))) return join(sdk, "lib", d, name);
   throw new Error(`build-exe: ${name} not in the WebView2 SDK`);
@@ -54,7 +49,7 @@ const core = lib("Microsoft.Web.WebView2.Core.dll");
 const winforms = lib("Microsoft.Web.WebView2.WinForms.dll");
 const loader = join(sdk, "runtimes", "win-x64", "native", "WebView2Loader.dll");
 
-/* ---- Its icon: a little pixel-art mushroom cloud over the battlefield, drawn here ---- */
+// App icon: a 16×16 pixel-art mushroom cloud, scaled to each icon size.
 const ART = [
   "................",
   ".....oyyyo......",
@@ -73,8 +68,17 @@ const ART = [
   "dmddddddmdddddmd",
   "dddddddddddddddd",
 ];
-const PAL = { ".": [20, 24, 38, 255], o: [255, 138, 26, 255], y: [255, 210, 63, 255], w: [255, 246, 200, 255], r: [200, 52, 26, 255], g: [91, 191, 58, 255], d: [138, 90, 43, 255], m: [110, 69, 32, 255] };
-/** The art's colour at (x, y) of a `size` px square (each of its pixels a block of them). */
+const PAL = {
+  ".": [20, 24, 38, 255],
+  o: [255, 138, 26, 255],
+  y: [255, 210, 63, 255],
+  w: [255, 246, 200, 255],
+  r: [200, 52, 26, 255],
+  g: [91, 191, 58, 255],
+  d: [138, 90, 43, 255],
+  m: [110, 69, 32, 255],
+};
+/** The colour at (x, y) of the art scaled to `size` px. */
 const at = (size, x, y) => PAL[ART[Math.floor((y * 16) / size)][Math.floor((x * 16) / size)]];
 const crcTable = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -94,7 +98,7 @@ const chunk = (type, data) => {
   c.writeUInt32BE(crc(td));
   return Buffer.concat([len, td, c]);
 };
-/** The big one, as a PNG. */
+/** The 256 px image, as a PNG. */
 const png = (size) => {
   const raw = Buffer.alloc(size * (size * 4 + 1));
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) raw.set(at(size, x, y), y * (size * 4 + 1) + 1 + x * 4);
@@ -102,9 +106,14 @@ const png = (size) => {
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
   ihdr.set([8, 6, 0, 0, 0], 8);
-  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 };
-/** The small ones as plain bitmaps (what the tray and every icon reader take): BGRA, bottom row first, then an all-opaque mask. */
+/** Smaller sizes as uncompressed bitmaps, which every icon reader supports: BGRA rows bottom-up, then an opaque AND mask. */
 const dib = (size) => {
   const mask = Math.ceil(size / 32) * 4 * size;
   const out = Buffer.alloc(40 + size * size * 4 + mask);
@@ -140,7 +149,7 @@ sizes.forEach((s, i) => {
 const ico = join(build, "PixelBattle.ico");
 writeFileSync(ico, Buffer.concat([head, ...images]));
 
-/* ---- The payload: gzipped, and stamped with a hash of what's in it ---- */
+// Payload: gzipped resources, stamped with a hash of their contents so a new build unpacks afresh.
 const payload = [
   ["battle/index.html", page],
   ["Microsoft.Web.WebView2.Core.dll", core],
@@ -160,9 +169,12 @@ const resources = payload.map(([name, file]) => {
 });
 const stamp = hash.digest("hex").slice(0, 12);
 const stampFile = join(build, "Build.g.cs");
-writeFileSync(stampFile, `// Written by scripts/build-exe.mjs: which build of the payload this exe carries.\nnamespace PixelBattle\n{\n    static class Build\n    {\n        public const string Stamp = "${stamp}";\n    }\n}\n`);
+writeFileSync(
+  stampFile,
+  `// Written by scripts/build-exe.mjs: which build of the payload this exe carries.\nnamespace PixelBattle\n{\n    static class Build\n    {\n        public const string Stamp = "${stamp}";\n    }\n}\n`
+);
 
-/* ---- Compile it, with the C# compiler Windows comes with ---- */
+// Compile with the C# compiler that ships with .NET Framework 4.
 const windir = process.env.WINDIR ?? "C:\\Windows";
 const fw = join(windir, "Microsoft.NET", "Framework64", "v4.0.30319");
 const csc = join(fw, "csc.exe");
@@ -190,7 +202,7 @@ execFileSync(
   { stdio: "inherit" }
 );
 
-/* ---- Into place: Wallpaper/PixelBattle.exe (a running one is asked to close first) ---- */
+// Copy into place; a running instance is asked to exit first so its exe can be replaced.
 const place = () => {
   try {
     copyFileSync(made, exe);

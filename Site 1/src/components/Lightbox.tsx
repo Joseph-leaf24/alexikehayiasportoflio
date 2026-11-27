@@ -14,9 +14,9 @@ interface Props {
 }
 
 /**
- * Full-screen gallery viewer (portalled to <body>). Locks page scroll, focuses Close, keeps
- * Tab focus inside the dialog and hands focus back on exit; Esc closes, ←/→ (and the side
- * buttons) cycle, clicking the backdrop closes.
+ * Full-screen gallery viewer, portalled to <body>. Locks page scroll, focuses Close, traps Tab
+ * and hands focus back on exit. Esc or a click on the backdrop closes it; ←/→ and the side
+ * buttons cycle through the images.
  */
 export default function Lightbox({ images, index, title, onClose, onIndex }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -50,13 +50,26 @@ export default function Lightbox({ images, index, title, onClose, onIndex }: Pro
   }, [index, count, onClose, onIndex]);
 
   return createPortal(
-    <div ref={dialogRef} className="lightbox" role="dialog" aria-modal="true" aria-label={`${title} — image viewer`} onClick={onClose}>
+    <div
+      ref={dialogRef}
+      className="lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${title} — image viewer`}
+      onClick={onClose}
+    >
       <div className="lightbox__top" onClick={(e) => e.stopPropagation()}>
         <span>
           {pad(index + 1)} / {pad(count)}
         </span>
         <span className="lightbox__title">{title}</span>
-        <button ref={closeRef} type="button" className="btn-ice btn-ice--sm" onClick={onClose} aria-label="Close image viewer">
+        <button
+          ref={closeRef}
+          type="button"
+          className="btn-ice btn-ice--sm"
+          onClick={onClose}
+          aria-label="Close image viewer"
+        >
           <X className="h-4 w-4" /> Close
         </button>
       </div>

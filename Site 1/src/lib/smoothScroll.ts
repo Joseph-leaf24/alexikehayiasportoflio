@@ -1,7 +1,7 @@
 /**
- * Page scrolling: Lenis smooth scroll kept in sync with GSAP ScrollTrigger, plus helpers
- * to scroll to a target, lock scrolling and re-measure. With reduced motion it falls back
- * to native scrolling. Either way the scroll velocity is fed to the WebGL scene.
+ * Page scrolling: Lenis smooth scroll kept in sync with GSAP ScrollTrigger, or native scrolling
+ * with reduced motion, plus helpers to scroll, lock and re-measure. Either way the scroll
+ * velocity is fed to the WebGL scene.
  */
 import Lenis from "lenis";
 import gsap from "gsap";
@@ -17,13 +17,13 @@ let teardown: (() => void) | null = null;
 export const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Start Lenis smooth scrolling driven by the GSAP ticker (falls back to native scroll). Idempotent; returns the teardown. */
+/** Starts Lenis on the GSAP ticker, or native scrolling with reduced motion. Idempotent; returns the teardown. */
 export function initSmoothScroll() {
   if (teardown) return teardown;
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
   if (prefersReducedMotion()) {
-    // Native scroll: still feed the scroll velocity to the scene (ScrollTrigger follows native scroll itself)
+    // Native scroll still feeds its velocity to the scene; ScrollTrigger follows native scroll by itself
     let lastY = window.scrollY;
     let lastT = performance.now();
     const onScroll = () => {
@@ -74,8 +74,8 @@ type Target = HTMLElement | number | string;
 export function scrollToTarget(target: Target, opts: { offset?: number; immediate?: boolean; duration?: number } = {}) {
   const { offset = 0, immediate = false, duration } = opts;
   if (lenis) {
-    // After a route change Lenis still holds the previous page's height and would
-    // clamp the target to it — re-measure first.
+    // After a route change Lenis still holds the previous page's height and would clamp the
+    // target to it, so re-measure first
     lenis.resize();
     lenis.scrollTo(target, { offset, immediate, duration, force: true, lock: !immediate });
     return;
@@ -91,10 +91,9 @@ export function scrollToTarget(target: Target, opts: { offset?: number; immediat
 }
 
 /**
- * Freeze page scrolling (image viewer, phone menu, shortcuts help); the 3D scene pauses behind
- * them. The intro loader locks scrolling but keeps the scene going (`pauseScene: false`): it's
- * waiting for the scene's first frame, drawn behind it — paused, the scene would never draw it
- * and the loader would sit there until its timeout.
+ * Freezes page scrolling under an overlay and pauses the 3D scene behind it. The intro loader
+ * passes `pauseScene: false`: it waits for the scene's first frame, which a paused scene would
+ * never draw, leaving the loader up until its timeout.
  */
 export function setScrollLocked(locked: boolean, { pauseScene = true }: { pauseScene?: boolean } = {}) {
   if (lenis) {

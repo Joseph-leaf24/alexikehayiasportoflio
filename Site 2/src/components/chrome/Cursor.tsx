@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 
-/** The element an event happened on (events can also target window or text nodes). */
+/** The element an event happened on; events can also target the window or text nodes. */
 const elementOf = (t: EventTarget | null) => (t instanceof Element ? t : null);
 
 /** Round to the nearest even pixel. */
 const snap2 = (v: number) => Math.round(v / 2) * 2;
 
-/** Controls that lean toward the pointer while hovered (the ring snaps to them). */
+/** Controls that lean toward the pointer while hovered; the ring sticks to them. */
 const MAGNETIC = ".btn-px, .hud-nav a, .back-link, .site-footer__top, .hud-burger, .hud-brand, [data-magnetic]";
 
-/** Pixel crosshair: a dot plus a lagging bracket with contextual labels (`data-cursor="OPEN"`) and magnetic controls. Mouse only. */
+/** Pixel crosshair: a dot plus a lagging bracket with labels from `data-cursor`, and magnetic controls. Mouse only. */
 export default function Cursor() {
   const [enabled] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches
@@ -30,8 +30,8 @@ export default function Cursor() {
     // Magnetic controls: they lean toward the pointer and the ring sticks to them
     let magnet: HTMLElement | null = null;
     const stick = { x: 0, y: 0 };
-    // The pull's transform transition is added to the control's own transitions (its colour fill
-    // etc. keep animating), and taken off again once it has settled back
+    // The pull's transform transition is appended to the control's own transitions, so its colour
+    // fill and the rest keep animating, and removed once it has settled back
     const own = new WeakMap<HTMLElement, string>();
     const glide = (el: HTMLElement, seconds: number) => {
       if (!own.has(el)) own.set(el, getComputedStyle(el).transition);
@@ -105,7 +105,13 @@ export default function Cursor() {
       const ty = magnet ? stick.y + (pos.y - stick.y) * 0.3 : pos.y;
       ring.x += (tx - ring.x) * 0.18;
       ring.y += (ty - ring.y) * 0.18;
-      if (pos.x === drawn.x && pos.y === drawn.y && Math.abs(ring.x - drawn.rx) < 0.05 && Math.abs(ring.y - drawn.ry) < 0.05) return;
+      if (
+        pos.x === drawn.x &&
+        pos.y === drawn.y &&
+        Math.abs(ring.x - drawn.rx) < 0.05 &&
+        Math.abs(ring.y - drawn.ry) < 0.05
+      )
+        return;
       drawn.x = pos.x;
       drawn.y = pos.y;
       drawn.rx = ring.x;

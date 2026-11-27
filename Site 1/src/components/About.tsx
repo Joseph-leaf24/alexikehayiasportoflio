@@ -17,7 +17,7 @@ const STATS = [
   { value: profile.focus.length, label: "Focus areas" },
 ];
 
-/** "Who I Am": the statement (lit word by word as it scrolls past), counters, portrait and focus areas. */
+/** "Who I Am": the statement, lit word by word as it scrolls past, then counters, portrait and focus areas. */
 export default function About() {
   const manifestoRef = useRef<HTMLParagraphElement>(null);
 
@@ -25,7 +25,7 @@ export default function About() {
   useEffect(() => {
     const el = manifestoRef.current;
     if (prefersReducedMotion() || !el) return;
-    // (scoped to the element, not the ref: see Hero)
+    // Scoped to the element, not the ref: see Hero
     const ctx = gsap.context(() => {
       gsap.fromTo(
         ".mw",
@@ -100,7 +100,13 @@ export default function About() {
             </div>
 
             <Reveal className="about-links" delay={200}>
-              <a className="btn-ice" href={profile.linkedin} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
+              <a
+                className="btn-ice"
+                href={profile.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-cursor="OPEN"
+              >
                 <Linkedin className="h-4 w-4" />
                 <ScrambleText text="LinkedIn" trigger="none" hover />
               </a>

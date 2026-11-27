@@ -7,10 +7,9 @@ import { cn } from "@/lib/utils";
 const SPEEDS = [0.5, 1, 2, 4, 8] as const;
 
 /**
- * Controls for the battle behind the page, shown down in the spectator space at the bottom of
- * the page: pause / resume, how fast it plays (½× up to 8×), and zoom: out to see more of the battlefield (in smaller pixels), back in. Also on the
- * keyboard: P pauses or resumes, [ and ] slow down or speed up, - and + zoom out and in.
- * Hidden when the scene can't draw.
+ * Controls for the battle behind the page, shown while the spectator space at the bottom is in view:
+ * pause, endless levels, speed from ½× to 8×, and zoom. On the keyboard, P pauses or resumes, [ and ]
+ * change the speed, and - and + zoom out and in. Hidden when the scene can't draw.
  */
 export default function SceneControls() {
   const [paused, setPaused] = useState(sceneState.paused);
@@ -22,7 +21,7 @@ export default function SceneControls() {
     window.addEventListener("scenewatch", on);
     return () => window.removeEventListener("scenewatch", on);
   }, []);
-  // (the scene says how far it can zoom, after each resize)
+  // The scene reports how far it can zoom after each resize
   const [zoom, setZoom] = useState({ pct: 100, canIn: sceneState.zoom > 0, canOut: true });
   const zoomBy = (d: number) => {
     sceneState.zoom = Math.max(0, Math.min(8, sceneState.zoom + d));
@@ -60,9 +59,9 @@ export default function SceneControls() {
   }, []);
 
   if (!sceneState.canvas || !watching) return null;
-  // (a landmark of its own: it sits outside <main>, fixed over the spectator space. A toggle
-  // either says what it will do (Pause / Resume) or keeps its name and is pressed or not
-  // (Endless, the speeds), never both: "Resume, pressed" would read as resuming being on.)
+  // A landmark of its own, as it sits outside <main>. A toggle either names what it will do, like
+  // Pause and Resume, or keeps its name and is pressed or not, like Endless and the speeds. Never
+  // both: "Resume, pressed" would read as resuming being on.
   return (
     <div className="scene-controls" role="region" aria-label="Background animation">
       <button
@@ -71,7 +70,11 @@ export default function SceneControls() {
         onClick={toggle}
         aria-label={paused ? "Resume the background" : "Pause the background"}
       >
-        {paused ? <Play className="h-3.5 w-3.5" aria-hidden="true" /> : <Pause className="h-3.5 w-3.5" aria-hidden="true" />}
+        {paused ? (
+          <Play className="h-3.5 w-3.5" aria-hidden="true" />
+        ) : (
+          <Pause className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
         <span>{paused ? "Resume" : "Pause"}</span>
       </button>
       <button
@@ -88,19 +91,29 @@ export default function SceneControls() {
         <span>Endless</span>
       </button>
       <span className="scene-controls__rule" aria-hidden="true" />
-      {/* (the speeds: each named by what it shows, in a group called Speed) */}
       <span className="scene-controls__speeds" role="group" aria-label="Speed">
         <span className="scene-controls__label" aria-hidden="true">
           Speed
         </span>
         {SPEEDS.map((s) => (
-          <button key={s} type="button" className={cn("scene-controls__speed", speed === s && "is-on")} onClick={() => pick(s)} aria-pressed={speed === s}>
+          <button
+            key={s}
+            type="button"
+            className={cn("scene-controls__speed", speed === s && "is-on")}
+            onClick={() => pick(s)}
+            aria-pressed={speed === s}
+          >
             {s === 0.5 ? "½×" : `${s}×`}
           </button>
         ))}
       </span>
       <span className="scene-controls__rule" aria-hidden="true" />
-      <button type="button" onClick={() => zoomBy(1)} disabled={!zoom.canOut} aria-label="Zoom out: see more of the battlefield">
+      <button
+        type="button"
+        onClick={() => zoomBy(1)}
+        disabled={!zoom.canOut}
+        aria-label="Zoom out: see more of the battlefield"
+      >
         <Minus className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
       <span className="scene-controls__label scene-controls__zoom" aria-live="polite">

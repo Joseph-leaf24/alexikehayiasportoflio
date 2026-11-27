@@ -26,15 +26,23 @@ function renderIndex(state?: unknown) {
 }
 
 describe("home page", () => {
-  it("renders every section in order and feeds their positions to the 3D scene", async () => {
+  it("renders every section in order and feeds their positions to the scene", async () => {
     const { unmount } = renderIndex();
     for (const id of ["top", "about", "domains", "toolbox", "projects", "contact"]) {
       expect(document.getElementById(id)).toBeInTheDocument();
     }
-    expect(sceneState.stops.map((s) => s.layout)).toEqual(["village", "shatter", "clusters", "network", "bars", "villageTop", "watch"]);
+    expect(sceneState.stops.map((s) => s.layout)).toEqual([
+      "village",
+      "shatter",
+      "clusters",
+      "network",
+      "bars",
+      "villageTop",
+      "watch",
+    ]);
     expect(sceneState.override).toBeNull();
     await flush();
-    // the section label follows whatever crosses the middle of the screen
+    // The section label follows whatever crosses the middle of the screen
     expect(ui.get().sectionLabel).not.toBe("INTRO");
     window.dispatchEvent(new Event("resize"));
     unmount();
@@ -67,7 +75,7 @@ describe("home page", () => {
   it("after moving within the site, opens on the requested section with the specialization that was being viewed", () => {
     nav.inApp = true;
     renderIndex({ scrollTo: "projects", category: "nlp" });
-    // #projects is at 0 in jsdom, so the -10 offset gives -10 (not the plain top, 0)
+    // #projects is at 0 in jsdom, so the -10 offset gives -10 rather than the plain top, 0
     expect(window.scrollTo).toHaveBeenCalledWith({ top: -10, behavior: "auto" });
     const selected = screen.getAllByRole("tab").find((t) => t.getAttribute("aria-selected") === "true")!;
     expect(selected).toHaveAttribute("id", "tab-nlp");
@@ -164,7 +172,10 @@ describe("project page", () => {
 
   it("embeds the Power BI dashboard for analytics projects", () => {
     renderRoute(<ProjectDetails />, { path: "/project/:category/:projectIndex", route: "/project/dataAnalytics/1" });
-    expect(screen.getByTitle(projectData.dataAnalytics.projects[1].title)).toHaveAttribute("src", projectData.dataAnalytics.projects[1].powerBiUrl);
+    expect(screen.getByTitle(projectData.dataAnalytics.projects[1].title)).toHaveAttribute(
+      "src",
+      projectData.dataAnalytics.projects[1].powerBiUrl
+    );
     expect(screen.getByRole("link", { name: /open dashboard/i })).toBeInTheDocument();
   });
 
@@ -214,7 +225,10 @@ describe("App", () => {
     fireEvent(window, new PointerEvent("pointerdown", { pointerType: "touch" }));
     expect(sceneState.burst).toBe(before + 1);
     // Clicking a control is for using the site: nothing blows up
-    fireEvent(screen.getByRole("link", { name: "Skip to content" }), new PointerEvent("pointerdown", { pointerType: "mouse", bubbles: true }));
+    fireEvent(
+      screen.getByRole("link", { name: "Skip to content" }),
+      new PointerEvent("pointerdown", { pointerType: "mouse", bubbles: true })
+    );
     expect(sceneState.burst).toBe(before + 1);
     fireEvent.click(screen.getByRole("link", { name: "Skip to content" }));
     expect(document.activeElement).toHaveAttribute("id", "main");

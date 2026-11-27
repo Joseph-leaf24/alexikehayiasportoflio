@@ -21,7 +21,6 @@ engineering and data analytics.
 [![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Ftests.json)](../../actions/workflows/deploy.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Fcoverage.json)](../../actions/workflows/deploy.yml)
 [![Vulnerabilities](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Fvulnerabilities.json)](../../actions/workflows/deploy.yml)
-[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](.github/dependabot.yml)
 
 [![Lighthouse performance](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-performance.json&logo=lighthouse&logoColor=white)](Site%201/lighthouserc.json)
 [![Lighthouse accessibility](https://img.shields.io/endpoint?url=https%3A%2F%2Fjoseph-leaf24.github.io%2Falexikehayiasportoflio%2Fbadges%2Flighthouse-accessibility.json&logo=lighthouse&logoColor=white)](Site%201/lighthouserc.json)
@@ -112,7 +111,7 @@ Site 1/
   scripts/         secrets scan, README badge data
   docker/          nginx config for the container
   package.json, Vite / Vitest / Playwright / ESLint / Lighthouse / lychee configs, Dockerfile
-.github/           CI/CD workflows and Dependabot (at the repo root, where GitHub reads them)
+.github/           CI/CD workflows (at the repo root, where GitHub reads them)
 ```
 
 ## License

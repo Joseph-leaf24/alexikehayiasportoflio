@@ -9,8 +9,8 @@ import Reveal from "@/components/fx/Reveal";
 
 /**
  * Hero: giant name, focus areas and the "View Projects" CTA. Pressing and holding on it
- * shatters the 3D scene (an easter egg, listed in the `?` shortcuts help); with a mouse
- * (and motion allowed, above the low tier) the letters of the name shy away from the cursor.
+ * shatters the 3D scene. With a mouse, the letters of the name shy away from the cursor, unless
+ * motion is reduced or the tier is low.
  */
 const Hero = () => {
   const ref = useRef<HTMLElement>(null);
@@ -59,9 +59,9 @@ const Hero = () => {
       raf = 0;
       if (window.scrollY > window.innerHeight) return;
       const chars = Array.from(title.querySelectorAll<HTMLElement>(".sc-ch"));
-      // Read every letter's resting centre first, then write the transforms (reading after
-      // each write would make the browser recompute styles once per letter). offset*
-      // ignores transforms, so the centres stay put while the letters move.
+      // Read every letter's resting centre first, then write the transforms: reading after each
+      // write would make the browser recompute styles once per letter. offset* ignores
+      // transforms, so the centres stay put while the letters move.
       const parentRects = new Map<HTMLElement, DOMRect>();
       const centres = chars.map((ch) => {
         const parent = ch.offsetParent as HTMLElement | null;
@@ -101,11 +101,9 @@ const Hero = () => {
     };
   }, [coarse]);
 
-  // Hero copy drifts up and fades as you leave it — not with reduced motion, like the other
-  // scroll-linked effects (a drift tied to scrolling is just what that setting is there to stop).
-  // (The scope is the element itself, not the ref: React nulls the ref before this cleanup runs,
-  // and ScrollTrigger re-reads the scope while tearing down, which made GSAP warn "Invalid
-  // scope" every time the page was left.)
+  // Hero copy drifts up and fades as you scroll away, unless motion is reduced. The scope is the
+  // element itself, not the ref: React nulls the ref before this cleanup runs and ScrollTrigger
+  // re-reads the scope while tearing down, which makes GSAP warn "Invalid scope".
   useEffect(() => {
     const el = ref.current;
     if (!el || prefersReducedMotion()) return;
@@ -133,8 +131,20 @@ const Hero = () => {
           <h1 className="hero__title">
             <span className="sr-only">{profile.name}</span>
             <span aria-hidden="true">
-              <ScrambleText text={profile.firstName} trigger="mount" duration={1300} delay={120} className="hero__line" />
-              <ScrambleText text={profile.lastName} trigger="mount" duration={1500} delay={320} className="hero__line hero__line--r" />
+              <ScrambleText
+                text={profile.firstName}
+                trigger="mount"
+                duration={1300}
+                delay={120}
+                className="hero__line"
+              />
+              <ScrambleText
+                text={profile.lastName}
+                trigger="mount"
+                duration={1500}
+                delay={320}
+                className="hero__line hero__line--r"
+              />
             </span>
           </h1>
 
@@ -151,7 +161,12 @@ const Hero = () => {
               </ul>
             </Reveal>
             <Reveal className="hero__ctas" delay={850}>
-              <button type="button" className="btn-ice btn-ice--solid" onClick={() => scrollToTarget("#projects", { offset: -10 })} data-cursor="SCROLL">
+              <button
+                type="button"
+                className="btn-ice btn-ice--solid"
+                onClick={() => scrollToTarget("#projects", { offset: -10 })}
+                data-cursor="SCROLL"
+              >
                 <ScrambleText text="View Projects" trigger="none" hover />
                 <ArrowDown className="h-4 w-4" />
               </button>

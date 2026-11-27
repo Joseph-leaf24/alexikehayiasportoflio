@@ -29,7 +29,7 @@ const AzureDevOpsIcon: IconType = ({ className }) => (
 
 const RAGIcon: IconType = ({ className }) => <DatabaseZap className={className} aria-hidden="true" />;
 
-export interface Skill {
+interface Skill {
   name: string;
   Icon: IconType;
   /** Caption under the name on the Toolbox tile */

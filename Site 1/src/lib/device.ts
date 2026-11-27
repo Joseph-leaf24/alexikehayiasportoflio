@@ -1,39 +1,37 @@
 /**
- * Rendering budget. Every device gets the full quality: the whole cube world, bloom and
- * grain at the screen's own resolution (up to MAX_DPR), and every page effect. Nothing is
- * scaled down automatically, at load or while running. `?quality=low|mid|high` in the URL
- * picks a lighter budget by hand, for testing.
+ * Rendering budget. Every device gets the full quality and nothing is scaled down
+ * automatically; `?quality=low|mid|high` in the URL picks a lighter budget by hand, for testing.
  */
-export type Tier = "low" | "mid" | "high";
+type Tier = "low" | "mid" | "high";
 
 /** Highest device-pixel ratio the 3D canvas renders at: beyond 2× extra pixels don't show under the grain. */
 export const MAX_DPR = 2;
 
-/** The budget for one tier, read by the WebGL scene, the page transition and the CSS (html[data-tier]). */
-export interface Quality {
+/** The budget for one tier, read by the WebGL scene, the page transition and the CSS via html[data-tier]. */
+interface Quality {
   tier: Tier;
   /** MSAA samples on the scene's render target */
   msaa: number;
   bloomStrength: number;
-  /** Voxel terrain extents (x min/max, z min) — smaller = fewer cubes */
+  /** Voxel terrain extents: x min/max and z min. Smaller means fewer cubes */
   terrain: { xMin: number; xMax: number; zMin: number };
-  /** Edge length of the near-sea water blocks (bigger = fewer blocks) */
+  /** Edge length of the near-sea water blocks; bigger means fewer blocks */
   waterCell: number;
   /** Drifting snow particles */
   particles: number;
-  /** Ice-dust particles for the cursor trail and click bursts (0 = off) */
+  /** Ice-dust particles for the cursor trail and click bursts; 0 turns them off */
   dust: number;
   /** Ice floes bobbing at the foot of the cliff */
   floes: number;
-  /** Edge length of the moon's cubes (bigger = fewer cubes) */
+  /** Edge length of the moon's cubes; bigger means fewer cubes */
   moonCube: number;
   /** Ice-sheet slices in the page transition */
   shards: number;
 }
 
 /**
- * The budget for a tier. Touch screens skip MSAA (their pixel density already hides jagged
- * edges) and the cursor dust (there's no cursor); everything else is the same.
+ * The budget for a tier. Touch screens skip MSAA, since their pixel density already hides
+ * jagged edges, and the cursor dust; everything else is the same.
  */
 export function qualityFor(tier: Tier, coarse: boolean): Quality {
   switch (tier) {
@@ -85,7 +83,7 @@ const isTier = (v: unknown): v is Tier => typeof v === "string" && (TIERS as str
 
 let cached: Quality | null = null;
 
-/** The budget for this page load (the full one unless ?quality= says otherwise), exposed as html[data-tier]. */
+/** The budget for this page load, decided once and exposed as html[data-tier]. */
 export function getQuality(): Quality {
   if (cached) return cached;
   const forced = new URLSearchParams(window.location.search).get("quality");

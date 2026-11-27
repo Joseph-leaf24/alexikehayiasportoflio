@@ -18,9 +18,13 @@ describe("HUD", () => {
     target.id = "toolbox";
     document.body.appendChild(target);
     renderRoute(<Hud />);
-    const nav = screen.getByRole("navigation", { name: "Primary" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["About", "Domains", "Toolbox", "Work", "Contact", "Watch"].map((t) => expect.stringContaining(t)));
-    fireEvent.click(within(nav).getAllByRole("link")[2]);
+    const primary = screen.getByRole("navigation", { name: "Primary" });
+    expect(
+      within(primary)
+        .getAllByRole("link")
+        .map((a) => a.textContent)
+    ).toEqual(["About", "Domains", "Toolbox", "Work", "Contact", "Watch"].map((t) => expect.stringContaining(t)));
+    fireEvent.click(within(primary).getAllByRole("link")[2]);
     expect(window.scrollTo).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("link", { name: /home/i }));
     expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: "smooth" });
@@ -45,8 +49,8 @@ describe("HUD", () => {
 
   it("navigates home with a page transition from other pages", async () => {
     renderRoute(<Hud />, { path: "/project/:c/:i", route: "/project/nlp/0" });
-    const nav = screen.getByRole("navigation", { name: "Primary" });
-    fireEvent.click(within(nav).getAllByRole("link")[2]);
+    const primary = screen.getByRole("navigation", { name: "Primary" });
+    fireEvent.click(within(primary).getAllByRole("link")[2]);
     expect(await screen.findByText("elsewhere")).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toBe("/");
   });
@@ -89,7 +93,7 @@ describe("Scene controls", () => {
     expect(screen.getByRole("region", { name: "Background animation" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Pause the background" }));
     expect(sceneState.paused).toBe(true);
-    // (says what it will do next, and isn't also a pressed/unpressed toggle; lit up while paused)
+    // It says what it will do next, isn't also a pressed toggle, and is lit up while paused
     const resume = screen.getByRole("button", { name: "Resume the background" });
     expect(resume).not.toHaveAttribute("aria-pressed");
     expect(resume).toHaveTextContent("Resume");
@@ -151,7 +155,7 @@ describe("Cursor", () => {
     fireEvent(window, new PointerEvent("pointermove", { clientX: 400, clientY: 400, pointerType: "mouse" }));
     expect(btn.style.transform).toBe("");
     expect(btn.style.transition).toMatch(/transform 0\.7s/);
-    // once it has glided back, the control's own CSS transitions are in charge again
+    // Once it has glided back, the control's own CSS transitions are in charge again
     advance(800);
     expect(btn.style.transition).toBe("");
     fireEvent.mouseOver(document.body);
@@ -184,7 +188,7 @@ describe("Loader", () => {
 
   it("keeps the scene drawing behind it, and lifts soon after the scene's first frame (not at its timeout)", async () => {
     useAnimationTimers();
-    // (jsdom never loads images: this portrait loads straight away, as a cached one would)
+    // jsdom never loads images: this portrait loads straight away, as a cached one would
     class LoadingImage {
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
@@ -202,7 +206,7 @@ describe("Loader", () => {
     });
     advance(500);
     sceneState.ready = true;
-    // (the 2 s minimum, the count's last stretch and the 380 ms hand-over: well inside the 7 s timeout)
+    // The 2 s minimum, the count's last stretch and the 380 ms hand-over: well inside the 7 s timeout
     advance(3000);
     expect(ui.get().ready).toBe(true);
     expect(document.documentElement).not.toHaveClass("scroll-locked");
@@ -252,7 +256,7 @@ describe("page transitions", () => {
     fireEvent.click(link);
     expect(await screen.findByText("next page")).toBeInTheDocument();
     expect(sceneState.pulse).toBeGreaterThan(0);
-    // ...and marks that the visitor has moved within the site (see Index)
+    // ...and marks that the visitor has moved within the site, which Index reads
     expect(nav.inApp).toBe(true);
   });
 

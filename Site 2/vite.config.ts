@@ -3,10 +3,9 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 /**
- * Production build only: a strict Content-Security-Policy so the page can only run its own
- * scripts and talk to the few services it needs (Google Fonts, Power BI embeds). Delivered
- * as a <meta> tag so it also applies under `vite preview` or any static file server.
- * (Not used in dev, where Vite / React refresh rely on inline scripts.)
+ * Production-only Content-Security-Policy: the page may run only its own scripts and reach only
+ * Google Fonts and Power BI embeds. Delivered as a <meta> tag so it also applies under
+ * `vite preview` or any static file server. Dev is left out because React refresh needs inline scripts.
  */
 const CSP = [
   "default-src 'self'",
@@ -40,8 +39,8 @@ function securityHeaders(): Plugin {
   };
 }
 
-// Site 2 runs locally only (`npm run dev`, or `npm run build && npm run preview`), so it is
-// served from the root path. Port 8081 keeps it clear of the main site's dev server (8080).
+// Site 2 runs locally only, through `npm run dev` or `npm run build && npm run preview`, so it is
+// served from the root path. Port 8081 keeps it clear of the main site's dev server on 8080.
 export default defineConfig(() => ({
   base: "/",
   server: {
@@ -62,9 +61,9 @@ export default defineConfig(() => ({
     sourcemap: false,
     rollupOptions: {
       output: {
-        // Keep the motion libraries and React in their own cacheable chunks
+        // The game engine, the motion libraries and React each get a cacheable chunk; the engine
+        // alone was most of a single 600 kB chunk
         manualChunks: {
-          // (the battle engine on its own, as the live site keeps three.js: it was most of one 600 kB chunk)
           pixel: [path.resolve(__dirname, "./src/components/pixel/PixelScene.tsx")],
           motion: ["gsap", "lenis"],
           react: ["react", "react-dom", "react-router-dom"],

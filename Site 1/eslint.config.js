@@ -23,7 +23,10 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true, allowExportNames: ["usePageTransition"] },
       ],
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true },
+      ],
     },
   },
   {

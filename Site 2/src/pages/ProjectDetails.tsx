@@ -17,10 +17,9 @@ import Lightbox from "@/components/Lightbox";
 import { pad } from "@/lib/utils";
 
 /**
- * Project page (`/project/:category/:projectIndex`): header, a neural-network figure of
- * the project (ProjectGraph), spec panels, the Power BI embed and image gallery when the
- * project has them, and prev/next links that cycle through every project. The pixel
- * scene holds on the HQ zone here.
+ * Project page at `/project/:category/:projectIndex`: header, the project network figure, spec
+ * panels, the Power BI embed and gallery when the project has them, and prev/next links that cycle
+ * through every project.
  */
 const ProjectDetails = () => {
   const { category, projectIndex } = useParams();
@@ -35,7 +34,7 @@ const ProjectDetails = () => {
   const prev = flatIndex >= 0 ? allProjects[(flatIndex - 1 + total) % total] : null;
   const next = flatIndex >= 0 ? allProjects[(flatIndex + 1) % total] : null;
 
-  // Always open a project at the top (HashRouter doesn't reset scroll)
+  // Always open a project at the top: HashRouter doesn't reset scroll
   useLayoutEffect(() => {
     scrollToTarget(0, { immediate: true });
     setLightbox(null);
@@ -54,12 +53,13 @@ const ProjectDetails = () => {
 
   const closeLightbox = useCallback(() => setLightbox(null), []);
 
-  // ← / → step through the projects (the image viewer uses the same keys while it's open)
+  // ← / → step through the projects; the image viewer takes the same keys while it's open
   const go = usePageTransition();
   useEffect(() => {
     if (!prev || !next) return;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key !== "ArrowLeft" && e.key !== "ArrowRight") || e.defaultPrevented || hasModifier(e) || e.shiftKey) return;
+      if ((e.key !== "ArrowLeft" && e.key !== "ArrowRight") || e.defaultPrevented || hasModifier(e) || e.shiftKey)
+        return;
       if (isTypingTarget(e.target) || isModalOpen() || ui.get().menuOpen) return;
       e.preventDefault();
       const to = e.key === "ArrowLeft" ? prev : next;
@@ -141,7 +141,13 @@ const ProjectDetails = () => {
               </a>
             ) : null}
             {project.powerBiUrl ? (
-              <a className="btn-px btn-px--solid" href={project.powerBiUrl} target="_blank" rel="noopener noreferrer" data-cursor="OPEN">
+              <a
+                className="btn-px btn-px--solid"
+                href={project.powerBiUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-cursor="OPEN"
+              >
                 <ScrambleText text="Open Dashboard" trigger="none" hover />
                 <ArrowUpRight className="h-4 w-4" />
               </a>
@@ -233,7 +239,11 @@ const ProjectDetails = () => {
             </span>
             <ScrambleText text={prev.project.title} trigger="none" hover className="pager__title" />
           </TLink>
-          <TLink to={projectPath(next.category, next.index)} className="pager__link pager__link--next" data-cursor="NEXT">
+          <TLink
+            to={projectPath(next.category, next.index)}
+            className="pager__link pager__link--next"
+            data-cursor="NEXT"
+          >
             <span className="mono-label">
               Next project <ArrowRight className="h-3.5 w-3.5" />
             </span>
@@ -243,7 +253,13 @@ const ProjectDetails = () => {
       ) : null}
 
       {lightbox !== null ? (
-        <Lightbox images={images} index={lightbox} title={project.title} onClose={closeLightbox} onIndex={setLightbox} />
+        <Lightbox
+          images={images}
+          index={lightbox}
+          title={project.title}
+          onClose={closeLightbox}
+          onIndex={setLightbox}
+        />
       ) : null}
     </article>
   );

@@ -12,7 +12,7 @@ interface Props {
   className?: string;
   /** "view": decode when scrolled into view · "mount": decode right after the loader · "none": static */
   trigger?: "view" | "mount" | "none";
-  /** Re-scramble when the closest link / button / [data-scramble-host] (or the element itself) is hovered or focused. */
+  /** Re-scramble when the closest link, button or [data-scramble-host], else the element itself, is hovered or focused. */
   hover?: boolean;
   /** Wait before the first decode starts, ms. */
   delay?: number;
@@ -21,9 +21,8 @@ interface Props {
 }
 
 /**
- * Decoding "scramble" text. Every character is its own inline-block holding
- * the final glyph (invisible while scrambling), so nothing reflows. Screen readers
- * get the plain text.
+ * Decoding "scramble" text. Every character is its own inline-block holding the final glyph,
+ * invisible while scrambling, so nothing reflows. Screen readers get the plain text.
  */
 export default function ScrambleText({
   text,
@@ -40,48 +39,45 @@ export default function ScrambleText({
 
   const chars = () => Array.from(rootRef.current?.querySelectorAll<HTMLSpanElement>("[data-c]") ?? []);
 
-  const run = useCallback(
-    (opts: { fromHidden: boolean; dur: number; delay: number }) => {
-      const els = chars();
-      if (!els.length) return;
-      cancelAnimationFrame(rafRef.current);
-      const n = els.length;
-      const t0 = performance.now() + opts.delay;
-      const spread = opts.dur * 0.55;
-      const plan = els.map((_, i) => {
-        const start = (i / Math.max(1, n - 1)) * spread;
-        return { start, end: start + opts.dur * 0.25 + Math.random() * opts.dur * 0.3 };
-      });
-      if (opts.fromHidden) els.forEach((el) => el.setAttribute("data-h", ""));
-      const step = (now: number) => {
-        const t = now - t0;
-        let done = 0;
-        // Random glyphs change every 55 ms, not every frame
-        const tick = Math.floor(now / 55);
-        for (let i = 0; i < n; i++) {
-          const el = els[i];
-          const p = plan[i];
-          if (t < p.start) continue;
-          if (t >= p.end) {
-            if (el.hasAttribute("data-g") || el.hasAttribute("data-h")) {
-              el.removeAttribute("data-g");
-              el.removeAttribute("data-h");
-            }
-            done++;
-            continue;
+  const run = useCallback((opts: { fromHidden: boolean; dur: number; delay: number }) => {
+    const els = chars();
+    if (!els.length) return;
+    cancelAnimationFrame(rafRef.current);
+    const n = els.length;
+    const t0 = performance.now() + opts.delay;
+    const spread = opts.dur * 0.55;
+    const plan = els.map((_, i) => {
+      const start = (i / Math.max(1, n - 1)) * spread;
+      return { start, end: start + opts.dur * 0.25 + Math.random() * opts.dur * 0.3 };
+    });
+    if (opts.fromHidden) els.forEach((el) => el.setAttribute("data-h", ""));
+    const step = (now: number) => {
+      const t = now - t0;
+      let done = 0;
+      // Random glyphs change every 55 ms, not every frame
+      const tick = Math.floor(now / 55);
+      for (let i = 0; i < n; i++) {
+        const el = els[i];
+        const p = plan[i];
+        if (t < p.start) continue;
+        if (t >= p.end) {
+          if (el.hasAttribute("data-g") || el.hasAttribute("data-h")) {
+            el.removeAttribute("data-g");
+            el.removeAttribute("data-h");
           }
-          el.removeAttribute("data-h");
-          if (el.dataset.k !== String(tick)) {
-            el.dataset.k = String(tick);
-            el.setAttribute("data-g", randGlyph());
-          }
+          done++;
+          continue;
         }
-        if (done < n) rafRef.current = requestAnimationFrame(step);
-      };
-      rafRef.current = requestAnimationFrame(step);
-    },
-    []
-  );
+        el.removeAttribute("data-h");
+        if (el.dataset.k !== String(tick)) {
+          el.dataset.k = String(tick);
+          el.setAttribute("data-g", randGlyph());
+        }
+      }
+      if (done < n) rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+  }, []);
 
   // Initial reveal
   useEffect(() => {

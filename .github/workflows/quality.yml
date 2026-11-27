@@ -12,15 +12,15 @@ name: Code quality
 #   • Python    — PEP 8 compliance (flake8) for the project code in Projects/
 #   • Secrets   — fails if API keys, tokens or hard-coded passwords are committed
 #
-# Actions are pinned to full commit SHAs (the comment gives the version);
-# Dependabot keeps them up to date (.github/dependabot.yml). When called from
+# Actions are pinned to full commit SHAs (the comment gives the version) and are
+# updated by hand. When called from
 # deploy.yml, the test, coverage, audit and Lighthouse numbers are passed back as
 # outputs and published as the README badges (scripts/badges.mjs).
 
 on:
   push:
-    # main is checked by deploy.yml; Dependabot's branches by their pull requests
-    branches-ignore: [main, "dependabot/**"]
+    # main is checked by deploy.yml
+    branches-ignore: [main]
   pull_request:
   workflow_call:
     outputs:
@@ -97,7 +97,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
       - name: Known vulnerabilities in build tooling (report only)
-        run: npm audit --audit-level=high || echo "::warning title=npm audit::Build-tool dependencies have high-severity advisories; merge Dependabot's update PRs"
+        run: npm audit --audit-level=high || echo "::warning title=npm audit::Build-tool dependencies have high-severity advisories; update them with npm"
 
       - name: Record the results for the README badges
         id: results

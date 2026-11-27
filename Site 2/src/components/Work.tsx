@@ -17,9 +17,8 @@ interface WorkProps {
 }
 
 /**
- * Work section ("mission select"): specialization tabs (ARIA tabs pattern with arrow / Home /
- * End keys and a roving tabindex), each with the player who stands for it (hovering points
- * them out in the scene), above the selected category's project cards.
+ * Work section: specialization tabs, following the ARIA tabs pattern with a roving tabindex, above
+ * the selected category's project cards. Hovering a tab points out its player in the scene.
  */
 export default function Work({ active, setActive }: WorkProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -32,7 +31,7 @@ export default function Work({ active, setActive }: WorkProps) {
     if (i === active) return;
     setActive(i);
     triggerPulse();
-    // Bring the project list into view once it has rendered (only if it's mostly off-screen)
+    // Once the project list has rendered, bring it into view if it's mostly off-screen
     requestAnimationFrame(() => {
       const el = panelRef.current;
       if (el && el.getBoundingClientRect().top > window.innerHeight * 0.65) scrollToTarget(el, { offset: -90 });

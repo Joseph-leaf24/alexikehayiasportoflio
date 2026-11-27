@@ -18,7 +18,12 @@ describe("keyboard helpers", () => {
     const editable = document.createElement("div");
     editable.contentEditable = "true";
     Object.defineProperty(editable, "isContentEditable", { value: true });
-    expect([isTypingTarget(input), isTypingTarget(editable), isTypingTarget(document.body), isTypingTarget(null)]).toEqual([true, true, false, false]);
+    expect([
+      isTypingTarget(input),
+      isTypingTarget(editable),
+      isTypingTarget(document.body),
+      isTypingTarget(null),
+    ]).toEqual([true, true, false, false]);
     expect(hasModifier(new KeyboardEvent("keydown", { ctrlKey: true }))).toBe(true);
     expect(hasModifier(new KeyboardEvent("keydown", { shiftKey: true }))).toBe(false);
     expect(isModalOpen()).toBe(false);
@@ -48,7 +53,7 @@ describe("keyboard helpers", () => {
 });
 
 describe("shortcuts help (?)", () => {
-  // The loader has finished (the help stays out of its way, see below)
+  // The loader has finished; the help stays out of its way, see below
   beforeEach(() => ui.set({ ready: true }));
 
   it("never opens on top of the loader, the image viewer or the phone menu", () => {

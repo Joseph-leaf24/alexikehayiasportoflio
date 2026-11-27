@@ -15,10 +15,10 @@ const HOVER_STEPS = [7, 4, 0];
 const STEP_MS = 85;
 
 /**
- * A picture that "loads in" like an old game: the first time it scrolls into view it
- * resolves from big blocks to sharp in a few steps, and on hover it flickers back through
- * the mosaic. The mosaic is a tiny canvas scaled up with hard edges over the real image,
- * which stays in the page for screen readers and as the fallback (no canvas, reduced motion).
+ * A picture that "loads in" like an old game: the first time it scrolls into view it resolves from
+ * big blocks to sharp, and on hover it flickers back through the mosaic. The mosaic is a tiny canvas
+ * scaled up with hard edges over the real image, which stays in the page for screen readers and as
+ * the fallback without a canvas or with reduced motion.
  */
 export default function PixelImage({ src, alt, fit = "cover" }: Props) {
   const ref = useRef<HTMLDivElement>(null);

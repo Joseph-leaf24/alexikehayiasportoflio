@@ -50,7 +50,13 @@ vi.mock("three/examples/jsm/postprocessing/UnrealBloomPass.js", () => ({
 vi.mock("three/examples/jsm/postprocessing/ShaderPass.js", () => ({
   ShaderPass: class {
     enabled = true;
-    uniforms = { uTime: { value: 0 }, uAberr: { value: 0 }, uGlitch: { value: 0 }, uRes: { value: [1, 1] }, uDim: { value: 1 } };
+    uniforms = {
+      uTime: { value: 0 },
+      uAberr: { value: 0 },
+      uGlitch: { value: 0 },
+      uRes: { value: [1, 1] },
+      uDim: { value: 1 },
+    };
     dispose() {}
   },
 }));
@@ -104,10 +110,12 @@ function display(refreshMs: number, cost: (s: Settings) => number) {
   };
 }
 
-const setScreenDpr = (value: number) => Object.defineProperty(window, "devicePixelRatio", { configurable: true, value });
+const setScreenDpr = (value: number) =>
+  Object.defineProperty(window, "devicePixelRatio", { configurable: true, value });
 
-/** The final pass's backdrop dimming (of the first scene mounted in the test) */
-const dim = () => (gl.passes.find((p) => "uniforms" in p) as unknown as { uniforms: { uDim: { value: number } } }).uniforms.uDim.value;
+/** The final pass's backdrop dimming, for the first scene mounted in the test */
+const dim = () =>
+  (gl.passes.find((p) => "uniforms" in p) as unknown as { uniforms: { uDim: { value: number } } }).uniforms.uDim.value;
 
 const stops = [
   { y: 0, layout: "village" as const },
@@ -262,7 +270,7 @@ describe("IceScene", () => {
     vi.setSystemTime(new Date("2026-06-21T21:30:00Z")); // 23:30 CEST
     advance(10_200);
     expect(document.documentElement.dataset.sky).toBe("night");
-    // …and the backdrop dims less at night (it is dark already) than by day
+    // …and the backdrop dims less at night, when it is dark already, than by day
     expect(dim()).toBeCloseTo(0.88, 2);
     first.unmount();
     expect(document.documentElement.dataset.sky).toBeUndefined();

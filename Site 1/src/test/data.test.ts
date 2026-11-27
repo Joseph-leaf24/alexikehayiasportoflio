@@ -81,7 +81,10 @@ describe("village + formations", () => {
       expect(lay.pos, key).toHaveLength(set.count);
       expect(lay.quat, key).toHaveLength(set.count);
       expect(lay.scale, key).toHaveLength(set.count);
-      expect(lay.pos.every((p) => Number.isFinite(p.x + p.y + p.z)), key).toBe(true);
+      expect(
+        lay.pos.every((p) => Number.isFinite(p.x + p.y + p.z)),
+        key
+      ).toBe(true);
     }
     expect(set.boxCount + set.domeCount).toBe(set.count);
     expect(set.tints).toHaveLength(set.count * 4);
@@ -144,7 +147,9 @@ describe("village + formations", () => {
 
   it("ships every shader as GLSL source", () => {
     const sources = Object.entries(shaders).flatMap(([, v]) =>
-      typeof v === "string" ? [v] : [(v as { vertexShader: string }).vertexShader, (v as { fragmentShader: string }).fragmentShader]
+      typeof v === "string"
+        ? [v]
+        : [(v as { vertexShader: string }).vertexShader, (v as { fragmentShader: string }).fragmentShader]
     );
     expect(sources.length).toBeGreaterThan(15);
     for (const src of sources) expect(src).toMatch(/void main\(\)/);

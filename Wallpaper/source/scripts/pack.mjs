@@ -1,11 +1,6 @@
 /**
- * After `vite build`: makes dist/index.html the whole battle on its own.
- *
- * 1. Inlines the script and the styles into it, so it's one file that runs wherever it's put
- *    (opened straight off the disk too, where the browser won't load a module script from a
- *    separate file).
- * 2. Opens it off the disk in Chrome, checks it runs without errors, and takes a picture of it
- *    (dist/preview.jpg).
+ * Runs after `vite build`: inlines the script and styles into dist/index.html so it works as one file
+ * (browsers won't load module scripts from file:// URLs), then checks it in Chrome and saves dist/preview.jpg.
  */
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -14,18 +9,21 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const dist = join(root, "dist");
 
-/* 1. One self-contained page */
+// Inline the script and styles.
 let html = readFileSync(join(dist, "index.html"), "utf8");
 html = html.replace(/<script type="module"[^>]*\ssrc="\.\/(assets\/[^"]+\.js)"[^>]*><\/script>/g, (_, file) => {
   const js = readFileSync(join(dist, file), "utf8").replace(/<\/script/gi, "<\\/script");
   return `<script type="module">${js}</script>`;
 });
-html = html.replace(/<link rel="stylesheet"[^>]*\shref="\.\/(assets\/[^"]+\.css)"[^>]*>/g, (_, file) => `<style>${readFileSync(join(dist, file), "utf8")}</style>`);
+html = html.replace(
+  /<link rel="stylesheet"[^>]*\shref="\.\/(assets\/[^"]+\.css)"[^>]*>/g,
+  (_, file) => `<style>${readFileSync(join(dist, file), "utf8")}</style>`
+);
 if (/\.\/assets\//.test(html)) throw new Error("pack: index.html still loads something from assets/");
 writeFileSync(join(dist, "index.html"), html);
 rmSync(join(dist, "assets"), { recursive: true, force: true });
 
-/* 2. Run it off the disk and take its picture */
+// Smoke test: open the file in Chrome, fail on errors, save a screenshot.
 try {
   const { chromium } = await import("@playwright/test");
   const browser = await chromium.launch({ channel: "chrome" });

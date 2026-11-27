@@ -13,14 +13,13 @@ import { pad } from "@/lib/utils";
 interface ProjectCardProps {
   project: Project;
   category: string;
-  /** Index within the category (builds the link and the P/xx label, and staggers the reveal) */
+  /** Index within the category: builds the link and the P/xx label, and staggers the reveal */
   index: number;
 }
 
 /**
- * Project card ("mission card") linking to its detail page: the project image with the
- * mosaic reveal, domains, chips. The link is the title, stretched over the whole card by
- * CSS (so its accessible name is just the title). On hover the card hops up a few pixels.
+ * Project card linking to its detail page. The link is the title, stretched over the whole card by
+ * CSS so that its accessible name is just the title.
  */
 const ProjectCard = ({ project, category, index }: ProjectCardProps) => {
   const { title, description, image, tags, tools, concepts } = project;
@@ -35,7 +34,11 @@ const ProjectCard = ({ project, category, index }: ProjectCardProps) => {
         </div>
 
         <div className="project-card__body">
-          <span className="project-card__domains">{domainsFor(category, index).map((d) => d.title).join(" · ")}</span>
+          <span className="project-card__domains">
+            {domainsFor(category, index)
+              .map((d) => d.title)
+              .join(" · ")}
+          </span>
           <h4 className="project-card__title">
             <TLink to={projectPath(category, index)} className="project-card__link" data-cursor="OPEN">
               <ScrambleText text={title} hover trigger="none" />

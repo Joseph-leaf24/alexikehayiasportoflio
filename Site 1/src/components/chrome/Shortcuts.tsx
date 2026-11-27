@@ -35,13 +35,26 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   return createPortal(
-    <div ref={dialogRef} className="shortcuts" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" onClick={onClose}>
+    <div
+      ref={dialogRef}
+      className="shortcuts"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shortcuts-title"
+      onClick={onClose}
+    >
       <div className="shortcuts__panel" onClick={(e) => e.stopPropagation()}>
         <div className="shortcuts__head">
           <h2 id="shortcuts-title" className="mono-label">
             Keyboard shortcuts
           </h2>
-          <button ref={closeRef} type="button" className="btn-ice btn-ice--sm" onClick={onClose} aria-label="Close keyboard shortcuts">
+          <button
+            ref={closeRef}
+            type="button"
+            className="btn-ice btn-ice--sm"
+            onClick={onClose}
+            aria-label="Close keyboard shortcuts"
+          >
             <X className="h-4 w-4" /> Close
           </button>
         </div>
@@ -64,9 +77,9 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
 }
 
 /**
- * Global `?` key: opens (or closes) the keyboard-shortcuts help. Ignored while typing in a
- * field, with Ctrl / Alt / Cmd held, and over another overlay (the image viewer, the phone
- * menu, the loader), so two overlays never stack.
+ * Global `?` key: toggles the keyboard-shortcuts help. Ignored while typing in a field, with
+ * Ctrl, Alt or Cmd held, and over another overlay such as the image viewer, the phone menu or
+ * the loader, so two overlays never stack.
  */
 export default function Shortcuts() {
   const [open, setOpen] = useState(false);

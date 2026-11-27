@@ -31,8 +31,8 @@ const within = (p: Promise<unknown>, ms: number) => Promise.race([p, new Promise
 const focusMain = () => document.getElementById("main")?.focus({ preventScroll: true });
 
 /**
- * `go(to, state?)`: navigate behind the page-wipe transition. A request made while a
- * transition is running is queued (latest wins) and plays as soon as it ends.
+ * `go(to, state?)`: navigate behind the page-wipe transition. A request made mid-transition is
+ * queued, the latest one winning, and plays as soon as the transition ends.
  */
 export const usePageTransition = () => useContext(TransitionCtx);
 
@@ -42,9 +42,9 @@ const EASE = "steps(4, end)";
 const STAGGER = 24;
 
 /**
- * Fills the screen with blocks in a diagonal sweep (top-left first), swaps the route
- * underneath, then clears them in the same order. With reduced motion (or no Web
- * Animations API) it navigates straight away.
+ * Fills the screen with blocks in a diagonal sweep from the top left, swaps the route underneath,
+ * then clears them in the same order. With reduced motion or without the Web Animations API it
+ * navigates straight away.
  */
 export function TransitionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -100,7 +100,13 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
         within(
           Promise.all(
             cells.map(
-              (c) => c.animate([{ transform: from }, { transform: to }], { duration, delay: diag(c) * STAGGER, easing: EASE, fill: "forwards" }).finished
+              (c) =>
+                c.animate([{ transform: from }, { transform: to }], {
+                  duration,
+                  delay: diag(c) * STAGGER,
+                  easing: EASE,
+                  fill: "forwards",
+                }).finished
             )
           ),
           duration + longest * STAGGER + 300
@@ -165,8 +171,11 @@ interface TLinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href
   children: ReactNode;
 }
 
-/** A real `<a href="#/...">` (so open-in-new-tab works) that plays the page wipe. */
-export const TLink = forwardRef<HTMLAnchorElement, TLinkProps>(function TLink({ to, state, onClick, children, ...rest }, ref) {
+/** A real `<a href="#/...">`, so open-in-new-tab works, that plays the page wipe on a plain click. */
+export const TLink = forwardRef<HTMLAnchorElement, TLinkProps>(function TLink(
+  { to, state, onClick, children, ...rest },
+  ref
+) {
   const go = usePageTransition();
   const handle = (e: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(e);

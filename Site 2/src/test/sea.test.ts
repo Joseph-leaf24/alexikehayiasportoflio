@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { BASE_ROW, kindAt, ROWS, TILE, WATER, waterAt, type Level } from "@/components/pixel/level";
 import { THEMES, type Theme } from "@/components/pixel/themes";
-import { Game, ROCKET, SHELL, type Enemy, type EnemyKind, type Jet, type PlaneType, type Shot, type View } from "@/components/pixel/game";
+import {
+  Game,
+  ROCKET,
+  SHELL,
+  type Enemy,
+  type EnemyKind,
+  type Jet,
+  type PlaneType,
+  type Shot,
+  type View,
+} from "@/components/pixel/game";
 
 /** Step a game for `seconds`, the camera following the squad. `each` runs every step. */
 function play(g: Game, seconds: number, each?: () => void) {
@@ -16,8 +26,19 @@ function play(g: Game, seconds: number, each?: () => void) {
   }
 }
 
-/** A quiet stretch (nothing coming in on its own) that runs out to open sea. */
-const quiet: Theme = { ...THEMES.jungle, features: { flat: 1 }, enemies: 0, barrels: 0, artillery: 0, helis: 0, paras: 0, jets: 0, drones: 0, decor: "none" };
+/** A quiet stretch, with nothing coming in on its own, that runs out to open sea. */
+const quiet: Theme = {
+  ...THEMES.jungle,
+  features: { flat: 1 },
+  enemies: 0,
+  barrels: 0,
+  artillery: 0,
+  helis: 0,
+  paras: 0,
+  jets: 0,
+  drones: 0,
+  decor: "none",
+};
 const sea: Theme = { ...quiet, features: { ocean: 1 } };
 
 const place = (g: Game, kind: EnemyKind, x: number, y: number): Enemy => {
@@ -26,15 +47,31 @@ const place = (g: Game, kind: EnemyKind, x: number, y: number): Enemy => {
   return e;
 };
 const tough = (e: Enemy) => Object.assign(e, { hp: 1e6, maxHp: 1e6 });
-const jet = (kind: PlaneType, ally: boolean, x: number, y: number, vx: number, bombs = 3): Jet => ({ x, y, vx, bombs, dropT: 0, kind, ally, fireCd: 0, hp: 4, down: false, vy: 0, dead: false, alt: y, phase: 0 });
+const jet = (kind: PlaneType, ally: boolean, x: number, y: number, vx: number, bombs = 3): Jet => ({
+  x,
+  y,
+  vx,
+  bombs,
+  dropT: 0,
+  kind,
+  ally,
+  fireCd: 0,
+  hp: 4,
+  down: false,
+  vy: 0,
+  dead: false,
+  alt: y,
+  phase: 0,
+});
 
 /** The first column of open water, and its surface row. */
 function seaStart(L: Level) {
-  for (let c = L.start; c < L.next; c++) for (let r = 0; r < ROWS; r++) if (kindAt(L, c, r) === WATER) return { first: c, surface: r };
+  for (let c = L.start; c < L.next; c++)
+    for (let r = 0; r < ROWS; r++) if (kindAt(L, c, r) === WATER) return { first: c, surface: r };
   return { first: -1, surface: -1 };
 }
 
-/** Every shot fired from now on (each once), via `each`. */
+/** Every shot fired from now on, each counted once, via `each`. */
 function watchShots(g: Game) {
   const seen = new Set<Shot>();
   const fired: Shot[] = [];
@@ -131,7 +168,9 @@ describe("bombing runs", () => {
     play(g, 2.5, () => {
       const before = w.fired.length;
       w.each();
-      for (const s of w.fired.slice(before)) if (s.kind === SHELL) misses.push(Math.min(...g.players.filter((p) => !p.dead).map((p) => Math.abs(p.x - s.x))));
+      for (const s of w.fired.slice(before))
+        if (s.kind === SHELL)
+          misses.push(Math.min(...g.players.filter((p) => !p.dead).map((p) => Math.abs(p.x - s.x))));
     });
     expect(misses.length).toBeGreaterThan(0);
     expect(misses.length).toBeLessThanOrEqual(3);
@@ -166,7 +205,7 @@ describe("bombing runs", () => {
   });
 
   it("the new aircraft come over on the regular bombing runs, on both sides", () => {
-    // (over a couple of battles: which planes come over on a run is down to chance)
+    // Over a couple of battles: which planes come over on a run is down to chance
     const kinds = new Set<string>();
     for (const seed of [4, 5]) {
       const g = new Game(THEMES.jungle, { seed, level: { boss: null, length: 4000 } });
@@ -174,7 +213,9 @@ describe("bombing runs", () => {
         for (const j of g.jets) kinds.add(`${j.kind}:${j.ally ? "ours" : "theirs"}`);
       });
     }
-    const fresh = ["heavy", "stealth", "dive", "rocketjet"].filter((k) => kinds.has(`${k}:ours`) || kinds.has(`${k}:theirs`));
+    const fresh = ["heavy", "stealth", "dive", "rocketjet"].filter(
+      (k) => kinds.has(`${k}:ours`) || kinds.has(`${k}:theirs`)
+    );
     expect(fresh.length).toBeGreaterThanOrEqual(3);
   }, 30_000);
 });
